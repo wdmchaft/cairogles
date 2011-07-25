@@ -113,6 +113,7 @@ cairo_gl_surface_make_texture_external(cairo_surface_t *abstract_surface);
 cairo_public void
 cairo_gl_surface_swapbuffers (cairo_surface_t *surface);
 
+#if 0
 cairo_public void
 cairo_gl_font_extents(cairo_t *cr, cairo_font_extents_t *extents);
 
@@ -123,6 +124,7 @@ cairo_gl_text_extents(cairo_t *cr, const char *utf8,
 cairo_public void
 cairo_gl_scaled_font_extents(cairo_scaled_font_t *scaled_font,
 	cairo_font_extents_t *extents);
+#endif
 
 #if CAIRO_HAS_GLX_FUNCTIONS
 #include <GL/glx.h>

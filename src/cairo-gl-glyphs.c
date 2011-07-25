@@ -1331,6 +1331,7 @@ _cairo_gl_glyph_cache_fini (cairo_gl_context_t *ctx,
     }
 }
 
+#if 0
 void cairo_gl_font_extents(cairo_t *cr, cairo_font_extents_t *extents)
 {
 	// we get the 
@@ -1455,6 +1456,7 @@ void cairo_gl_font_extents(cairo_t *cr, cairo_font_extents_t *extents)
 		cairo_scaled_font_destroy(min_font);
 	}
 }
+#endif
 
 /*void cairo_gl_glyph_extents(cairo_t *cr, cairo_glyph_t *glyphs,
 	int num_glyphs,
@@ -1560,6 +1562,7 @@ void cairo_gl_font_extents(cairo_t *cr, cairo_font_extents_t *extents)
 
 		cairo_glyph_free(max_glyphs);
 */
+#if 0
 void cairo_gl_text_extents(cairo_t *cr, const char *utf8,
 	cairo_text_extents_t *extents)
 {
@@ -1841,3 +1844,4 @@ void cairo_gl_scaled_font_extents(cairo_scaled_font_t *scaled_font,
 	}
 }
 
+#endif
