@@ -1535,7 +1535,7 @@ _cairo_gl_surface_init (cairo_device_t *device,
     surface->orig_height = height;
     surface->needs_update = FALSE;
 	// Henry Song
-	surface->clip.path = NULL;
+	surface->clip = NULL;
 	surface->needs_stencil = FALSE;
 	surface->tex_img = 0;
 	surface->indices_buf = NULL;
@@ -2734,9 +2734,10 @@ _cairo_gl_surface_finish (void *abstract_surface)
 		glDeleteTextures(1, &surface->tex_img);
 
 	// release clip
-	if(surface->clip.path != NULL)
+	if(surface->clip != NULL)
 	{
-		_cairo_clip_fini(&surface->clip);
+		_cairo_clip_destroy(surface->clip);
+		surface->clip = NULL;
 	}
 	_cairo_gl_index_buf_t *current, *temp;
 	if(surface->indices_buf != NULL)
@@ -3636,12 +3637,12 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 	// Henry Song
 	if(clip != NULL)
 	{
-		if(surface->clip.path != NULL)
+		if(surface->clip != NULL)
 		{
-			if(!_cairo_clip_equal(clip, &(surface->clip)))
+			if(!_cairo_clip_equal(clip, surface->clip))
 			{
-				_cairo_clip_fini(&(surface->clip));
-				_cairo_clip_init_copy(&(surface->clip), clip);
+				_cairo_clip_destroy(surface->clip);
+				surface->clip = _cairo_clip_copy(clip);
 				surface->needs_stencil = TRUE;
 				surface->stencil_changed = TRUE;
 			}
@@ -3653,17 +3654,17 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 		}
 		else
 		{
-			_cairo_clip_init_copy(&(surface->clip), clip);
+			surface->clip = _cairo_clip_copy(clip);
 			surface->needs_stencil = TRUE;
 			surface->stencil_changed = TRUE;
 		}
 	}
 	else
 	{
-		if(surface->clip.path != NULL)
+		if(surface->clip != NULL)
 		{
-			_cairo_clip_fini(&(surface->clip));
-			surface->clip.path = NULL;
+			_cairo_clip_destroy(surface->clip);
+			surface->clip = NULL;
 			surface->needs_stencil = FALSE;
 			surface->stencil_changed = TRUE;
 		}
@@ -4053,7 +4054,8 @@ _cairo_gl_surface_polygon (cairo_gl_surface_t *dst,
     cairo_region_t *clip_region = NULL;
 
     if (clip != NULL) {
-	status = _cairo_clip_get_region (clip, &clip_region);
+	clip_region = _cairo_clip_get_region (clip);
+#if 0
 	if (unlikely (status == CAIRO_INT_STATUS_NOTHING_TO_DO))
 	    return CAIRO_STATUS_SUCCESS;
 	if (unlikely (_cairo_status_is_error (status)))
@@ -4061,6 +4063,7 @@ _cairo_gl_surface_polygon (cairo_gl_surface_t *dst,
 
 	if (status == CAIRO_INT_STATUS_UNSUPPORTED)
             return UNSUPPORTED ("a clip surface would be required");
+#endif
     }
 
     if (! _cairo_surface_check_span_renderer (op, src, &dst->base, antialias))
@@ -4297,12 +4300,12 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	// Henry Song
 	if(clip != NULL)
 	{
-		if(surface->clip.path != NULL)
+		if(surface->clip != NULL)
 		{
-			if(!_cairo_clip_equal(clip, &(surface->clip)))
+			if(!_cairo_clip_equal(clip, surface->clip))
 			{
-				_cairo_clip_fini(&(surface->clip));
-				_cairo_clip_init_copy(&(surface->clip), clip);
+				_cairo_clip_destroy(surface->clip);
+				surface->clip = _cairo_clip_copy(clip);
 				surface->needs_stencil = TRUE;
 				surface->stencil_changed = TRUE;
 			}
@@ -4314,17 +4317,17 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		}
 		else
 		{
-			_cairo_clip_init_copy(&(surface->clip), clip);
+			surface->clip = _cairo_clip_copy(clip);
 			surface->needs_stencil = TRUE;
 			surface->stencil_changed = TRUE;
 		}
 	}
 	else
 	{
-		if(surface->clip.path != NULL)
+		if(surface->clip != NULL)
 		{
-			_cairo_clip_fini(&(surface->clip));
-			surface->clip.path = NULL;
+			_cairo_clip_destroy(surface->clip);
+			surface->clip = NULL;
 			surface->needs_stencil = FALSE;
 			surface->stencil_changed = TRUE;
 		}
@@ -4652,12 +4655,12 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 //	_cairo_gl_composite_set_mask_spans(setup);
 	if(clip != NULL)
 	{
-		if(surface->clip.path != NULL)
+		if(surface->clip != NULL)
 		{
-			if(!_cairo_clip_equal(clip, &(surface->clip)))
+			if(!_cairo_clip_equal(clip, surface->clip))
 			{
-				_cairo_clip_fini(&(surface->clip));
-				_cairo_clip_init_copy(&(surface->clip), clip);
+				_cairo_clip_destroy(surface->clip);
+				surface->clip = _cairo_clip_copy(clip);
 				surface->needs_stencil = TRUE;
 				surface->stencil_changed = TRUE;
 			}
@@ -4669,17 +4672,17 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 		}
 		else
 		{
-			_cairo_clip_init_copy(&(surface->clip), clip);
+			surface->clip = _cairo_clip_copy(clip);
 			surface->needs_stencil = TRUE;
 			surface->stencil_changed = TRUE;
 		}
 	}
 	else
 	{
-		if(surface->clip.path != NULL)
+		if(surface->clip != NULL)
 		{
-			_cairo_clip_fini(&(surface->clip));
-			surface->clip.path = NULL;
+			_cairo_clip_destroy(surface->clip);
+			surface->clip = NULL;
 			surface->needs_stencil = FALSE;
 			surface->stencil_changed = TRUE;
 		}
