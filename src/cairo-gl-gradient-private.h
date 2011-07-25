@@ -46,7 +46,6 @@
 #include "cairo-cache-private.h"
 #include "cairo-device-private.h"
 #include "cairo-reference-count-private.h"
-#include "cairo-pattern-private.h"
 #include "cairo-types-private.h"
 
 #include "cairo-gl.h"
@@ -89,5 +88,9 @@ _cairo_gl_gradient_destroy (cairo_gl_gradient_t *gradient);
 cairo_private cairo_bool_t
 _cairo_gl_gradient_equal (const void *key_a, const void *key_b);
 
-
+// Henry Song
+cairo_status_t
+_cairo_gl_gradient_digest_linear_gradient(const cairo_gradient_pattern_t *pattern, float surface_height, float *stops, float *colors, float *offsets, float *total_dist, int *nstops, float *delta);
+cairo_status_t
+_cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *pattern, float surface_height, float *scales, float *colors, float *offsets, int *nstops, float *circle_1, float *circle_2);
 #endif /* CAIRO_GL_GRADIENT_PRIVATE_H */

@@ -64,7 +64,13 @@
 #elif CAIRO_HAS_GLESV2_SURFACE
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+
+// Henry Song
+typedef char GLchar;
+
 #endif
+// Henry Song
+#include "cairo-surface-clipper-private.h"
 
 #include "cairo-gl-ext-def-private.h"
 
@@ -107,21 +113,11 @@ enum {
     CAIRO_GL_TEXCOORD1_ATTRIB_INDEX = CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + 1
 };
 
-typedef struct _cairo_gl_surface {
-    cairo_surface_t base;
-
-    int width, height;
-
-    GLuint tex; /* GL texture object containing our data. */
-    GLuint fb; /* GL framebuffer object wrapping our data. */
-    GLuint depth; /* GL framebuffer object holding depth */
-    int owns_tex;
-    cairo_bool_t needs_update;
-} cairo_gl_surface_t;
-
 typedef struct cairo_gl_glyph_cache {
     cairo_rtree_t rtree;
     cairo_surface_pattern_t pattern;
+	/// Henry Song
+	//cairo_gl_surface_t *mask_surface;
 } cairo_gl_glyph_cache_t;
 
 typedef enum cairo_gl_tex {
@@ -170,11 +166,56 @@ typedef enum cairo_gl_var_type {
 /* This union structure describes a potential source or mask operand to the
  * compositing equation.
  */
+typedef struct _cairo_gl_surface {
+    cairo_surface_t base;
+
+    int width, height;
+
+    GLuint tex; /* GL texture object containing our data. */
+    GLuint fb; /* GL framebuffer object wrapping our data. */
+    GLuint depth; /* GL framebuffer object holding depth */
+    int owns_tex;
+    cairo_bool_t needs_update;
+
+	// Henry Song
+	GLuint rb; /* GL render buffer for depth and stencil buffer */
+	cairo_clip_t clip;
+	cairo_bool_t needs_stencil;
+	GLint tex_img;
+	//cairo_surface_clipper_t clipper;
+	void *indices_buf;
+	cairo_bool_t stencil_changed;
+	cairo_bool_t external_tex;
+	cairo_bool_t needs_extend;
+	int extend_width;
+	int extend_height;
+	float extend_width_scale;
+	float extend_height_scale;
+	//float scale;
+	float scale;
+	int orig_width;
+	int orig_height;
+	cairo_surface_t *data_surface;
+	cairo_bool_t needs_new_data_surface;
+	cairo_surface_t *super_sample_surface;
+	cairo_surface_t *offscreen_surface;
+	cairo_bool_t needs_super_sampling;
+	cairo_bool_t paint_to_self;
+
+	// mask surface
+	struct _cairo_gl_surface *mask_surface;
+	struct _cairo_gl_surface *parent_surface;
+	cairo_bool_t bound_fbo;
+} cairo_gl_surface_t;
+
 typedef struct cairo_gl_operand {
     cairo_gl_operand_type_t type;
     union {
 	struct {
 	    GLuint tex;
+		// Henry Song
+		int width;
+		int height;
 	    cairo_gl_surface_t *surface;
 	    cairo_surface_attributes_t attributes;
 	} texture;
@@ -183,6 +224,19 @@ typedef struct cairo_gl_operand {
 	} constant;
 	struct {
 	    cairo_gl_gradient_t *gradient;
+		// for linear gradient
+		cairo_gradient_pattern_t *pattern;
+		GLfloat stops[4];
+		GLfloat colors[32];
+		GLfloat total_dist;
+		int nstops;
+		GLfloat offsets[8];
+		GLfloat delta[2];
+		GLfloat scales[2];
+		GLfloat circle_1[3];
+		GLfloat circle_2[3];
+		GLfloat start_offset;
+
 	    cairo_matrix_t m;
 	    cairo_circle_double_t circle_d;
 	    double radius_0, a;
@@ -191,6 +245,7 @@ typedef struct cairo_gl_operand {
     };
     unsigned int vertex_offset;
 } cairo_gl_operand_t;
+
 
 typedef void (*cairo_gl_generic_func_t)(void);
 typedef cairo_gl_generic_func_t (*cairo_gl_get_proc_addr_func_t)(const char *procname);
@@ -231,6 +286,16 @@ typedef struct _cairo_gl_dispatch {
     void (*Uniform3f) (GLint location, GLfloat x, GLfloat y, GLfloat z);
     void (*Uniform4f) (GLint location, GLfloat x, GLfloat y, GLfloat z,
 			 GLfloat w);
+	// Henry Song
+	void (*Uniform1fv) (GLint location, GLsizei count, 
+		const GLfloat *value);
+	void (*Uniform2fv) (GLint location, GLsizei count,
+		const GLfloat *value);
+	void (*Uniform3fv) (GLint location, GLsizei count,
+		const GLfloat *value);
+	void (*Uniform4fv) (GLint location, GLsizei count,
+		const GLfloat *value);
+
     void (*UniformMatrix3fv) (GLint location, GLsizei count,
 				GLboolean transpose, const GLfloat *value);
     void (*UniformMatrix4fv) (GLint location, GLsizei count,
@@ -254,6 +319,15 @@ typedef struct _cairo_gl_dispatch {
 				    GLint level);
     GLenum (*CheckFramebufferStatus) (GLenum target);
     void (*DeleteFramebuffers) (GLsizei n, const GLuint* framebuffers);
+
+	// Henry Song
+	void (*GenRenderbuffers) (GLsizei n, GLuint *renderbuffers);
+	void (*BindRenderbuffer) (GLenum target, GLuint renderbuffer);
+	void (*RenderbufferStorage) (GLenum target, GLenum internalformat,
+		GLsizei width, GLsizei height);
+	void (*FramebufferRenderbuffer) (GLenum target, GLenum attachment,
+		GLenum renderbuffertarget, GLuint renderbuffer);
+	void (*DeleteRenderbuffers) (GLsizei n, GLuint *renderbuffers);
 } cairo_gl_dispatch_t;
 
 struct _cairo_gl_context {
@@ -284,11 +358,18 @@ struct _cairo_gl_context {
 
     cairo_gl_operand_t operands[2];
 
+
     char *vb;
     char *vb_mem;
     unsigned int vb_offset;
     unsigned int vertex_size;
     cairo_region_t *clip_region;
+
+	// Henry Song
+	//cairo_gl_surface_t *mask_surface;
+
+	// Henry Song
+	//cairo_clip_t *clip;
 
     cairo_bool_t has_mesa_pack_invert;
     cairo_gl_dispatch_t dispatch;
@@ -302,16 +383,70 @@ struct _cairo_gl_context {
     void (*make_current) (void *ctx, cairo_gl_surface_t *surface);
     void (*swap_buffers)(void *ctx, cairo_gl_surface_t *surface);
     void (*destroy) (void *ctx);
+	//Henry Song
+	void (*reset) (void *ctx);
 };
+
+
+
+
+
+// Henry Song
+#define VERTEX_INC 64
+typedef struct _cairo_gl_vertex
+{
+	float x;
+	float y;
+} _cairo_gl_vertex_t;
+
+typedef struct _cairo_gl_path_vertices
+{
+	_cairo_gl_vertex_t *vertices;
+	int vertex_size;		// total number of list, each list is a separate path
+	int capacity;
+} _cairo_gl_path_vertices_t;
+
+typedef struct _cairo_gl_path
+{
+	struct _cairo_gl_path *prev, *next;	// circled link
+	_cairo_gl_path_vertices_t *vertices;
+} _cairo_gl_path_t;
 
 typedef struct _cairo_gl_composite {
     cairo_gl_surface_t *dst;
     cairo_operator_t op;
     cairo_region_t *clip_region;
+	// Henry Song
+	cairo_pattern_t *source;
+	//cairo_clip_t *clip;
 
     cairo_gl_operand_t src;
     cairo_gl_operand_t mask;
+	cairo_gl_context_t *ctx;
 } cairo_gl_composite_t;
+
+// Henry Song
+#define INDEX_CAPACITY 64
+#define MAX_INDEX 10000
+typedef struct _cairo_gl_index
+{
+	float *vertices;
+	float *mask_vertices;
+	int *indices;
+	int capacity;
+	int num_indices;
+	int num_vertices;
+	cairo_gl_composite_t *setup;
+	cairo_bool_t has_mask_vertices;
+} _cairo_gl_index_t;
+
+typedef struct _cairo_gl_index_buf
+{
+	_cairo_gl_index_t *indices;
+	struct _cairo_gl_index_buf *next;
+} _cairo_gl_index_buf_t;
+
+
 
 cairo_private extern const cairo_surface_backend_t _cairo_gl_surface_backend;
 
@@ -346,6 +481,9 @@ _cairo_gl_surface_is_texture (cairo_gl_surface_t *surface)
 {
     return surface->tex != 0;
 }
+
+cairo_private cairo_status_t
+_cairo_gl_surface_super_sampling(cairo_surface_t *abstract_surface);
 
 cairo_private cairo_status_t
 _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
@@ -431,14 +569,16 @@ _cairo_gl_composite_set_source (cairo_gl_composite_t *setup,
 			        const cairo_pattern_t *pattern,
                                 int src_x, int src_y,
                                 int dst_x, int dst_y,
-                                int width, int height);
+                                int width, int height,
+								GLuint tex, int tex_width, int tex_height);
 
 cairo_private cairo_int_status_t
 _cairo_gl_composite_set_mask (cairo_gl_composite_t *setup,
 			      const cairo_pattern_t *pattern,
                               int src_x, int src_y,
                               int dst_x, int dst_y,
-                              int width, int height);
+                              int width, int height,
+							  GLuint tex, int tex_width, int tex_height);
 
 cairo_private void
 _cairo_gl_composite_set_mask_spans (cairo_gl_composite_t *setup);
@@ -446,6 +586,75 @@ _cairo_gl_composite_set_mask_spans (cairo_gl_composite_t *setup);
 cairo_private cairo_status_t
 _cairo_gl_composite_begin (cairo_gl_composite_t *setup,
                            cairo_gl_context_t **ctx);
+
+// Henry Song
+cairo_private cairo_status_t
+_cairo_gl_composite_begin_constant_color(cairo_gl_composite_t *setup,
+										 int vertices_size, 
+										 void *vertices,
+										 void *color,
+										 void *mask_vertices,
+										 void *mask_color,
+										 //cairo_gl_context_t **ctx);
+										 cairo_gl_context_t *ctx);
+
+// Henry Song
+cairo_private void
+_cairo_gl_composite_fill_constant_color(cairo_gl_context_t *ctx,
+	unsigned int count, int *indices);
+
+// Henry Song
+cairo_private cairo_status_t
+_cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
+	cairo_image_surface_t *image_surface,
+	int src_x, int src_y,
+	int width, int height,
+	int dst_x, int dst_y);
+
+cairo_private cairo_status_t 
+_cairo_gl_add_triangle(void *closure,
+	const cairo_point_t triangle[3]);
+
+cairo_private cairo_status_t 
+_cairo_gl_add_triangle_fan(void *closure,
+	const cairo_point_t *midpt,
+	const cairo_point_t *points,
+	int npoints);
+
+cairo_private cairo_status_t 
+_cairo_gl_add_convex_quad(void *closure,
+	const cairo_point_t quad[4]);
+
+cairo_private cairo_status_t 
+_cairo_gl_add_convex_quad_for_clip(void *closure,
+	const cairo_point_t quad[4]);
+
+cairo_private cairo_status_t 
+_cairo_gl_add_convex_quad_with_mask(void *closure,
+	const cairo_point_t quad[4], const float *mask_quad);
+
+cairo_private cairo_status_t
+_cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
+                         const cairo_color_t *color);
+
+
+cairo_private cairo_status_t
+_cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
+	cairo_gl_context_t *ctx, cairo_gl_surface_t *surface);
+
+cairo_private cairo_status_t
+_cairo_gl_create_indices(_cairo_gl_index_t *index);
+
+cairo_private cairo_status_t 
+_cairo_gl_increase_indices(_cairo_gl_index_t *index);
+
+cairo_private cairo_status_t
+_cairo_gl_destroy_indices(_cairo_gl_index_t *index);
+
+cairo_private cairo_status_t
+_cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, 
+	GLfloat *mask_vertices, int npoints,
+	int *indices, cairo_gl_context_t *ctx);
 
 cairo_private void
 _cairo_gl_composite_emit_rect (cairo_gl_context_t *ctx,
@@ -501,7 +710,7 @@ _cairo_gl_surface_show_glyphs (void			*abstract_dst,
 			       cairo_glyph_t		*glyphs,
 			       int			 num_glyphs,
 			       cairo_scaled_font_t	*scaled_font,
-			       const cairo_clip_t	*clip,
+			       cairo_clip_t		*clip,
 			       int			*remaining_glyphs);
 
 static inline int
@@ -555,6 +764,32 @@ _cairo_gl_shader_bind_vec4 (cairo_gl_context_t *ctx,
 			    float value0, float value1,
 			    float value2, float value3);
 
+// Henry Song
+cairo_private void
+_cairo_gl_shader_bind_floatv(cairo_gl_context_t *ctx,
+				const char *name,
+				int count,
+				float *values);
+
+cairo_private void
+_cairo_gl_shader_bind_vec2v(cairo_gl_context_t *ctx,
+				const char *name,
+				int count,
+				float *values);
+
+cairo_private void
+_cairo_gl_shader_bind_vec3v(cairo_gl_context_t *ctx,
+				const char *name,
+				int count,
+				float *values);
+
+cairo_private void
+_cairo_gl_shader_bind_vec4v(cairo_gl_context_t *ctx,
+				const char *name,
+				int count,
+				float *values);
+
+
 cairo_private void
 _cairo_gl_shader_bind_matrix (cairo_gl_context_t *ctx,
 			      const char *name,
@@ -593,6 +828,13 @@ _cairo_gl_operand_get_gl_filter (cairo_gl_operand_t *operand);
 
 cairo_private cairo_extend_t
 _cairo_gl_operand_get_extend (cairo_gl_operand_t *operand);
+
+static cairo_always_inline cairo_bool_t
+_cairo_gl_is_big_endian (void)
+{
+    static const int i = 1;
+    return *((char *) &i) != 0x01;
+}
 
 slim_hidden_proto (cairo_gl_surface_create);
 slim_hidden_proto (cairo_gl_surface_create_for_texture);

@@ -86,6 +86,35 @@ typedef struct cairo_gl_shader_impl {
 		  float value0, float value1,
 		  float value2, float value3);
 
+	// Henry Song
+	void 
+	(*bind_floatv) (cairo_gl_context_t *ctx,
+		cairo_gl_shader_t *shader,
+		const char *name,
+		int count,
+		float *values);
+	
+	void 
+	(*bind_vec2v) (cairo_gl_context_t *ctx,
+		cairo_gl_shader_t *shader,
+		const char *name,
+		int count,
+		float *values);
+
+	void 
+	(*bind_vec3v) (cairo_gl_context_t *ctx,
+		cairo_gl_shader_t *shader,
+		const char *name,
+		int count,
+		float *values);
+
+	void 
+	(*bind_vec4v) (cairo_gl_context_t *ctx,
+		cairo_gl_shader_t *shader,
+		const char *name,
+		int count,
+		float *values);
+
     void
     (*bind_matrix) (cairo_gl_context_t *ctx,
 		    cairo_gl_shader_t *shader,
@@ -255,6 +284,62 @@ bind_vec4_core_2_0 (cairo_gl_context_t *ctx,
     dispatch->Uniform4f (location, value0, value1, value2, value3);
 }
 
+// Henry Song
+static void
+bind_floatv_core_2_0 (cairo_gl_context_t *ctx,
+	cairo_gl_shader_t *shader,
+	const char *name,
+	int count,
+	float *values)
+{
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    GLint location = dispatch->GetUniformLocation (shader->program, name);
+    assert (location != -1);
+    dispatch->Uniform1fv (location, count, values);
+}
+
+static void
+bind_vec2v_core_2_0 (cairo_gl_context_t *ctx,
+	cairo_gl_shader_t *shader,
+	const char *name,
+	int count,
+	float *values)
+{
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    GLint location = dispatch->GetUniformLocation (shader->program, name);
+    assert (location != -1);
+    dispatch->Uniform2fv (location, count, values);
+	//GLenum error = glGetError();
+}
+
+static void
+bind_vec3v_core_2_0 (cairo_gl_context_t *ctx,
+	cairo_gl_shader_t *shader,
+	const char *name,
+	int count,
+	float *values)
+{
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    GLint location = dispatch->GetUniformLocation (shader->program, name);
+    assert (location != -1);
+    dispatch->Uniform3fv (location, count, values);
+	//GLenum error = glGetError();
+}
+	
+static void
+bind_vec4v_core_2_0 (cairo_gl_context_t *ctx,
+	cairo_gl_shader_t *shader,
+	const char *name,
+	int count,
+	float *values)
+{
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    GLint location = dispatch->GetUniformLocation (shader->program, name);
+    assert (location != -1);
+    dispatch->Uniform4fv (location, count, values);
+	//GLenum error = glGetError();
+}
+
 static void
 bind_matrix_core_2_0 (cairo_gl_context_t *ctx,
 		      cairo_gl_shader_t *shader,
@@ -303,6 +388,12 @@ static const cairo_gl_shader_impl_t shader_impl_core_2_0 = {
     bind_vec2_core_2_0,
     bind_vec3_core_2_0,
     bind_vec4_core_2_0,
+	// Henry Song
+	bind_floatv_core_2_0,
+	bind_vec2v_core_2_0,
+	bind_vec3v_core_2_0,
+	bind_vec4v_core_2_0,
+
     bind_matrix_core_2_0,
     bind_matrix4f_core_2_0,
     use_program_core_2_0,
@@ -427,6 +518,7 @@ _cairo_gl_context_init_shaders (cairo_gl_context_t *ctx)
 				       CAIRO_GL_VAR_NONE,
 				       CAIRO_GL_VAR_NONE,
 				       fill_fs_source);
+
     if (unlikely (status))
 	return status;
 
@@ -561,6 +653,8 @@ cairo_gl_shader_get_vertex_source (cairo_gl_var_type_t src,
 	return status;
 
     *out = (char *) source;
+	// Henry Song
+	//printf("-------------------> vertex shader -----------------\n%s\n\n", source);
     return CAIRO_STATUS_SUCCESS;
 }
 
@@ -623,11 +717,13 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	    _cairo_gl_shader_needs_border_fade (op))
 	{
 	    _cairo_output_stream_printf (stream,
-		"    vec2 border_fade = %s_border_fade (%s_texcoords, %s_texdims);\n"
-		"    vec4 texel = texture2D%s (%s_sampler, %s_texcoords);\n"
-		"    return texel * border_fade.x * border_fade.y;\n"
+		//"    vec2 border_fade = %s_border_fade (%s_texcoords, %s_texdims);\n"
+		//"    vec4 texel = texture2D%s (%s_sampler, %s_texcoords);\n"
+		//"    return texel * border_fade.x * border_fade.y;\n"
+		"    return texture2D(%s_sampler, %s_texcoords);\n"
 		"}\n",
-		namestr, namestr, namestr, rectstr, namestr, namestr);
+		//namestr, namestr, namestr, rectstr, namestr, namestr);
+		namestr, namestr);
 	}
 	else
 	{
@@ -639,13 +735,81 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
         break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
 	_cairo_output_stream_printf (stream,
-	    "varying vec2 %s_texcoords;\n"
+		"uniform vec2 %s_stops[8];\n"
+		"uniform vec4 %s_colors[8];\n"
+		"uniform float %s_offsets[8];\n"
+		"uniform float %s_total_dist;\n"
+		"uniform int %s_nstops;\n"
+		"uniform vec2 %s_delta;\n"
+		"float %s_get_distance_from_start(vec2 coord)\n"
+		"{\n"
+		"  if(%s_total_dist == 0.0)\n"
+		"    return 1.0;\n"
+		"  float d = 1.0 / %s_total_dist;\n"
+		"  return dot(%s_delta, coord - %s_stops[0]) * d;\n"
+		"}\n"
+		"int %s_i;\n"
+		"float %s_relative_dis;\n"
+		"float %s_percent;\n"
+		"float %s_dis;\n"
+		"vec4 %s_get_color(vec2 coord)\n"
+		"{\n"
+		"  %s_dis = %s_get_distance_from_start(coord);\n"
+		"  if(%s_dis >= 1.0 || %s_dis >= %s_offsets[%s_nstops-1])\n"
+		"    return %s_colors[%s_nstops-1];\n"
+		"  else if(%s_dis <= 0.0 || %s_dis <= %s_offsets[0])\n"
+		"    return %s_colors[0];\n"
+		"  if(%s_nstops == 2)\n"
+		"  {\n"
+		"    if(%s_offsets[0] == 0.0 && %s_offsets[1] == 1.0)\n"
+		"      return (%s_colors[1] - %s_colors[0]) * %s_dis + %s_colors[0];\n"
+		"    else\n"
+		"    {\n"
+		"      %s_relative_dis = %s_dis - %s_offsets[0];\n"
+		"      float d = 1.0 / (%s_offsets[1] - %s_offsets[0]);\n"
+		"      %s_percent = %s_relative_dis * d ;\n"
+		"      return (%s_colors[1] - %s_colors[0]) * %s_percent + %s_colors[0];\n"
+		"    }\n"
+		"  }\n"
+		"  for(%s_i = 1; %s_i < %s_nstops; %s_i++)\n"
+		"  {\n"
+		"    if(%s_dis <= %s_offsets[%s_i])\n"
+		"    {\n"
+		"      %s_relative_dis = %s_dis - %s_offsets[%s_i-1];\n"
+		"      float d = 1.0 / (%s_offsets[%s_i] - %s_offsets[%s_i-1]);\n"
+		"      %s_percent = %s_relative_dis * d ;\n"
+		"      //percent = relative_dis / (offsets[li] - offsets[li-1]);\n"
+		"      return (%s_colors[%s_i] - %s_colors[%s_i-1]) * %s_percent + %s_colors[%s_i-1];\n"
+		"    }\n"
+		"  }\n"
+		"  return %s_colors[%s_nstops-1];\n"
+		"}\n"
+		"vec4 get_%s()\n"
+		"{\n"
+		"	return %s_get_color(gl_FragCoord.xy);\n"
+		"}\n",
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr);
+				
+	    /*"varying vec2 %s_texcoords;\n"
 	    "uniform vec2 %s_texdims;\n"
 	    "uniform sampler2D%s %s_sampler;\n"
 	    "\n"
 	    "vec4 get_%s()\n"
 	    "{\n",
-	    namestr, namestr, rectstr, namestr, namestr);
+	    namestr, namestr, rectstr, namestr, namestr);*/
+	/*
 	if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES &&
 	    _cairo_gl_shader_needs_border_fade (op))
 	{
@@ -662,7 +826,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"    return texture2D%s (%s_sampler, vec2 (%s_texcoords.x, 0.5));\n"
 		"}\n",
 		rectstr, namestr, namestr);
-	}
+	}*/
 	break;
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
 	_cairo_output_stream_printf (stream,
@@ -747,6 +911,120 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	break;
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
 	_cairo_output_stream_printf (stream,
+		"uniform vec2 %s_stops[8];\n"
+		"uniform vec4 %s_colors[8];\n"
+		"uniform float %s_offsets[8];\n"
+		"uniform int %s_nstops;\n"
+		"uniform vec3 %s_circle_1;\n"
+		"uniform vec3 %s_circle_2;\n"
+		"uniform vec2 %s_scales;\n"
+		"vec2 %s_get_xy(vec2 coord)\n"
+		"{\n"
+		"  if(%s_circle_1[2] == 0.0)\n"
+		"    return %s_circle_1.xy;\n"
+		"  vec2 f = vec2(coord.xy - %s_circle_1.xy);\n"
+		"  vec2 f2 = f * %s_scales;\n"
+		"  float d = inversesqrt(dot(f2, f2));\n"
+		"  float x = %s_circle_1[2] * f.x * d + %s_circle_1[0];\n"
+		"  float y = %s_circle_1[2] * f.y * d + %s_circle_1[1];\n"
+		"  return vec2(x, y);\n"
+		"}\n"
+		"float %s_get_distance_from_center(vec2 coord, vec2 center)\n"
+		"{\n"
+		"  vec2 f = vec2((coord - center) * %s_scales);\n"
+		"  return sqrt(dot(f, f));\n"
+		"}\n"
+		"vec3 %s_t2;\n"
+		"float %s_get_distance_from_start(vec2 coord)\n"
+		"{\n"
+		"  vec2 focal = vec2(%s_circle_1[0], %s_circle_1[1]);\n"
+		"  vec2 cen = vec2(%s_circle_2[0], %s_circle_2[1]);\n"
+		"  float dis_from_focal = %s_get_distance_from_center(coord, focal);\n"
+		"  float dis_from_center = %s_get_distance_from_center(coord, cen);\n"
+		"  if(dis_from_focal <= %s_circle_1[2])\n"
+		"    return 0.0;\n"
+		"  else if(dis_from_center >= %s_circle_2[2])\n"
+		"    return 1.0;\n"
+		"  else \n"
+		"  {\n"
+		"    vec2 xy = %s_get_xy(coord.xy);\n"
+		"    //vec2 f1 = (coord - circle_1.xy) * scales;\n"
+		"    //vec2 f2 = (circle_1.xy - circle_2.xy) * scales;\n"
+		"    vec2 f1 = (coord - xy) * %s_scales; // dx, dy\n"
+		"    vec2 f2 = (xy - %s_circle_2.xy) * %s_scales; // fx, fy\n"
+		"    float d1 = dot(f1, f2);\n"
+		"    float d2 = dot(f1, f1) * pow(%s_circle_2[2], 2.0);\n"
+		"    float d31 = (f1.x * f2.y - f1.y * f2.x);\n"
+		"    float d3 = d31 * d31;\n"
+		"    float d4 = sqrt(d2 - d3);\n"
+		"    float d5 = 1.0 /(pow(%s_circle_2[2], 2.0) - dot(f2, f2));\n"
+		"    float d6 = (d1 + d4) * d5;\n"
+		"    return d6;\n"
+		"  }\n"
+		"  /*if(dis_from_focal <= circle_1[2])\n"
+		"    return 0.0;\n"
+		"  vec2 center = vec2(circle_2[0], circle_2[1]);\n"
+		"  float dis_from_center = get_distance_from_center(coord, center);\n"
+		"  if(dis_from_center >= circle_2[2])\n"
+		"    return 1.0;\n"
+		"  vec2 xy = get_xy(coord);\n"
+		"  float dx = coord.x - xy.x;\n"
+		"  float dy = coord.y = xy.y;\n"
+		"  float fx = xy.x - circle_2[0];\n"
+		"  float fy = xy.y - circle_2[1];\n"
+		"  vec2 d = vec2(dx, dy);\n"
+		"  vec2 f = vec2(fx, fy);\n"
+		"  float m = dx * fy - dy * fx;\n"
+		"  return (dot(d, f)+sqrt(pow(circle_2[2], 2.0)*dot(d, d) - m*m))/(pow(circle_2[2], 2.0)-dot(f, f));*/\n"
+		"}\n"
+		"int %s_i;\n"
+		"float %s_relative_dis;\n"
+		"float %s_percent;\n"
+		"float %s_dis;\n"
+		"vec4 %s_get_color(vec2 coord)\n"
+		"{\n"
+		"  %s_dis = %s_get_distance_from_start(coord);\n"
+		"  if(%s_dis >= 1.0 || %s_dis >= %s_offsets[%s_nstops-1])\n"
+		"    return %s_colors[%s_nstops-1];\n"
+		"  else if(%s_dis <= 0.0 || %s_dis <= %s_offsets[0])\n"
+		"    return %s_colors[0];\n"
+		"  if(%s_nstops == 2)\n"
+		"  {\n"
+		"    %s_relative_dis = %s_dis - %s_offsets[0];\n"
+		"    float d = 1.0 / (%s_offsets[1] - %s_offsets[0]);\n"
+		"    %s_percent = %s_relative_dis * d ;\n"
+		"    return (%s_colors[1] - %s_colors[0]) * %s_percent + %s_colors[0];\n"
+		"  }\n"
+		"  for(%s_i = 1; %s_i < %s_nstops; %s_i++)\n"
+		"  {\n"
+		"    if(%s_dis <= %s_offsets[%s_i])\n"
+		"    {\n"
+		"      %s_relative_dis = %s_dis - %s_offsets[%s_i-1];\n"
+		"      %s_percent = %s_relative_dis / (%s_offsets[%s_i] - %s_offsets[%s_i-1]);\n"
+		"      //return (colors[i] - colors[i-1]) * percent + colors[i-1];\n"
+		"      return (%s_colors[%s_i] - %s_colors[%s_i-1]) * %s_percent + %s_colors[%s_i-1];\n"
+		"    }\n"
+		"  }\n"
+		"  return %s_colors[%s_nstops-1];\n"
+		"}\n"
+		"vec4 get_%s()\n"
+		"{\n"
+		"	return %s_get_color(gl_FragCoord.xy);\n"
+		"}\n",
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr);
+/*
 	    "varying vec2 %s_texcoords;\n"
 	    "uniform sampler2D%s %s_sampler;\n"
 	    "uniform vec3 %s_circle_d;\n"
@@ -773,6 +1051,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	    namestr, rectstr, namestr, namestr, namestr, namestr,
 	    namestr, namestr, namestr, namestr, namestr,
 	    namestr, namestr, namestr, rectstr, namestr);
+	*/
 	break;
     case CAIRO_GL_OPERAND_SPANS:
         _cairo_output_stream_printf (stream, 
@@ -815,10 +1094,19 @@ _cairo_gl_shader_emit_border_fade (cairo_output_stream_t *stream,
 	    "    return clamp(-abs(dims * (coords - 0.5)) + (dims + vec2(1.0)) * 0.5, 0.0, 1.0);\n");
     else
 	_cairo_output_stream_printf (stream,
+		// Henry Song
+		/*
 	    "    bvec2 in_tex1 = greaterThanEqual (coords, vec2 (0.0));\n"
 	    "    bvec2 in_tex2 = lessThan (coords, vec2 (1.0));\n"
 	    "    return vec2 (float (all (in_tex1) && all (in_tex2)));\n");
-
+		*/
+	    "    bvec2 in_tex1 = greaterThanEqual (coords, vec2 (0.0));\n"
+	    "    bvec2 in_tex2 = lessThan (coords, vec2 (1.0));\n"
+		"	 bool test_1 = all(in_tex1);\n"
+		"	 bool test_2 = all(in_tex2);\n"
+		"	 if(test_1 && test_2);\n"
+		"		return vec2(1.0);\n"
+		"	return vec2(0.0);\n");
     _cairo_output_stream_printf (stream, "}\n");
 
     /* 1D version */
@@ -852,7 +1140,7 @@ cairo_gl_shader_get_fragment_source (cairo_gl_context_t *ctx,
 
     _cairo_output_stream_printf (stream,
 	"#ifdef GL_ES\n"
-	"precision mediump float;\n"
+	"precision highp float;\n"
 	"#endif\n");
 
     if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES) {
@@ -874,7 +1162,10 @@ cairo_gl_shader_get_fragment_source (cairo_gl_context_t *ctx,
         ASSERT_NOT_REACHED;
     case CAIRO_GL_SHADER_IN_NORMAL:
         _cairo_output_stream_printf (stream,
+		// Henry Song
             "    gl_FragColor = get_source() * get_mask().a;\n");
+            //"    gl_FragColor = get_source() ;\n");
+            //"    gl_FragColor = get_source() * get_mask()[3];\n");
         break;
     case CAIRO_GL_SHADER_IN_CA_SOURCE:
         _cairo_output_stream_printf (stream,
@@ -894,6 +1185,8 @@ cairo_gl_shader_get_fragment_source (cairo_gl_context_t *ctx,
         return status;
 
     *out = (char *) source;
+	// Henry Song
+	//printf("----------------> fragment shader -------------------------->\n%s\n\n", source);
     return CAIRO_STATUS_SUCCESS;
 }
 
@@ -923,12 +1216,16 @@ _cairo_gl_shader_compile (cairo_gl_context_t *ctx,
 	ctx->shader_impl->compile_shader (ctx, &ctx->vertex_shaders[vertex_shader],
 					  GL_VERTEX_SHADER,
 					  source);
+	// Henry Song
+	printf("vertex shader: ------------>\n%s\n", source);
         free (source);
     }
 
     ctx->shader_impl->compile_shader (ctx, &shader->fragment_shader,
 				      GL_FRAGMENT_SHADER,
 				      fragment_text);
+	// Henry Song 
+	printf("fragment shader: -------------->\n%s\n", fragment_text);
 
     ctx->shader_impl->link_shader (ctx, &shader->program,
 				   ctx->vertex_shaders[vertex_shader],
@@ -973,7 +1270,7 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
 	dispatch->Uniform1i (location, CAIRO_GL_TEX_MASK);
     }
 
-    dispatch->UseProgram (saved_program);
+    //dispatch->UseProgram (saved_program);
 }
 
 void
@@ -1011,6 +1308,45 @@ _cairo_gl_shader_bind_vec4 (cairo_gl_context_t *ctx,
 {
     ctx->shader_impl->bind_vec4 (ctx, ctx->current_shader, name, value0, value1, value2, value3);
 }
+
+//Henry Song
+void
+_cairo_gl_shader_bind_floatv(cairo_gl_context_t *ctx,
+				const char *name,
+				int count,
+				float *values)
+{
+	ctx->shader_impl->bind_floatv(ctx, ctx->current_shader, name, count, values);
+}
+
+void
+_cairo_gl_shader_bind_vec2v(cairo_gl_context_t *ctx,
+				const char *name,
+				int count,
+				float *values)
+{
+	ctx->shader_impl->bind_vec2v(ctx, ctx->current_shader, name, count, values);
+}
+
+void
+_cairo_gl_shader_bind_vec3v(cairo_gl_context_t *ctx,
+				const char *name,
+				int count,
+				float *values)
+{
+	ctx->shader_impl->bind_vec3v(ctx, ctx->current_shader, name, count, values);
+}
+
+void
+_cairo_gl_shader_bind_vec4v(cairo_gl_context_t *ctx,
+				const char *name,
+				int count,
+				float *values)
+{
+	ctx->shader_impl->bind_vec4v(ctx, ctx->current_shader, name, count, values);
+}
+
+
 
 void
 _cairo_gl_shader_bind_matrix (cairo_gl_context_t *ctx,
@@ -1064,6 +1400,8 @@ _cairo_gl_get_shader_by_type (cairo_gl_context_t *ctx,
     if (entry) {
         assert (entry->shader.program);
         *shader = &entry->shader;
+        //_cairo_gl_set_shader (ctx, *shader);
+    	_cairo_gl_shader_set_samplers (ctx, &entry->shader);
 	return CAIRO_STATUS_SUCCESS;
     }
 

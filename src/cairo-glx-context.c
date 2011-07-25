@@ -54,6 +54,11 @@ typedef struct _cairo_glx_context {
     GLXContext context;
 
     cairo_bool_t has_multithread_makecurrent;
+
+	Display *target_display;
+	Window target_window;
+	GLXContext target_context;
+
 } cairo_glx_context_t;
 
 typedef struct _cairo_glx_surface {
@@ -68,15 +73,53 @@ _glx_acquire (void *abstract_ctx)
     cairo_glx_context_t *ctx = abstract_ctx;
     GLXDrawable current_drawable;
 
-    if (ctx->base.current_target == NULL ||
-        _cairo_gl_surface_is_texture (ctx->base.current_target)) {
-        current_drawable = ctx->dummy_window;
-    } else {
-        cairo_glx_surface_t *surface = (cairo_glx_surface_t *) ctx->base.current_target;
-        current_drawable = surface->win;
-    }
+	GLXDrawable current_dr;
+	Display *current_di = NULL;
+	GLXContext current_co;
 
-    glXMakeCurrent (ctx->display, current_drawable, ctx->context);
+    cairo_glx_surface_t *surface = (cairo_glx_surface_t *) ctx->base.current_target;
+	current_dr = glXGetCurrentDrawable();
+	current_di = glXGetCurrentDisplay();
+	current_co = glXGetCurrentContext();
+
+// we must switch context
+	if(surface == NULL || _cairo_gl_surface_is_texture(ctx->base.current_target))
+	{
+		current_drawable = ctx->dummy_window;
+	}
+	else
+		current_drawable = surface->win;
+/*
+    if (ctx->base.current_target == NULL) // ||
+        //_cairo_gl_surface_is_texture (ctx->base.current_target)) 
+	{
+        current_drawable = ctx->dummy_window;
+    } else 
+	{
+        cairo_glx_surface_t *surface = (cairo_glx_surface_t *) ctx->base.current_target;
+		if(surface->win)
+        	current_drawable = surface->win;
+		else
+			current_drawable = ctx->dummy_window;
+    }
+*/
+	if(ctx->display != current_di ||
+	   current_drawable != current_dr ||
+	   ctx->context != current_co)
+	{
+/*		ctx->target_display = ctx->display;
+		ctx->target_window = current_drawable;
+		ctx->target_context = ctx->context;
+*/
+    	//glXMakeCurrent (ctx->display, current_drawable, ctx->context);
+    	Bool result = glXMakeContextCurrent (ctx->display, current_drawable, current_drawable, ctx->context);
+		//printf("glXMakeContextCurrent = %d\n", result);
+		/*if(result != 1)
+		{
+			GLenum err = glGetError();
+			printf("glError = %x\n", err);
+		}*/
+	}
 }
 
 static void
@@ -84,9 +127,30 @@ _glx_make_current (void *abstract_ctx, cairo_gl_surface_t *abstract_surface)
 {
     cairo_glx_context_t *ctx = abstract_ctx;
     cairo_glx_surface_t *surface = (cairo_glx_surface_t *) abstract_surface;
+	
+	GLXDrawable current_dr;
+	Display *current_di = NULL;
+	GLXContext current_co;
+
+	current_dr = glXGetCurrentDrawable();
+	current_di = glXGetCurrentDisplay();
+	current_co = glXGetCurrentContext();
 
     /* Set the window as the target of our context. */
-    glXMakeCurrent (ctx->display, surface->win, ctx->context);
+	if(ctx->display != current_di ||
+	   surface->win != current_dr ||
+	   ctx->context != current_co)
+	{
+	/*
+		ctx->target_display = ctx->display;
+		ctx->target_window = surface->win;
+		ctx->target_context = ctx->context;
+		if(ctx->target_window == 0)
+			ctx->target_window = ctx->dummy_window;
+	*/
+    	//glXMakeCurrent (ctx->display, surface->win, ctx->context);
+    	glXMakeContextCurrent (ctx->display, surface->win, surface->win, ctx->context);
+	}
 }
 
 static void
@@ -94,9 +158,9 @@ _glx_release (void *abstract_ctx)
 {
     cairo_glx_context_t *ctx = abstract_ctx;
 
-    if (!ctx->has_multithread_makecurrent) {
-	glXMakeCurrent (ctx->display, None, None);
-    }
+//    if (!ctx->has_multithread_makecurrent) {
+//	glXMakeCurrent (ctx->display, None, None);
+//    }
 }
 
 static void
@@ -117,7 +181,20 @@ _glx_destroy (void *abstract_ctx)
     if (ctx->dummy_window != None)
 	XDestroyWindow (ctx->display, ctx->dummy_window);
 
-    glXMakeCurrent (ctx->display, 0, 0);
+    //glXMakeCurrent (ctx->display, 0, 0);
+    glXMakeContextCurrent (ctx->display, 0, 0, 0);
+	ctx->target_display = NULL;
+	ctx->target_context = NULL;
+	ctx->target_window = None;
+}
+
+static void 
+_glx_reset(void *abstract_ctx)
+{
+	cairo_glx_context_t *ctx = abstract_ctx;
+	ctx->target_display = NULL;
+	ctx->target_window = None;
+	ctx->target_context = NULL;
 }
 
 static cairo_status_t
@@ -197,6 +274,7 @@ cairo_glx_device_create (Display *dpy, GLXContext gl_ctx)
     ctx->base.make_current = _glx_make_current;
     ctx->base.swap_buffers = _glx_swap_buffers;
     ctx->base.destroy = _glx_destroy;
+	ctx->base.reset = _glx_reset;
 
     status = _cairo_gl_dispatch_init (&ctx->base.dispatch,
 				      (cairo_gl_get_proc_addr_func_t) glXGetProcAddress);
@@ -216,7 +294,12 @@ cairo_glx_device_create (Display *dpy, GLXContext gl_ctx)
 	ctx->has_multithread_makecurrent = TRUE;
     }
 
+	ctx->target_display = dpy;
+	ctx->target_window = None;
+	ctx->target_context = NULL;
+
     ctx->base.release (ctx);
+
 
     return &ctx->base.base;
 }
@@ -272,6 +355,11 @@ cairo_gl_surface_create_for_window (cairo_device_t	*device,
     _cairo_gl_surface_init (device, &surface->base,
 			    CAIRO_CONTENT_COLOR_ALPHA, width, height);
     surface->win = win;
+
+	// Henry Song
+	cairo_gl_surface_t *glx_surface = (cairo_gl_surface_t *)&(surface->base);
+	glx_surface->paint_to_self = FALSE;
+	glx_surface->offscreen_surface = cairo_surface_create_similar(glx_surface, CAIRO_CONTENT_COLOR_ALPHA, width, height);
 
     return &surface->base.base;
 }

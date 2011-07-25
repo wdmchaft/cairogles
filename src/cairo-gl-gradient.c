@@ -44,6 +44,120 @@
 #include "cairo-gl-gradient-private.h"
 #include "cairo-gl-private.h"
 
+// Henry Song
+// we want to get start and end stops location, number of stops - offsets
+// colors for seach section of rbga, number of offsets
+cairo_status_t
+_cairo_gl_gradient_digest_linear_gradient(const cairo_gradient_pattern_t *pattern, float surface_height, float *stops, float *colors, float *offsets, float *total_dist, int *nstops, float *delta)
+{
+	double a, b, c, d;
+	if(pattern->n_stops > 8)
+		return CAIRO_INT_STATUS_UNSUPPORTED;
+
+	// TODO: we take care of CAIRO_EXTEND_NONE later
+	// get matrix
+	cairo_matrix_t matrix;
+	memcpy(&matrix, &(pattern->base.matrix), sizeof(double)*6);
+	cairo_matrix_invert(&matrix);
+	// get transformed points
+	cairo_linear_pattern_t *linear = (cairo_linear_pattern_t *)pattern;
+
+	a = linear->pd1.x;
+	b = linear->pd1.y;
+	c = linear->pd2.x;
+	d = linear->pd2.y;
+	cairo_matrix_transform_point(&matrix, &a, &b);
+	cairo_matrix_transform_point(&matrix, &c, &d);
+
+	stops[0] = a;
+	//stops[1] = surface_height - b;
+	stops[1] = b;
+	stops[2] = c;
+	//stops[3] = surface_height - d;
+	stops[3] = d;
+	int i;
+	for(i = 0; i < pattern->n_stops; i++)
+	{
+		colors[i*4] = pattern->stops[i].color.red;
+		colors[i*4+1] = pattern->stops[i].color.green;
+		colors[i*4+2] = pattern->stops[i].color.blue;
+		colors[i*4+3] = pattern->stops[i].color.alpha;
+		offsets[i] = pattern->stops[i].offset;
+		if(offsets[i] > 1.0)
+			offsets[i] = 1.0;
+		else if(offsets[i] < 0.0)
+			offsets[i] = 0.0;
+		if(i > 0)
+		{
+			if(offsets[i] < offsets[i-1])
+				offsets[i] = offsets[i-1];
+		}
+	}
+	*nstops = pattern->n_stops;
+	delta[0] = stops[2] - stops[0];
+	delta[1] = stops[3] - stops[1];
+	*total_dist = delta[0] * delta[0] + delta[1] * delta[1];
+	return CAIRO_STATUS_SUCCESS;
+}
+// Henry Song
+cairo_status_t
+_cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *pattern, float surface_height, float *scales, float *colors, float *offsets, int *nstops, float *circle_1, float *circle_2)
+{
+	double a, b, c, d;
+	if(pattern->n_stops > 8)
+		return CAIRO_INT_STATUS_UNSUPPORTED;
+
+	// TODO: we take care of CAIRO_EXTEND_NONE later
+	// get matrix
+	cairo_matrix_t matrix;
+	memcpy(&matrix, &(pattern->base.matrix), sizeof(double)*6);
+	cairo_matrix_invert(&matrix);
+	// get transformed points
+	cairo_radial_pattern_t *radial = (cairo_radial_pattern_t *)pattern;
+
+	a = radial->cd1.center.x;
+	b = radial->cd1.center.y;
+	c = radial->cd2.center.x;
+	d = radial->cd2.center.y;
+	cairo_matrix_transform_point(&matrix, &a, &b);
+	cairo_matrix_transform_point(&matrix, &c, &d);
+	// we have to transform radius
+	double dx1, dy1;
+	dx1 = 100.0; 
+	dy1 = 100.0;
+	cairo_matrix_transform_distance(&matrix, &dx1, &dy1);
+	scales[0] = 100.0 / dx1; 
+	scales[1] = 100.0 / dy1;
+	
+	circle_1[0] = a;
+	//circle_1[1] = surface_height - b;
+	circle_1[1] = b;
+	circle_1[2] = radial->cd1.radius;
+	circle_2[0] = c;
+	//circle_2[1] = surface_height - d;
+	circle_2[1] = d;
+	circle_2[2] = radial->cd2.radius;
+	int i;
+	for(i = 0; i < pattern->n_stops; i++)
+	{
+		colors[i*4] = pattern->stops[i].color.red;
+		colors[i*4+1] = pattern->stops[i].color.green;
+		colors[i*4+2] = pattern->stops[i].color.blue;
+		colors[i*4+3] = pattern->stops[i].color.alpha;
+		offsets[i] = pattern->stops[i].offset;
+		if(offsets[i] > 1.0)
+			offsets[i] = 1.0;
+		else if(offsets[i] < 0.0)
+			offsets[i] = 0.0;
+		if(i > 0)
+		{
+			if(offsets[i] < offsets[i-1])
+				offsets[i] = offsets[i-1];
+		}
+	}
+	*nstops = pattern->n_stops;
+	return CAIRO_STATUS_SUCCESS;
+}
 
 static int
 _cairo_gl_gradient_sample_width (unsigned int                 n_stops,
@@ -103,10 +217,10 @@ _cairo_gl_gradient_render (const cairo_gl_context_t    *ctx,
      * This is done so that the gradient's pixel data is always suitable for
      * texture upload using format=GL_BGRA and type=GL_UNSIGNED_BYTE.
      */
-    if (_cairo_is_little_endian ())
-	gradient_pixman_format = PIXMAN_a8r8g8b8;
-    else
+    if (_cairo_gl_is_big_endian ())
 	gradient_pixman_format = PIXMAN_b8g8r8a8;
+    else
+	gradient_pixman_format = PIXMAN_a8r8g8b8;
 
     pixman_stops = pixman_stops_stack;
     if (unlikely (n_stops > ARRAY_LENGTH (pixman_stops_stack))) {

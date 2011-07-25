@@ -66,6 +66,13 @@
 
 CAIRO_BEGIN_DECLS
 
+// Henry Song
+cairo_public void
+cairo_gl_reset_device(cairo_device_t *device);
+
+cairo_public cairo_status_t
+cairo_gl_surface_super_sampling(cairo_surface_t *surface);
+
 cairo_public cairo_surface_t *
 cairo_gl_surface_create (cairo_device_t *device,
 			 cairo_content_t content,
@@ -76,6 +83,15 @@ cairo_gl_surface_create_for_texture (cairo_device_t *abstract_device,
 				     cairo_content_t content,
 				     unsigned int tex,
                                      int width, int height);
+cairo_public unsigned char *
+cairo_gl_surface_get_data (cairo_surface_t *surface);
+
+cairo_public cairo_surface_t *
+cairo_gl_surface_get_image_surface (cairo_surface_t *surface);
+
+cairo_public int
+cairo_gl_surface_get_stride (cairo_surface_t *surface);
+
 cairo_public void
 cairo_gl_surface_set_size (cairo_surface_t *surface, int width, int height);
 
@@ -85,8 +101,28 @@ cairo_gl_surface_get_width (cairo_surface_t *abstract_surface);
 cairo_public int
 cairo_gl_surface_get_height (cairo_surface_t *abstract_surface);
 
+cairo_public cairo_format_t 
+cairo_gl_surface_get_format (cairo_surface_t *surface);
+
+cairo_public unsigned int 
+cairo_gl_surface_get_texture(cairo_surface_t *surface);
+
+cairo_public cairo_status_t
+cairo_gl_surface_make_texture_external(cairo_surface_t *abstract_surface);
+
 cairo_public void
 cairo_gl_surface_swapbuffers (cairo_surface_t *surface);
+
+cairo_public void
+cairo_gl_font_extents(cairo_t *cr, cairo_font_extents_t *extents);
+
+cairo_public void
+cairo_gl_text_extents(cairo_t *cr, const char *utf8, 
+	cairo_text_extents_t *extents);
+
+cairo_public void
+cairo_gl_scaled_font_extents(cairo_scaled_font_t *scaled_font,
+	cairo_font_extents_t *extents);
 
 #if CAIRO_HAS_GLX_FUNCTIONS
 #include <GL/glx.h>

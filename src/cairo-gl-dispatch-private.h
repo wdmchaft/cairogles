@@ -93,6 +93,11 @@ cairo_private cairo_gl_dispatch_entry_t dispatch_shaders_entries[] = {
     DISPATCH_ENTRY_ARB (UniformMatrix3fv),
     DISPATCH_ENTRY_ARB (UniformMatrix4fv),
     DISPATCH_ENTRY_ARB (Uniform1i),
+	// Henry Song
+	DISPATCH_ENTRY_ARB (Uniform1fv),
+	DISPATCH_ENTRY_ARB (Uniform2fv),
+	DISPATCH_ENTRY_ARB (Uniform3fv),
+	DISPATCH_ENTRY_ARB (Uniform4fv),
 
     /* Attributes */
     DISPATCH_ENTRY_ARB (BindAttribLocation),
@@ -109,6 +114,13 @@ cairo_private cairo_gl_dispatch_entry_t dispatch_fbo_entries[] = {
     DISPATCH_ENTRY_EXT (FramebufferTexture2D),
     DISPATCH_ENTRY_EXT (CheckFramebufferStatus),
     DISPATCH_ENTRY_EXT (DeleteFramebuffers),
+	// Henry Song
+	// render buffer, used for stencil and depth buffer
+	DISPATCH_ENTRY_EXT (GenRenderbuffers),
+	DISPATCH_ENTRY_EXT (BindRenderbuffer),
+	DISPATCH_ENTRY_EXT (RenderbufferStorage),
+	DISPATCH_ENTRY_EXT (FramebufferRenderbuffer),
+	DISPATCH_ENTRY_EXT (DeleteRenderbuffers),
     DISPATCH_ENTRY_LAST
 };
 

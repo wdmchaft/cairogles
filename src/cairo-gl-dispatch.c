@@ -32,48 +32,13 @@
 #include "cairoint.h"
 #include "cairo-gl-private.h"
 #include "cairo-gl-dispatch-private.h"
-#if CAIRO_HAS_DLSYM
 #include <dlfcn.h>
-#endif
-
-#if CAIRO_HAS_DLSYM
-static void *
-_cairo_gl_dispatch_open_lib (void)
-{
-    return dlopen (NULL, RTLD_LAZY);
-}
-
-static void
-_cairo_gl_dispatch_close_lib (void *handle)
-{
-    dlclose (handle);
-}
 
 static cairo_gl_generic_func_t
 _cairo_gl_dispatch_get_proc_addr (void *handle, const char *name)
 {
     return (cairo_gl_generic_func_t) dlsym (handle, name);
 }
-#else
-static void *
-_cairo_gl_dispatch_open_lib (void)
-{
-    return NULL;
-}
-
-static void
-_cairo_gl_dispatch_close_lib (void *handle)
-{
-    return;
-}
-
-static cairo_gl_generic_func_t
-_cairo_gl_dispatch_get_proc_addr (void *handle, const char *name)
-{
-    return NULL;
-}
-#endif /* CAIRO_HAS_DLSYM */
-
 
 static void
 _cairo_gl_dispatch_init_entries (cairo_gl_dispatch_t *dispatch,
@@ -82,7 +47,7 @@ _cairo_gl_dispatch_init_entries (cairo_gl_dispatch_t *dispatch,
 				 cairo_gl_dispatch_name_t dispatch_name)
 {
     cairo_gl_dispatch_entry_t *entry = entries;
-    void *handle = _cairo_gl_dispatch_open_lib ();
+    void *handle = dlopen (NULL, RTLD_LAZY);
 
     while (entry->name[CAIRO_GL_DISPATCH_NAME_CORE] != NULL) {
 	void *dispatch_ptr = &((char *) dispatch)[entry->offset];
@@ -105,7 +70,7 @@ _cairo_gl_dispatch_init_entries (cairo_gl_dispatch_t *dispatch,
 	++entry;
     }
 
-    _cairo_gl_dispatch_close_lib (handle);
+    dlclose (handle);
 }
 
 static cairo_status_t
