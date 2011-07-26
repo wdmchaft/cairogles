@@ -41,6 +41,7 @@
 #include "cairoint.h"
 
 #include "cairo-composite-rectangles-private.h"
+#include "cairo-default-context-private.h"
 #include "cairo-error-private.h"
 #include "cairo-gl-private.h"
 
@@ -4853,6 +4854,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
 const cairo_surface_backend_t _cairo_gl_surface_backend = {
     CAIRO_SURFACE_TYPE_GL,
+    _cairo_default_context_create,
     _cairo_gl_surface_create_similar,
     _cairo_gl_surface_finish,
 
