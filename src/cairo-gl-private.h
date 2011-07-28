@@ -197,10 +197,10 @@ typedef struct _cairo_gl_surface {
 	int orig_height;
 	cairo_surface_t *data_surface;
 	cairo_bool_t needs_new_data_surface;
-	cairo_surface_t *super_sample_surface;
-	cairo_surface_t *offscreen_surface;
-	cairo_bool_t needs_super_sampling;
-	cairo_bool_t paint_to_self;
+	//cairo_surface_t *super_sample_surface;
+	//cairo_surface_t *offscreen_surface;
+	//cairo_bool_t needs_super_sampling;
+	//cairo_bool_t paint_to_self;
 
 	// mask surface
 	struct _cairo_gl_surface *mask_surface;

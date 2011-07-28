@@ -1575,10 +1575,6 @@ _cairo_gl_surface_init (cairo_device_t *device,
 		surface->needs_extend = TRUE;
 	surface->data_surface = NULL;
 	surface->needs_new_data_surface = FALSE;
-	surface->super_sample_surface = NULL;
-	surface->offscreen_surface = NULL;
-	surface->needs_super_sampling = FALSE;
-	surface->paint_to_self = TRUE;
 
 	surface->mask_surface = NULL;
 	surface->parent_surface = NULL;
@@ -1706,12 +1702,7 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
     glTexImage2D (ctx->tex_target, 0, format, width, height, 0,
 		  format, GL_UNSIGNED_BYTE, NULL);
 	surface->data_surface = NULL;
-	surface->super_sample_surface = NULL;
 	surface->needs_new_data_surface = FALSE;
-
-	surface->offscreen_surface = NULL;
-	surface->needs_super_sampling = FALSE;
-	surface->paint_to_self = TRUE;
 
 	surface->mask_surface = NULL;
 	surface->parent_surface = NULL;
@@ -1900,10 +1891,6 @@ cairo_gl_surface_create_for_texture (cairo_device_t	*abstract_device,
 	surface->orig_height = orig_height;
 
 	surface->data_surface = NULL;
-	surface->super_sample_surface = NULL;
-	surface->offscreen_surface = NULL;
-	surface->needs_super_sampling = FALSE;
-	surface->paint_to_self = TRUE;
 	surface->needs_new_data_surface = FALSE;
 
 	surface->mask_surface = NULL;
@@ -1992,27 +1979,7 @@ cairo_gl_surface_swapbuffers (cairo_surface_t *abstract_surface)
 
     if (! _cairo_gl_surface_is_texture (surface)) 
 	{
-		if(surface->needs_super_sampling == TRUE)
-			_cairo_gl_surface_super_sampling(surface);
-		// paint offscreen to framebuffer
-		surface->paint_to_self = TRUE;
-		cairo_t *cr = cairo_create(abstract_surface);
-		if(unlikely(cairo_status(cr)))
-		{
-			_cairo_surface_set_error(abstract_surface, CAIRO_INT_STATUS_UNSUPPORTED);
-			return;
-		}
-		cairo_set_source_surface(cr, surface->offscreen_surface, 0, 0);
-		cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-		//abstract_surface->is_clear = FALSE;
-		surface->offscreen_surface->is_clear = FALSE;
-		cairo_paint(cr);
-		//cairo_surface_write_to_png(abstract_surface, "/home/me/swap.png");
-		cairo_destroy(cr);
-		surface->paint_to_self = FALSE;
 		cairo_gl_context_t *ctx;
-        cairo_status_t status;
-
         status = _cairo_gl_context_acquire (surface->base.device, &ctx);
         if (unlikely (status))
             return;
@@ -2122,11 +2089,6 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 	if(cairo_surface_get_type(src) == CAIRO_SURFACE_TYPE_GL)
 	{
 		cairo_gl_surface_t *s = (cairo_gl_surface_t *)src;
-/*		if(s->needs_super_sampling)
-		{
-			_cairo_gl_surface_super_sampling(&(s->base));
-			s->needs_super_sampling = FALSE;
-		}*/
 		if(extend == 0)
 			return (cairo_gl_surface_t *)cairo_surface_reference(src);
 		else
@@ -2506,17 +2468,6 @@ _cairo_gl_surface_get_image (cairo_gl_surface_t      *surface,
 
 	//long now = _get_tick();
 	// Henry Song
-	// super sampling
-	cairo_bool_t needs_super_sampling = surface->needs_super_sampling;
-	if(needs_super_sampling == TRUE)
-	{
-		_cairo_gl_surface_super_sampling(&surface->base);
-		surface->needs_super_sampling = FALSE;
-	}
-	if(!_cairo_gl_surface_is_texture(surface))
-	{
-		surface = (cairo_gl_surface_t *)surface->offscreen_surface;
-	}
 
     /* Want to use a switch statement here but the compiler gets whiny. */
     if (surface->base.content == CAIRO_CONTENT_COLOR_ALPHA) {
@@ -2763,10 +2714,6 @@ _cairo_gl_surface_finish (void *abstract_surface)
 		cairo_surface_destroy(surface->data_surface);
 	if(surface->mask_surface != NULL)
 		cairo_surface_destroy(&(surface->mask_surface->base));
-	if(surface->super_sample_surface != NULL)
-		cairo_surface_destroy(surface->super_sample_surface);
-	if(surface->offscreen_surface != NULL)
-		cairo_surface_destroy(surface->offscreen_surface);
 	surface->parent_surface = NULL;
 	surface->bound_fbo = FALSE;
 		
@@ -3403,20 +3350,13 @@ _cairo_gl_surface_paint (void *abstract_surface,
     if (clip == NULL) {
         if (op == CAIRO_OPERATOR_CLEAR)
 		{
-			if(!surface->paint_to_self)
-            	return _cairo_gl_surface_clear (surface->offscreen_surface, CAIRO_COLOR_TRANSPARENT);
-			else
-				return _cairo_gl_surface_clear(abstract_surface, CAIRO_COLOR_TRANSPARENT);
+			return _cairo_gl_surface_clear(abstract_surface, CAIRO_COLOR_TRANSPARENT);
 		}
        else if (source->type == CAIRO_PATTERN_TYPE_SOLID &&
                 (op == CAIRO_OPERATOR_SOURCE ||
                  (op == CAIRO_OPERATOR_OVER && _cairo_pattern_is_opaque_solid (source)))) 
 		{
-			if(!surface->paint_to_self)
-            	return _cairo_gl_surface_clear (surface->offscreen_surface,
-                                            &((cairo_solid_pattern_t *) source)->color);
-			else
-            	return _cairo_gl_surface_clear (abstract_surface,
+           	return _cairo_gl_surface_clear (abstract_surface,
                                             &((cairo_solid_pattern_t *) source)->color);
         }
     }
@@ -3464,8 +3404,6 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 		surface->needs_super_sampling = FALSE;
 	}*/
 
-	if(!surface->paint_to_self)
-		surface = (cairo_gl_surface_t *)surface->offscreen_surface;
 	// Henry Song
 	cairo_gl_composite_t *setup;
 
@@ -3525,11 +3463,6 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 		//cairo_surface_write_to_png(abstract_surface, "/root/test.png");
 		//cairo_surface_write_to_png(clone, "/root/test1.png");
 		//printf("write clone\n");
-		if(surface->needs_super_sampling == FALSE)
-		{
-			if(clone->needs_super_sampling)
-				_cairo_gl_surface_super_sampling(&clone->base);
-		}
 	}
 	else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
 		solid = (cairo_solid_pattern_t *)source;
@@ -3712,11 +3645,6 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 				glDepthMask(GL_FALSE);
 				status = _cairo_gl_context_release(ctx, status);
 				return UNSUPPORTED("generate_clone for mask failed");
-			}
-			if(surface->needs_super_sampling == FALSE)
-			{
-				if(mask_clone->needs_super_sampling)
-					_cairo_gl_surface_super_sampling(&mask_clone->base);
 			}
 		}
 	}
@@ -4116,10 +4044,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		//printf("stroke set needs super sampling\n");
 		//surface->needs_super_sampling = TRUE;
 	}
-	if(!_cairo_gl_surface_is_texture(surface))
-		surface = (cairo_gl_surface_t *)surface->offscreen_surface;
-	if(surface == NULL)
-		return CAIRO_INT_STATUS_UNSUPPORTED;
 	
 	// Henry Song
 	cairo_gl_composite_t *setup;
@@ -4231,11 +4155,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		{
 			_cairo_gl_context_release(ctx, status);
 			return UNSUPPORTED("create_clone failed");
-		}
-		if(surface->needs_super_sampling == FALSE)
-		{
-			if(clone->needs_super_sampling)
-				_cairo_gl_surface_super_sampling(&clone->base);
 		}
 	}
 	else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
@@ -4433,10 +4352,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 		//printf("fill set needs super sampling\n");
 		//surface->needs_super_sampling = TRUE;
 	}
-	if(!_cairo_gl_surface_is_texture(surface))
-		surface = (cairo_gl_surface_t *)surface->offscreen_surface;
-	if(surface == NULL)
-		return CAIRO_INT_STATUS_UNSUPPORTED;
 		
 
 	// Henry Song
@@ -4570,11 +4485,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 		{
 			_cairo_gl_context_release(ctx, status);
 			return UNSUPPORTED("create_clone failed");
-		}
-		if(surface->needs_super_sampling == FALSE)
-		{
-			if(clone->needs_super_sampling)
-				_cairo_gl_surface_super_sampling(&clone->base);
 		}
 	}
 	else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
@@ -5294,94 +5204,3 @@ cairo_gl_surface_make_texture_external(cairo_surface_t *abstract_surface)
 	return CAIRO_STATUS_SUCCESS;
 }
 
-cairo_status_t
-_cairo_gl_surface_super_sampling(cairo_surface_t *abstract_surface)
-{
-	cairo_status_t status;
-	if(abstract_surface->type != CAIRO_SURFACE_TYPE_GL)
-		return CAIRO_INT_STATUS_UNSUPPORTED;
-
-	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
-	if(surface->needs_super_sampling == FALSE)
-		return CAIRO_STATUS_SUCCESS;
-
-	long now = _get_tick();
-
-	if(surface->super_sample_surface == NULL)
-	{
-		surface->super_sample_surface =  
-		cairo_surface_create_similar(surface, surface->base.content, 
-			surface->width*2, surface->height *2);
-		printf("create super sampling surface takes %ld usec\n", _get_tick() - now);
-
-		status = cairo_surface_status(surface->super_sample_surface);
-		if(unlikely(status))
-		{
-			surface->super_sample_surface = NULL;
-			return status;
-		}
-	}
-	cairo_surface_t *super_sample_surface = surface->super_sample_surface;
-	cairo_t *super_sample_cr = cairo_create(super_sample_surface);
-	status = cairo_status(super_sample_cr);
-	if(unlikely(status))
-	{
-		//cairo_surface_destroy(super_sample_surface);
-		return status;
-	}
-	cairo_t *cr = NULL;
-    if(!_cairo_gl_surface_is_texture (surface)) 
-	{
-		if(surface->offscreen_surface == NULL)
-			return CAIRO_INT_STATUS_UNSUPPORTED;
-		
-		cr = cairo_create(surface->offscreen_surface);
-	}
-	else
-		cr = cairo_create(abstract_surface);
-	//surface->needs_super_sampling = FALSE;
-	//super_sample_surface->needs_super_sampling = FALSE;
-	//cairo_surface_write_to_png(abstract_surface, "/home/me/super2.png");
-	status = cairo_status(cr);
-	if(unlikely(status))
-	{
-		//cairo_surface_destroy(super_sample_surface);
-		cairo_destroy(super_sample_cr);
-		return status;
-	}
-	now = _get_tick();
-	cairo_scale(super_sample_cr, 1.5, 1.5);
-	cairo_set_operator(super_sample_cr, CAIRO_OPERATOR_SOURCE);
-	if(_cairo_gl_surface_is_texture(surface))
-		cairo_set_source_surface(super_sample_cr, abstract_surface, 0, 0);
-	else
-		cairo_set_source_surface(super_sample_cr, surface->offscreen_surface, 0, 0);
-	surface->needs_super_sampling = FALSE;
-	if(_cairo_gl_surface_is_texture(surface))
-		abstract_surface->is_clear = FALSE;
-	else
-		surface->offscreen_surface->is_clear = FALSE;
-	cairo_paint(super_sample_cr);
-	cairo_destroy(super_sample_cr);
-	//cairo_surface_write_to_png(super_sample_surface, "/home/me/super.png");
-	printf("paint to super sample surface takes %ld usec\n", _get_tick() - now);
-	// paint back
-	now = _get_tick();
-	cairo_scale(cr, 1.0/1.5, 1.0/1.5);
-	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-	super_sample_surface->is_clear = FALSE;
-	cairo_set_source_surface(cr, super_sample_surface, 0, 0);
-	cairo_paint(cr);
-	printf("paint back takes %ld usec\n", _get_tick() - now);
-	//cairo_surface_write_to_png(cairo_get_target(cr), "/home/me/super1.png");
-	//cairo_surface_destroy(super_sample_surface);
-	cairo_destroy(cr);
-	return CAIRO_STATUS_SUCCESS;
-}
-
-
-cairo_status_t
-cairo_gl_surface_super_sampling(cairo_surface_t *surface)
-{
-	return _cairo_gl_surface_super_sampling(surface);
-}

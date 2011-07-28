@@ -306,9 +306,9 @@ cairo_gl_surface_create_for_egl (cairo_device_t	*device,
     surface->egl = egl;
 
 	// Henry Song
-	cairo_gl_surface_t *egl_surface = (cairo_gl_surface_t *)&(surface->base);
+	/*cairo_gl_surface_t *egl_surface = (cairo_gl_surface_t *)&(surface->base);
 	egl_surface->paint_to_self = FALSE;
 	egl_surface->offscreen_surface = cairo_surface_create_similar(egl_surface, CAIRO_CONTENT_COLOR_ALPHA, width, height);
-
+	*/
     return &surface->base.base;
 }

@@ -357,9 +357,10 @@ cairo_gl_surface_create_for_window (cairo_device_t	*device,
     surface->win = win;
 
 	// Henry Song
+	/*
 	cairo_gl_surface_t *glx_surface = (cairo_gl_surface_t *)&(surface->base);
 	glx_surface->paint_to_self = FALSE;
 	glx_surface->offscreen_surface = cairo_surface_create_similar(glx_surface, CAIRO_CONTENT_COLOR_ALPHA, width, height);
-
+	*/
     return &surface->base.base;
 }

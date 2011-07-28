@@ -378,8 +378,6 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		_cairo_gl_surface_super_sampling(&dst->base);
 		dst->needs_super_sampling = FALSE;
 	}*/
-	if(!_cairo_gl_surface_is_texture(dst))
-		dst = dst->offscreen_surface;
 	//long now = _get_tick();
 	
 	// we setup composite_t here
@@ -1331,7 +1329,7 @@ _cairo_gl_glyph_cache_fini (cairo_gl_context_t *ctx,
     }
 }
 
-#if 0
+//#if 0
 void cairo_gl_font_extents(cairo_t *cr, cairo_font_extents_t *extents)
 {
 	// we get the 
@@ -1343,7 +1341,12 @@ void cairo_gl_font_extents(cairo_t *cr, cairo_font_extents_t *extents)
 		return;
 	
 	// get the scaled font
-	cairo_scaled_font_t *scaled_font = cr->gstate->scaled_font;
+	cairo_scaled_font_t *scaled_font = cairo_get_scaled_font(cr);
+	if(unlikely(scaled_font->status))
+	{
+		_cairo_status_set_error(&cr->status, _cairo_error(scaled_font->status));
+		return;
+	}
 
 	double font_scale = scaled_font->font_matrix.xx;
 	double default_font_scale = FONT_STANDARD_SIZE;
@@ -1456,7 +1459,7 @@ void cairo_gl_font_extents(cairo_t *cr, cairo_font_extents_t *extents)
 		cairo_scaled_font_destroy(min_font);
 	}
 }
-#endif
+//#endif
 
 /*void cairo_gl_glyph_extents(cairo_t *cr, cairo_glyph_t *glyphs,
 	int num_glyphs,
@@ -1562,7 +1565,7 @@ void cairo_gl_font_extents(cairo_t *cr, cairo_font_extents_t *extents)
 
 		cairo_glyph_free(max_glyphs);
 */
-#if 0
+//#if 0
 void cairo_gl_text_extents(cairo_t *cr, const char *utf8,
 	cairo_text_extents_t *extents)
 {
@@ -1574,7 +1577,12 @@ void cairo_gl_text_extents(cairo_t *cr, const char *utf8,
 		return;
 	
 	// get the scaled font
-	cairo_scaled_font_t *scaled_font = cr->gstate->scaled_font;
+	cairo_scaled_font_t *scaled_font = cairo_get_scaled_font(cr);
+	if(unlikely(scaled_font->status))
+	{
+		_cairo_status_set_error(&cr->status, _cairo_error(scaled_font->status));
+		return;
+	}
 
 	double font_scale = scaled_font->font_matrix.xx;
 	double default_font_scale = FONT_STANDARD_SIZE;
@@ -1844,4 +1852,4 @@ void cairo_gl_scaled_font_extents(cairo_scaled_font_t *scaled_font,
 	}
 }
 
-#endif
+//#endif
