@@ -51,7 +51,7 @@
 #define GLYPH_CACHE_MAX_SIZE 512
 
 #define FONT_STANDARD_SIZE 12
-#define FONT_SIZE_SMOOTH 0
+#define FONT_SIZE_SMOOTH 1
 
 static long _get_tick()
 {

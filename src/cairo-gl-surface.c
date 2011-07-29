@@ -974,6 +974,8 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 	cairo_gl_context_t *ctx,
 	cairo_gl_surface_t *surface)
 {
+	if(clip->path == NULL)
+		return CAIRO_STATUS_SUCCESS;
 	//cairo_fill_rule_t fill_rule = CAIRO_FILL_RULE_WINDING;
 	cairo_fill_rule_t fill_rule = clip->path->fill_rule;
 	double tolerance = 0.1;
