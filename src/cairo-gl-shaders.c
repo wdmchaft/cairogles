@@ -866,6 +866,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	}
 	break;
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
+	/*
 	_cairo_output_stream_printf (stream,
 	    "varying vec2 %s_texcoords;\n"
 	    "uniform vec2 %s_texdims;\n"
@@ -909,6 +910,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		rectstr, namestr);
 	}
 	break;
+	*/
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
 	_cairo_output_stream_printf (stream,
 		"uniform vec2 %s_stops[8];\n"

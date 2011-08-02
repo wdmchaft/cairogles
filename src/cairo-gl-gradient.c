@@ -128,15 +128,26 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	cairo_matrix_transform_distance(&matrix, &dx1, &dy1);
 	scales[0] = 100.0 / dx1; 
 	scales[1] = 100.0 / dy1;
+
+	double x, y;
+	x = radial->cd1.radius;
+	y = 0;
+	cairo_matrix_transform_distance(&matrix, &x, &y);
 	
 	circle_1[0] = a;
 	//circle_1[1] = surface_height - b;
 	circle_1[1] = b;
-	circle_1[2] = radial->cd1.radius;
+	//circle_1[2] = radial->cd1.radius;
+	circle_1[2] = x;
+	
+	x = radial->cd2.radius;
+	y = 0;
+	cairo_matrix_transform_distance(&matrix, &x, &y);
 	circle_2[0] = c;
 	//circle_2[1] = surface_height - d;
 	circle_2[1] = d;
-	circle_2[2] = radial->cd2.radius;
+	//circle_2[2] = radial->cd2.radius;
+	circle_2[2] = x;
 	int i;
 	for(i = 0; i < pattern->n_stops; i++)
 	{

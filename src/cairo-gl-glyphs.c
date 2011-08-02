@@ -264,19 +264,19 @@ _cairo_gl_surface_scaled_font_fini (cairo_scaled_font_t  *scaled_font)
 	int i;
     cairo_list_del (&scaled_font->link);
 	// we need to remove corresponding max font
-	cairo_array_t user_data = (cairo_array_t)(scaled_font->user_data);
+	/*cairo_array_t user_data = (cairo_array_t)(scaled_font->user_data);
 	int num = _cairo_array_num_elements(&user_data);
 	if(num != 0)
 	{
 		for(i = 0; i < num; i++)
 		{
 			cairo_scaled_font_t *font = (cairo_scaled_font_t *)_cairo_array_index(&user_data, i);
-			if(font == NULL)
+			if(font == NULL || font->font_face == NULL)
 				continue;
-			cairo_scaled_font_destroy(font);
+				cairo_scaled_font_destroy(font);
 		}
 		_cairo_array_truncate(&user_data, 0);
-	}
+	}*/
 }
 
 void
@@ -568,6 +568,8 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		//glDisable(GL_STENCIL_TEST);
 		//glDisable(GL_DEPTH_TEST);
 		//glDepthMask(GL_FALSE);
+		if(min_font != NULL)
+			cairo_scaled_font_destroy(min_font);
 		status = _cairo_gl_context_release(ctx, status);
 
 		status = CAIRO_INT_STATUS_UNSUPPORTED;
@@ -587,7 +589,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		if(font_match == FALSE)
 		{
 			_cairo_scaled_font_thaw_cache(max_font);
-			cairo_scaled_font_destroy(max_font);
+			//cairo_scaled_font_destroy(max_font);
 		}
 		if(min_font)
 		{
@@ -617,7 +619,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		if(font_match == FALSE)
 		{
 			_cairo_scaled_font_thaw_cache(max_font);
-			cairo_scaled_font_destroy(max_font);
+			//cairo_scaled_font_destroy(max_font);
 		}
 		if(min_font)
 		{
@@ -633,12 +635,18 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		return status;
 	}
 
+	if(scaled_font->surface_private == NULL)
+	{
+		scaled_font->surface_private = ctx;
+		scaled_font->surface_backend = &_cairo_gl_surface_backend;
+		_cairo_array_append((cairo_array_t *)&(scaled_font->user_data), (void *)max_font);
+		//cairo_scaled_font_reference(max_font);
+		cairo_list_add(&scaled_font->link, &ctx->fonts);
+	}
 	if(max_font->surface_private == NULL)
 	{
 		max_font->surface_private = ctx;
 		max_font->surface_backend = &_cairo_gl_surface_backend;
-		_cairo_array_append((cairo_array_t *)&(scaled_font->user_data), (void *)max_font);
-		cairo_list_add(&scaled_font->link, &ctx->fonts);
 	}
 
 	cairo_bool_t setup_mask = FALSE;
@@ -689,6 +697,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 			_cairo_scaled_font_thaw_cache(scaled_font);
 			if(font_match == FALSE)
 				_cairo_scaled_font_thaw_cache(max_font);
+				//cairo_scaled_font_destroy(max_font);
 			if(min_font)
 			{
 				_cairo_scaled_font_thaw_cache(min_font);
@@ -723,6 +732,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 				_cairo_scaled_font_thaw_cache(scaled_font);
 				if(font_match == FALSE)
 					_cairo_scaled_font_thaw_cache(max_font);
+					//cairo_scaled_font_destroy(max_font);
 				if(min_font)
 				{
 					_cairo_scaled_font_thaw_cache(min_font);
@@ -758,6 +768,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 						_cairo_scaled_font_thaw_cache(scaled_font);
 						if(font_match == FALSE)
 							_cairo_scaled_font_thaw_cache(max_font);
+							//cairo_scaled_font_destroy(max_font);
 						if(min_font)
 						{
 							_cairo_scaled_font_thaw_cache(min_font);
@@ -797,6 +808,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 				_cairo_scaled_font_thaw_cache(scaled_font);
 				if(font_match == FALSE)
 					_cairo_scaled_font_thaw_cache(max_font);
+					//cairo_scaled_font_destroy(max_font);
 				if(min_font)
 				{
 					_cairo_scaled_font_thaw_cache(min_font);
@@ -861,6 +873,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 					_cairo_scaled_font_thaw_cache(scaled_font);
 					if(font_match == FALSE)
 						_cairo_scaled_font_thaw_cache(max_font);
+						//cairo_scaled_font_destroy(max_font);
 					if(min_font)
 					{
 						_cairo_scaled_font_thaw_cache(min_font);
@@ -948,6 +961,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 			_cairo_scaled_font_thaw_cache(scaled_font);
 			if(font_match == FALSE)
 				_cairo_scaled_font_thaw_cache(max_font);
+				//cairo_scaled_font_destroy(max_font);
 			if(min_font)
 			{
 				_cairo_scaled_font_thaw_cache(min_font);
@@ -980,6 +994,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 	_cairo_scaled_font_thaw_cache(scaled_font);
 	if(font_match == FALSE)
 		_cairo_scaled_font_thaw_cache(max_font);
+		//cairo_scaled_font_destroy(max_font);
 	if(min_font)
 	{
 		_cairo_scaled_font_thaw_cache(min_font);

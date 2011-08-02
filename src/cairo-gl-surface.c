@@ -974,27 +974,18 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 	cairo_gl_context_t *ctx,
 	cairo_gl_surface_t *surface)
 {
-	if(clip->path == NULL)
-		return CAIRO_STATUS_SUCCESS;
-	//cairo_fill_rule_t fill_rule = CAIRO_FILL_RULE_WINDING;
-	cairo_fill_rule_t fill_rule = clip->path->fill_rule;
+	cairo_fill_rule_t fill_rule;
 	double tolerance = 0.1;
 	cairo_status_t status;
-	cairo_path_fixed_t path = clip->path->path;
-	cairo_clip_path_t *clip_path = clip->path;
-	/*status = _cairo_gl_context_acquire (surface->base.device, &ctx);
-	if(unlikely(status))
-		return status;
-	_cairo_gl_context_set_destination(ctx, surface);
-	status = _cairo_gl_context_release(ctx, status);
-	*/
-	// we need to enable stencil test
-	
-	// setup indices
+	cairo_path_fixed_t path;
+	cairo_clip_path_t *clip_path = NULL;
 	_cairo_gl_index_t indices;
 	cairo_traps_t traps;
+	
+	// enable depth mask
 	glDepthMask(GL_TRUE);
 	
+	// nothing is changed, we use existing cache
 	if(surface->stencil_changed == FALSE)
 	{
 		_cairo_gl_index_buf_t *exist_buf = (_cairo_gl_index_buf_t *)surface->indices_buf;
@@ -1062,6 +1053,12 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 	}
 	//cairo_polygon_t polygons
 	//_cairo_gl_index_t indices;
+	if(clip->path != NULL)
+	{
+		fill_rule = clip->path->fill_rule;
+		path = clip->path->path;
+		clip_path = clip->path;
+	}
 	
 	cairo_point_t points[4];
 	
@@ -1072,82 +1069,42 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 	glStencilFunc(GL_ALWAYS, 1, 0xffffffff);
 	glColorMask(0, 0, 0, 0);
 	int got_traps = 0;
+	int remaining_boxes = clip->num_boxes;
 
 	// Henry Song test
 	//status = _cairo_path_fixed_fill_to_traps(&(clip_path->path), fill_rule, tolerance, &traps);
-	while(clip_path != NULL)
+	while(clip_path != NULL || remaining_boxes != 0)
 	{
+		// Let's analyze box first
 		//path = clip_path->path;
-		_cairo_traps_init(&traps);
 		//_cairo_polygon_init(&polygon);
 		status = _cairo_gl_create_indices(&indices);
 		indices.setup = setup;
-
-		status = _cairo_path_fixed_fill_to_traps(&(clip_path->path), fill_rule, tolerance, &traps);
-		int m;
-		if(traps.num_traps != 0)
-		{
-			got_traps = 1;
-		}
+		
 		cairo_fixed_t x_top_left, x_bottom_left;
 		cairo_fixed_t x_top_right, x_bottom_right;
 		double x1, x2;
 		double y1, y2;
 		double dx, dy;
 		double top, bottom;
-		//printf("\n==================\n\n=========== attention\n");	
-		for(m = 0; m < traps.num_traps; m++)
+		int box_index;
+		
+		if(remaining_boxes != 0)
 		{
-			top = _cairo_fixed_to_double(traps.traps[m].top);
-			bottom = _cairo_fixed_to_double(traps.traps[m].bottom);
-			x1 = _cairo_fixed_to_double(traps.traps[m].left.p1.x);
-			x2 = _cairo_fixed_to_double(traps.traps[m].left.p2.x);
-			y1 = _cairo_fixed_to_double(traps.traps[m].left.p1.y);
-			y2 = _cairo_fixed_to_double(traps.traps[m].left.p2.y);
-			dx = x1 - x2;
-			dy = y1 - y2;
-			x_top_left = _cairo_fixed_from_double(x1 - dx * (y1 - top) / dy);
-			x_bottom_left = _cairo_fixed_from_double(x1  - dx * (y1 - bottom) /dy);
+			got_traps = 1;
+			box_index = clip->num_boxes - remaining_boxes;
+			points[0].x = clip->boxes[box_index].p1.x;
+			points[0].y = clip->boxes[box_index].p1.y;
+			points[1].x = clip->boxes[box_index].p1.x;
+			points[1].y = clip->boxes[box_index].p2.y;
+			points[2].x = clip->boxes[box_index].p2.x;
+			points[2].y = clip->boxes[box_index].p2.y;
+			points[3].x = clip->boxes[box_index].p2.x;
+			points[3].y = clip->boxes[box_index].p1.y;
 			
-			x1 = _cairo_fixed_to_double(traps.traps[m].right.p1.x);
-			x2 = _cairo_fixed_to_double(traps.traps[m].right.p2.x);
-			y1 = _cairo_fixed_to_double(traps.traps[m].right.p1.y);
-			y2 = _cairo_fixed_to_double(traps.traps[m].right.p2.y);
-			dx = x1 - x2;
-			dy = y1 - y2;
-			x_top_right = _cairo_fixed_from_double(x1 - dx * (y1 - top) /dy);
-			x_bottom_right = _cairo_fixed_from_double(x1  - dx * (y1 - bottom) /dy);
-			points[0].x = x_top_left;
-			points[0].y = traps.traps[m].top;
-			points[1].x = x_bottom_left;
-			points[1].y = traps.traps[m].bottom;
-			points[2].x = x_bottom_right;
-			points[2].y = traps.traps[m].bottom;
-			points[3].x = x_top_right;
-			points[3].y = traps.traps[m].top;
-			/*if(_cairo_fixed_to_double(points[0].x) == 0.0 &&
-			   _cairo_fixed_to_double(points[0].y) == 0.0 &&
-			   _cairo_fixed_to_double(points[1].x) == 0.0 &&
-			   _cairo_fixed_to_double(points[1].y) == 400.0 &&
-			   _cairo_fixed_to_double(points[2].x) == 400.0 &&
-			   _cairo_fixed_to_double(points[2].y) == 400.0 &&
-			   _cairo_fixed_to_double(points[3].x) == 400.0 &&
-			   _cairo_fixed_to_double(points[3].y) == 0.0)
-			{*/
-			/*printf("add clip path left (%0.5f, %0.5f) - (%0.5f, %0.5f), right (%0.5f, %0.5f) - (%0.1f, %0.1f)\n", 
-				_cairo_fixed_to_double(points[0].x),
-				_cairo_fixed_to_double(points[0].y),
-				_cairo_fixed_to_double(points[1].x),
-				_cairo_fixed_to_double(points[1].y),
-				_cairo_fixed_to_double(points[2].x),
-				_cairo_fixed_to_double(points[2].y),
-				_cairo_fixed_to_double(points[3].x),
-				_cairo_fixed_to_double(points[3].y));
-			//}*/
 			status = _cairo_gl_add_convex_quad_for_clip(&indices, points);
 			if(unlikely(status))
 			{
-				_cairo_traps_fini(&traps);
 				glDisable(GL_DEPTH_TEST);
 				glDisable(GL_STENCIL_TEST);
 		
@@ -1156,6 +1113,82 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 				_cairo_gl_destroy_indices(&indices);
 				return status;
 			}
+			remaining_boxes -= 1;
+		}
+		
+		if(clip_path != NULL)
+		{
+			_cairo_traps_init(&traps);
+			status = _cairo_path_fixed_fill_to_traps(&(clip_path->path), fill_rule, tolerance, &traps);
+			int m;
+			if(traps.num_traps != 0)
+			{
+				got_traps = 1;
+			}
+			//printf("\n==================\n\n=========== attention\n");	
+			for(m = 0; m < traps.num_traps; m++)
+			{
+				top = _cairo_fixed_to_double(traps.traps[m].top);
+				bottom = _cairo_fixed_to_double(traps.traps[m].bottom);
+				x1 = _cairo_fixed_to_double(traps.traps[m].left.p1.x);
+				x2 = _cairo_fixed_to_double(traps.traps[m].left.p2.x);
+				y1 = _cairo_fixed_to_double(traps.traps[m].left.p1.y);
+				y2 = _cairo_fixed_to_double(traps.traps[m].left.p2.y);
+				dx = x1 - x2;
+				dy = y1 - y2;
+				x_top_left = _cairo_fixed_from_double(x1 - dx * (y1 - top) / dy);
+				x_bottom_left = _cairo_fixed_from_double(x1  - dx * (y1 - bottom) /dy);
+				
+				x1 = _cairo_fixed_to_double(traps.traps[m].right.p1.x);
+				x2 = _cairo_fixed_to_double(traps.traps[m].right.p2.x);
+				y1 = _cairo_fixed_to_double(traps.traps[m].right.p1.y);
+				y2 = _cairo_fixed_to_double(traps.traps[m].right.p2.y);
+				dx = x1 - x2;
+				dy = y1 - y2;
+				x_top_right = _cairo_fixed_from_double(x1 - dx * (y1 - top) /dy);
+				x_bottom_right = _cairo_fixed_from_double(x1  - dx * (y1 - bottom) /dy);
+				points[0].x = x_top_left;
+				points[0].y = traps.traps[m].top;
+				points[1].x = x_bottom_left;
+				points[1].y = traps.traps[m].bottom;
+				points[2].x = x_bottom_right;
+				points[2].y = traps.traps[m].bottom;
+				points[3].x = x_top_right;
+				points[3].y = traps.traps[m].top;
+				/*if(_cairo_fixed_to_double(points[0].x) == 0.0 &&
+				   _cairo_fixed_to_double(points[0].y) == 0.0 &&
+				   _cairo_fixed_to_double(points[1].x) == 0.0 &&
+				   _cairo_fixed_to_double(points[1].y) == 400.0 &&
+				   _cairo_fixed_to_double(points[2].x) == 400.0 &&
+				   _cairo_fixed_to_double(points[2].y) == 400.0 &&
+				   _cairo_fixed_to_double(points[3].x) == 400.0 &&
+				   _cairo_fixed_to_double(points[3].y) == 0.0)
+				{*/
+				/*printf("add clip path left (%0.5f, %0.5f) - (%0.5f, %0.5f), right (%0.5f, %0.5f) - (%0.1f, %0.1f)\n", 
+					_cairo_fixed_to_double(points[0].x),
+					_cairo_fixed_to_double(points[0].y),
+					_cairo_fixed_to_double(points[1].x),
+					_cairo_fixed_to_double(points[1].y),
+					_cairo_fixed_to_double(points[2].x),
+					_cairo_fixed_to_double(points[2].y),
+					_cairo_fixed_to_double(points[3].x),
+					_cairo_fixed_to_double(points[3].y));
+				//}*/
+				status = _cairo_gl_add_convex_quad_for_clip(&indices, points);
+				if(unlikely(status))
+				{
+					_cairo_traps_fini(&traps);
+					glDisable(GL_DEPTH_TEST);
+					glDisable(GL_STENCIL_TEST);
+		
+					glColorMask(1, 1, 1, 1);
+					//glDisable(GL_STENCIL_TEST);
+					_cairo_gl_destroy_indices(&indices);
+					return status;
+				}
+			}
+			_cairo_traps_fini(&traps);
+			clip_path = clip_path->prev;
 		}
 		// first off, we need to flush if max
 		// let's create surface->indices_buf
@@ -1191,7 +1224,6 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 		status = _cairo_gl_fill(setup, indices.num_vertices, 
 			indices.vertices, NULL, indices.num_indices, indices.indices, setup->ctx);
 		_cairo_gl_destroy_indices(&indices);
-		_cairo_traps_fini(&traps);
 		if(unlikely(status))
 		{
 			glDisable(GL_STENCIL_TEST);
@@ -1200,7 +1232,6 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 			glColorMask(1, 1, 1, 1);
 			return status;
 		}
-		clip_path = clip_path->prev;
 		//if(clip_path != NULL)
 		//	printf("we have prev clip path\n");
 	}
