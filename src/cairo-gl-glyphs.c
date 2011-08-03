@@ -1279,8 +1279,8 @@ _cairo_gl_surface_show_glyphs (void			*abstract_dst,
 	if(clip != NULL)
 	{
 		if(clipped_extents->x > extents.x || clipped_extents->y > extents.y ||
-			clipped_extents->width < extents.width || 
-			clipped_extents->height < extents.height)
+			clipped_extents->width + clipped_extents->x < extents.width + extents.x || 
+			clipped_extents->height + clipped_extents->y < extents.height + extents.y)
 			needs_clip = TRUE;
 	}
 	
