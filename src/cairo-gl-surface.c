@@ -4071,6 +4071,19 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     cairo_status_t status;
 
 	_cairo_gl_index_t indices;
+	cairo_rectangle_int_t *clip_extent, stroke_extent;
+	if(clip != NULL)
+	{
+		_cairo_path_fixed_stroke_extents(path, style, ctm, ctm_inverse, 
+			tolerance, &stroke_extent);
+		clip_extent = _cairo_clip_get_extents(clip);
+		if(clip_extent->x <= stroke_extent.x && 
+		   clip_extent->y <= stroke_extent.y &&
+		   stroke_extent.width + stroke_extent.x <= clip_extent->width + clip_extent->x &&
+		   stroke_extent.height + stroke_extent.y <= clip_extent->height + clip_extent->y)
+			
+			clip = NULL;
+	}
 
 	if(antialias != CAIRO_ANTIALIAS_NONE || clip != NULL)
 	{
@@ -4379,6 +4392,18 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
 	// Henry Song
 	cairo_gl_composite_t *setup;
+	cairo_rectangle_int_t path_extent, *clip_extent;
+	if(clip != NULL)
+	{
+		_cairo_path_fixed_fill_extents(path, fill_rule, tolerance, &path_extent);
+		clip_extent = _cairo_clip_get_extents(clip);
+		if(clip_extent->x <= path_extent.x && 
+		   clip_extent->y <= path_extent.y &&
+		   path_extent.width + path_extent.x <= clip_extent->width + clip_extent->x &&
+		   path_extent.height + path_extent.y <= clip_extent->height + clip_extent->y)
+			
+			clip = NULL;
+	}
 
 	if(antialias != CAIRO_ANTIALIAS_NONE || clip != NULL)
 	{
