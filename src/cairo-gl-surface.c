@@ -3720,7 +3720,16 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 	else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
 		setup->src.type = CAIRO_GL_OPERAND_CONSTANT;
 	else if(source->type == CAIRO_PATTERN_TYPE_LINEAR)
-		setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT;
+	{
+		if(source->extend == CAIRO_EXTEND_NONE)
+			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE;
+		else if(source->extend == CAIRO_EXTEND_PAD)
+			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD;
+		else if(source->extend == CAIRO_EXTEND_REPEAT)
+			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT;
+		else
+			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT;
+	}
 	else if(source->type == CAIRO_PATTERN_TYPE_RADIAL)
 		setup->src.type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE;
 	else
@@ -4072,7 +4081,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 
 	_cairo_gl_index_t indices;
 	cairo_rectangle_int_t *clip_extent, stroke_extent;
-	if(clip != NULL)
+	/*if(clip != NULL)
 	{
 		_cairo_path_fixed_stroke_extents(path, style, ctm, ctm_inverse, 
 			tolerance, &stroke_extent);
@@ -4083,7 +4092,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		   stroke_extent.height + stroke_extent.y <= clip_extent->height + clip_extent->y)
 			
 			clip = NULL;
-	}
+	}*/
 
 	if(antialias != CAIRO_ANTIALIAS_NONE || clip != NULL)
 	{
@@ -4393,7 +4402,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	// Henry Song
 	cairo_gl_composite_t *setup;
 	cairo_rectangle_int_t path_extent, *clip_extent;
-	if(clip != NULL)
+	/*if(clip != NULL)
 	{
 		_cairo_path_fixed_fill_extents(path, fill_rule, tolerance, &path_extent);
 		clip_extent = _cairo_clip_get_extents(clip);
@@ -4403,7 +4412,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 		   path_extent.height + path_extent.y <= clip_extent->height + clip_extent->y)
 			
 			clip = NULL;
-	}
+	}*/
 
 	if(antialias != CAIRO_ANTIALIAS_NONE || clip != NULL)
 	{
@@ -4681,7 +4690,16 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
 		setup->src.type = CAIRO_GL_OPERAND_CONSTANT;
 	else if(source->type == CAIRO_PATTERN_TYPE_LINEAR)
-		setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT;
+	{
+		if(source->extend == CAIRO_EXTEND_NONE)
+			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE;
+		else if(source->extend == CAIRO_EXTEND_PAD)
+			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD;
+		else if(source->extend == CAIRO_EXTEND_REPEAT)
+			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT;
+		else
+			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT;
+	}
 	else if(source->type == CAIRO_PATTERN_TYPE_RADIAL)
 		setup->src.type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE;
 	else

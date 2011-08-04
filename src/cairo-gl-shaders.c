@@ -561,7 +561,10 @@ cairo_gl_operand_get_var_type (cairo_gl_operand_type_t type)
     case CAIRO_GL_OPERAND_NONE:
     case CAIRO_GL_OPERAND_CONSTANT:
         return CAIRO_GL_VAR_NONE;
-    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
@@ -669,7 +672,10 @@ _cairo_gl_shader_needs_border_fade (cairo_gl_operand_t *operand)
 
     return extend == CAIRO_EXTEND_NONE &&
 	   (operand->type == CAIRO_GL_OPERAND_TEXTURE ||
-	    operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT ||
+	    operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE ||
+	    operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD ||
+	    operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT ||
+	    operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT ||
 	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE ||
 	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0);
 }
@@ -733,7 +739,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		rectstr, namestr, namestr);
 	}
         break;
-    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
 	_cairo_output_stream_printf (stream,
 		"uniform vec2 %s_stops[8];\n"
 		"uniform vec4 %s_colors[8];\n"
@@ -746,7 +752,8 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"  if(%s_total_dist == 0.0)\n"
 		"    return 1.0;\n"
 		"  float d = 1.0 / %s_total_dist;\n"
-		"  return dot(%s_delta, coord - %s_stops[0]) * d;\n"
+		"  float dis = dot(%s_delta, coord - %s_stops[0]) *d;\n"
+		"    return dis;\n"
 		"}\n"
 		"int %s_i;\n"
 		"float %s_relative_dis;\n"
@@ -755,9 +762,11 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"vec4 %s_get_color(vec2 coord)\n"
 		"{\n"
 		"  %s_dis = %s_get_distance_from_start(coord);\n"
-		"  if(%s_dis >= 1.0 || %s_dis >= %s_offsets[%s_nstops-1])\n"
+		"  if(%s_dis > 1.0 || %s_dis < 0.0)\n"
+		"      return vec4(0.0, 0.0, 0.0, 0.0);\n"
+		"  else if(%s_dis >= %s_offsets[%s_nstops-1])\n"
 		"    return %s_colors[%s_nstops-1];\n"
-		"  else if(%s_dis <= 0.0 || %s_dis <= %s_offsets[0])\n"
+		"  else if(%s_dis <= %s_offsets[0])\n"
 		"    return %s_colors[0];\n"
 		"  if(%s_nstops == 2)\n"
 		"  {\n"
@@ -778,7 +787,6 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"      %s_relative_dis = %s_dis - %s_offsets[%s_i-1];\n"
 		"      float d = 1.0 / (%s_offsets[%s_i] - %s_offsets[%s_i-1]);\n"
 		"      %s_percent = %s_relative_dis * d ;\n"
-		"      //percent = relative_dis / (offsets[li] - offsets[li-1]);\n"
 		"      return (%s_colors[%s_i] - %s_colors[%s_i-1]) * %s_percent + %s_colors[%s_i-1];\n"
 		"    }\n"
 		"  }\n"
@@ -801,32 +809,292 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr);
-				
-	    /*"varying vec2 %s_texcoords;\n"
-	    "uniform vec2 %s_texdims;\n"
-	    "uniform sampler2D%s %s_sampler;\n"
-	    "\n"
-	    "vec4 get_%s()\n"
-	    "{\n",
-	    namestr, namestr, rectstr, namestr, namestr);*/
-	/*
-	if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES &&
-	    _cairo_gl_shader_needs_border_fade (op))
-	{
-	    _cairo_output_stream_printf (stream,
-		"    float border_fade = %s_border_fade (%s_texcoords.x, %s_texdims.x);\n"
-		"    vec4 texel = texture2D%s (%s_sampler, vec2 (%s_texcoords.x, 0.5));\n"
-		"    return texel * border_fade;\n"
+	break;
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
+	_cairo_output_stream_printf (stream,
+		"uniform vec2 %s_stops[8];\n"
+		"uniform vec4 %s_colors[8];\n"
+		"uniform float %s_offsets[8];\n"
+		"uniform float %s_total_dist;\n"
+		"uniform int %s_nstops;\n"
+		"uniform vec2 %s_delta;\n"
+		"float %s_get_distance_from_start(vec2 coord)\n"
+		"{\n"
+		"  if(%s_total_dist == 0.0)\n"
+		"    return 1.0;\n"
+		"  float d = 1.0 / %s_total_dist;\n"
+		"  float dis = dot(%s_delta, coord - %s_stops[0]) *d;\n"
+		"    return dis;\n"
+		"}\n"
+		"int %s_i;\n"
+		"float %s_relative_dis;\n"
+		"float %s_percent;\n"
+		"float %s_dis;\n"
+		"vec4 %s_get_color(vec2 coord)\n"
+		"{\n"
+		"  %s_dis = %s_get_distance_from_start(coord);\n"
+		"  if(%s_dis >= %s_offsets[%s_nstops-1])\n"
+		"    return %s_colors[%s_nstops-1];\n"
+		"  else if(%s_dis <= %s_offsets[0])\n"
+		"    return %s_colors[0];\n"
+		"  if(%s_nstops == 2)\n"
+		"  {\n"
+		"    if(%s_offsets[0] == 0.0 && %s_offsets[1] == 1.0)\n"
+		"      return (%s_colors[1] - %s_colors[0]) * %s_dis + %s_colors[0];\n"
+		"    else\n"
+		"    {\n"
+		"      %s_relative_dis = %s_dis - %s_offsets[0];\n"
+		"      float d = 1.0 / (%s_offsets[1] - %s_offsets[0]);\n"
+		"      %s_percent = %s_relative_dis * d ;\n"
+		"      return (%s_colors[1] - %s_colors[0]) * %s_percent + %s_colors[0];\n"
+		"    }\n"
+		"  }\n"
+		"  for(%s_i = 1; %s_i < %s_nstops; %s_i++)\n"
+		"  {\n"
+		"    if(%s_dis <= %s_offsets[%s_i])\n"
+		"    {\n"
+		"      %s_relative_dis = %s_dis - %s_offsets[%s_i-1];\n"
+		"      float d = 1.0 / (%s_offsets[%s_i] - %s_offsets[%s_i-1]);\n"
+		"      %s_percent = %s_relative_dis * d ;\n"
+		"      return (%s_colors[%s_i] - %s_colors[%s_i-1]) * %s_percent + %s_colors[%s_i-1];\n"
+		"    }\n"
+		"  }\n"
+		"  return %s_colors[%s_nstops-1];\n"
+		"}\n"
+		"vec4 get_%s()\n"
+		"{\n"
+		"	return %s_get_color(gl_FragCoord.xy);\n"
 		"}\n",
-		namestr, namestr, namestr, rectstr, namestr, namestr);
-	}
-	else
-	{
-	    _cairo_output_stream_printf (stream,
-		"    return texture2D%s (%s_sampler, vec2 (%s_texcoords.x, 0.5));\n"
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr);
+	break;
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
+	_cairo_output_stream_printf (stream,
+		"uniform vec2 %s_stops[8];\n"
+		"uniform vec4 %s_colors[8];\n"
+		"uniform float %s_offsets[8];\n"
+		"uniform float %s_total_dist;\n"
+		"uniform int %s_nstops;\n"
+		"uniform vec2 %s_delta;\n"
+		"float %s_reversed;\n"
+		"float %s_get_distance_from_start(vec2 coord)\n"
+		"{\n"
+		"  %s_reversed = 0.0;\n"
+		"  if(%s_total_dist == 0.0)\n"
+		"    return 1.0;\n"
+		"  float d = 1.0 / %s_total_dist;\n"
+		"  float dis = dot(%s_delta, coord - %s_stops[0]) *d;\n"
+		"  if(dis == 0.0)\n"
+		"    return dis;\n"
+		"  if(dis < 0.0)\n"
+		"  {\n"
+		"    %s_reversed = 1.0;\n"
+		"    dis = -dis;\n"
+		"  }\n"
+		"  float dis1 = fract(dis);\n"
+		"  if(dis1 == 0.0)\n"
+		"    return 1.0;\n"
+		"  if(%s_reversed == 0.0)\n"
+		"    return dis1;\n"
+		"  return 1.0 - dis1;\n"
+		"}\n"
+		"int %s_i;\n"
+		"float %s_relative_dis;\n"
+		"float %s_percent;\n"
+		"float %s_dis;\n"
+		"vec4 %s_get_color(vec2 coord)\n"
+		"{\n"
+		"  %s_dis = %s_get_distance_from_start(coord);\n"
+		"  if(%s_dis >= %s_offsets[%s_nstops-1])\n"
+		"    return %s_colors[%s_nstops-1];\n"
+		"  else if(%s_dis <= %s_offsets[0])\n"
+		"    return %s_colors[0];\n"
+		"  if(%s_nstops == 2)\n"
+		"  {\n"
+		"    if(%s_offsets[0] == 0.0 && %s_offsets[1] == 1.0)\n"
+		"      return (%s_colors[1] - %s_colors[0]) * %s_dis + %s_colors[0];\n"
+		"    else\n"
+		"    {\n"
+		"      %s_relative_dis = %s_dis - %s_offsets[0];\n"
+		"      float d = 1.0 / (%s_offsets[1] - %s_offsets[0]);\n"
+		"      %s_percent = %s_relative_dis * d ;\n"
+		"      return (%s_colors[1] - %s_colors[0]) * %s_percent + %s_colors[0];\n"
+		"    }\n"
+		"  }\n"
+		"  for(%s_i = 1; %s_i < %s_nstops; %s_i++)\n"
+		"  {\n"
+		"    if(%s_dis <= %s_offsets[%s_i])\n"
+		"    {\n"
+		"      %s_relative_dis = %s_dis - %s_offsets[%s_i-1];\n"
+		"      float d = 1.0 / (%s_offsets[%s_i] - %s_offsets[%s_i-1]);\n"
+		"      %s_percent = %s_relative_dis * d ;\n"
+		"      return (%s_colors[%s_i] - %s_colors[%s_i-1]) * %s_percent + %s_colors[%s_i-1];\n"
+		"    }\n"
+		"  }\n"
+		"  return %s_colors[%s_nstops-1];\n"
+		"}\n"
+		"vec4 get_%s()\n"
+		"{\n"
+		"	return %s_get_color(gl_FragCoord.xy);\n"
 		"}\n",
-		rectstr, namestr, namestr);
-	}*/
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr);
+	break;
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
+	_cairo_output_stream_printf (stream,
+		"uniform vec2 %s_stops[8];\n"
+		"uniform vec4 %s_colors[8];\n"
+		"uniform float %s_offsets[8];\n"
+		"uniform float %s_total_dist;\n"
+		"uniform int %s_nstops;\n"
+		"uniform vec2 %s_delta;\n"
+		"vec2 %s_get_distance_from_start(vec2 coord)\n"
+		"{\n"
+		"  if(%s_total_dist == 0.0)\n"
+		"    return vec2(1.0, 0.0);\n"
+		"  float d = 1.0 / %s_total_dist;\n"
+		"  float dis = dot(%s_delta, coord - %s_stops[0]) *d;\n"
+		"  if(dis == 0.0)\n"
+		"    return vec2(dis, 0.0);\n"
+		"  if(dis < 0.0)\n"
+		"  {\n"
+		"    dis = -dis;\n"
+		"  }\n"
+		"  float dis1 = fract(dis);\n"
+		"  if(dis1 == 0.0)\n"
+		"    return vec2(1.0, 0.0);\n"
+		"  float dis2 = mod(dis, 2.0);\n"
+		"  if(dis2 > 1.0)\n"
+		"    return vec2(dis1, 1.0);\n"
+		"  return vec2(dis1, 0.0);\n"
+		"}\n"
+		"int %s_i;\n"
+		"float %s_relative_dis;\n"
+		"float %s_percent;\n"
+		"float %s_dis;\n"
+		"vec2 %s_dis_vec;\n"
+		"float %s_odd;\n"
+		"vec4 %s_get_color(vec2 coord)\n"
+		"{\n"
+		"  %s_dis_vec = %s_get_distance_from_start(coord);\n"
+		"  %s_dis = %s_dis_vec.x;\n"
+		"  %s_odd = %s_dis_vec.y;\n"
+		"  if(%s_odd == 1.0)\n"
+		"  {\n"
+		"    if(%s_dis <= 1.0 - %s_offsets[%s_nstops-1])\n"
+		"      return %s_colors[%s_nstops-1];\n"
+		"  	 else if(%s_dis >= 1.0 - %s_offsets[0])\n"
+		"      return %s_colors[0];\n"
+		"  }\n"
+		"  else\n"
+		"  {\n"
+		"    if(%s_dis <= %s_offsets[0])\n"
+		"      return %s_colors[0];\n"
+		"  	 else if(%s_dis >= %s_offsets[%s_nstops-1])\n"
+		"      return %s_colors[%s_nstops-1];\n"
+		"  }\n"
+		"  if(%s_nstops == 2)\n"
+		"  {\n"
+		"    if(%s_odd == 1.0)\n"
+		"    {\n"
+		"      if(%s_offsets[0] == 0.0 && %s_offsets[%s_nstops-1] == 1.0)\n"
+		"        return (%s_colors[0] - %s_colors[1]) * %s_dis + %s_colors[1];\n"
+		"      else\n"
+		"      {\n"
+		"        %s_relative_dis = %s_dis - 1.0 + %s_offsets[1];\n"
+		"        float d = 1.0 / (%s_offsets[1] - %s_offsets[0]);\n"
+		"        %s_percent = %s_relative_dis * d ;\n"
+		"        return (%s_colors[0] - %s_colors[1]) * %s_percent + %s_colors[1];\n"
+		"      }\n"
+		"    }\n"
+		"    else\n"
+		"    {\n"
+		"      if(%s_offsets[0] == 0.0 && %s_offsets[%s_nstops-1] == 1.0)\n"
+		"        return (%s_colors[1] - %s_colors[0]) * %s_dis + %s_colors[0];\n"
+		"      else\n"
+		"      {\n"
+		"        %s_relative_dis = %s_dis - %s_offsets[0];\n"
+		"        float d = 1.0 / (%s_offsets[1] - %s_offsets[0]);\n"
+		"        %s_percent = %s_relative_dis * d ;\n"
+		"        return (%s_colors[1] - %s_colors[0]) * %s_percent + %s_colors[0];\n"
+		"      }\n"
+		"    }\n"
+		"  }\n"
+		"  if(%s_odd == 0.0)\n"
+		"  {\n"
+		"    for(%s_i = 1; %s_i < %s_nstops; %s_i++)\n"
+		"    {\n"
+		"      if(%s_dis <= %s_offsets[%s_i])\n"
+		"      {\n"
+		"        %s_relative_dis = %s_dis - %s_offsets[%s_i-1];\n"
+		"        float d = 1.0 / (%s_offsets[%s_i] - %s_offsets[%s_i-1]);\n"
+		"        %s_percent = %s_relative_dis * d ;\n"
+		"        return (%s_colors[%s_i] - %s_colors[%s_i-1]) * %s_percent + %s_colors[%s_i-1];\n"
+		"      }\n"
+		"    }\n"
+		"  }\n"
+		"  else\n"
+		"  {\n"
+		"    for(%s_i = %s_nstops - 1; %s_i >= 0; %s_i--)\n"
+		"    {\n"
+		"      if(%s_dis <= 1.0 - %s_offsets[%s_i])\n"
+		"      {\n"
+		"        %s_relative_dis =%s_dis - 1.0 + %s_offsets[%s_i+1];\n"
+		"        float d = 1.0 / (%s_offsets[%s_i+1] - %s_offsets[%s_i]);\n"
+		"        %s_percent = %s_relative_dis * d ;\n"
+		"        return (%s_colors[%s_i] - %s_colors[%s_i+1]) * %s_percent + %s_colors[%s_i+1];\n"
+		"      }\n"
+		"    }\n"
+		"  }\n"
+		"  return %s_colors[0];\n"
+		"}\n"
+		"vec4 get_%s()\n"
+		"{\n"
+		"	return %s_get_color(gl_FragCoord.xy);\n"
+		"}\n",
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr);
 	break;
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
 	_cairo_output_stream_printf (stream,

@@ -224,7 +224,15 @@ _cairo_gl_gradient_operand_init (cairo_gl_operand_t *operand,
 			operand->gradient.delta);
 		if(unlikely(status))
 			return CAIRO_INT_STATUS_UNSUPPORTED;
-		operand->type = CAIRO_GL_OPERAND_LINEAR_GRADIENT;
+		if (pattern->extend == CAIRO_EXTEND_NONE)
+			operand->type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE;
+		else if(pattern->extend == CAIRO_EXTEND_PAD)
+			operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD;
+		else if(pattern->extend == CAIRO_EXTEND_REPEAT)
+			operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT;
+		else if(pattern->extend == CAIRO_EXTEND_REFLECT)
+			operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT;
+
 		operand->gradient.pattern = gradient;
     } 
 	else 
@@ -259,7 +267,10 @@ _cairo_gl_operand_destroy (cairo_gl_operand_t *operand)
     switch (operand->type) {
     case CAIRO_GL_OPERAND_CONSTANT:
 	break;
-    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
@@ -328,7 +339,10 @@ _cairo_gl_operand_get_filter (cairo_gl_operand_t *operand)
     case CAIRO_GL_OPERAND_TEXTURE:
 	filter = operand->texture.attributes.filter;
 	break;
-    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
@@ -361,7 +375,10 @@ _cairo_gl_operand_get_extend (cairo_gl_operand_t *operand)
     case CAIRO_GL_OPERAND_TEXTURE:
 	extend = operand->texture.attributes.extend;
 	break;
-    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
@@ -517,7 +534,10 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 				      operand->gradient.radius_0);
 	*/
         /* fall through */
-    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
 		// Henry Song
 		// we need to bind stops, colors, offsets, total_dist, nstops, and
 		// delta
@@ -684,7 +704,10 @@ _cairo_gl_operand_needs_setup (cairo_gl_operand_t *dest,
                dest->texture.attributes.extend != source->texture.attributes.extend ||
                dest->texture.attributes.filter != source->texture.attributes.filter ||
                dest->texture.attributes.has_component_alpha != source->texture.attributes.has_component_alpha;
-    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
@@ -756,7 +779,10 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
 					(void *) (uintptr_t) vertex_offset);
 	dispatch->EnableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
         break;
-    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
 		_cairo_gl_gradient_reference(operand->gradient.gradient);
 		break;
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
@@ -797,7 +823,10 @@ _cairo_gl_context_destroy_operand (cairo_gl_context_t *ctx,
     case CAIRO_GL_OPERAND_TEXTURE:
         dispatch->DisableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
         break;
-    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
@@ -886,7 +915,10 @@ _cairo_gl_operand_get_vertex_size (cairo_gl_operand_type_t type)
     case CAIRO_GL_OPERAND_SPANS:
         return 4 * sizeof (GLbyte);
     case CAIRO_GL_OPERAND_TEXTURE:
-    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
@@ -1431,7 +1463,10 @@ _cairo_gl_operand_emit (cairo_gl_operand_t *operand,
             *(*vb)++ = fi.f;
         }
         break;
-    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
