@@ -2284,7 +2284,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 	status = _cairo_surface_acquire_source_image(src, &img_src, &extra);
 	if(unlikely(status))
 		return NULL;
-	img_src = (cairo_image_surface_t *)src;
+	//img_src = (cairo_image_surface_t *)src;
 	clone = (cairo_gl_surface_t *)
 		_cairo_gl_surface_create_similar(&surface->base, 
 			((cairo_surface_t *)img_src)->content,
@@ -4889,7 +4889,11 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
 	cairo_image_surface_t *src;
     cairo_status_t status = CAIRO_STATUS_SUCCESS;
 	cairo_image_surface_t *clone = NULL;
+	cairo_image_surface_t *shrink_image = NULL;
 	GLenum error;
+
+	if(dst->tex == 0)
+		return CAIRO_INT_STATUS_UNSUPPORTED;
 
 	int orig_width = width;
 	int orig_height = height;
@@ -4972,7 +4976,6 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
     if (unlikely (status))
 		goto FAIL;
 	
-	cairo_image_surface_t *shrink_image = NULL;
 	if(dst->scale != 1.0)
 	{
 		//we have to shrink image
@@ -5111,6 +5114,8 @@ _cairo_gl_surface_mark_dirty_rectangle(cairo_surface_t *abstract_surface,
 	int x, int y, int width, int height)
 {
 	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
+	if(surface->tex == 0)
+		return CAIRO_INT_STATUS_UNSUPPORTED;
 	if(surface->data_surface == NULL)
 		return CAIRO_STATUS_SUCCESS;
 
@@ -5137,6 +5142,8 @@ cairo_gl_surface_get_data(cairo_surface_t *abstract_surface)
 {
 	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
 	if(!_cairo_surface_is_gl(abstract_surface))
+		return NULL;
+	if(surface->tex == 0)
 		return NULL;
 	
 	if(surface->needs_new_data_surface == FALSE)
