@@ -1271,7 +1271,7 @@ _cairo_gl_get_image_format_and_type_gles2 (pixman_format_code_t pixman_format,
 					   GLenum *type, cairo_bool_t *has_alpha,
 					   cairo_bool_t *needs_swap)
 {
-    cairo_bool_t is_big_endian = _cairo_gl_is_big_endian ();
+    cairo_bool_t is_big_endian = !_cairo_is_little_endian ();
 
     *has_alpha = TRUE;
 
@@ -2584,7 +2584,7 @@ _cairo_gl_surface_get_image (cairo_gl_surface_t      *surface,
     if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES) 
 	{
 		format = GL_RGBA;
-		if (_cairo_gl_is_big_endian ()) 
+		if (!_cairo_is_little_endian ()) 
 		{
 	    	ASSERT_NOT_REACHED;
 	    /* TODO: Add r8g8b8a8 support to pixman and enable this

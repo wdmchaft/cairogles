@@ -832,13 +832,6 @@ _cairo_gl_operand_get_gl_filter (cairo_gl_operand_t *operand);
 cairo_private cairo_extend_t
 _cairo_gl_operand_get_extend (cairo_gl_operand_t *operand);
 
-static cairo_always_inline cairo_bool_t
-_cairo_gl_is_big_endian (void)
-{
-    static const int i = 1;
-    return *((char *) &i) != 0x01;
-}
-
 slim_hidden_proto (cairo_gl_surface_create);
 slim_hidden_proto (cairo_gl_surface_create_for_texture);
 

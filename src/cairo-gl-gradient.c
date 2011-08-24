@@ -228,7 +228,7 @@ _cairo_gl_gradient_render (const cairo_gl_context_t    *ctx,
      * This is done so that the gradient's pixel data is always suitable for
      * texture upload using format=GL_BGRA and type=GL_UNSIGNED_BYTE.
      */
-    if (_cairo_gl_is_big_endian ())
+    if (!_cairo_is_little_endian ())
 	gradient_pixman_format = PIXMAN_b8g8r8a8;
     else
 	gradient_pixman_format = PIXMAN_a8r8g8b8;
