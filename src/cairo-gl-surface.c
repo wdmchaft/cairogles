@@ -42,6 +42,7 @@
 
 #include "cairo-composite-rectangles-private.h"
 #include "cairo-default-context-private.h"
+#include "cairo-recording-surface-private.h"
 #include "cairo-error-private.h"
 #include "cairo-gl-private.h"
 
@@ -2279,44 +2280,91 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 		// we have snapshot
 		return _cairo_gl_generate_clone(surface, snapshot, extend);
 	}
+	
 	void *extra;
-	//printf("cannot find clone\n");
-	status = _cairo_surface_acquire_source_image(src, &img_src, &extra);
-	if(unlikely(status))
-		return NULL;
-	//img_src = (cairo_image_surface_t *)src;
-	clone = (cairo_gl_surface_t *)
-		_cairo_gl_surface_create_similar(&surface->base, 
-			((cairo_surface_t *)img_src)->content,
-			img_src->width, img_src->height);
-
-	if(clone == NULL || cairo_surface_get_type(clone) == CAIRO_SURFACE_TYPE_IMAGE)
+	if(_cairo_surface_is_recording(src))
 	{
+		cairo_rectangle_int_t recording_extents;
+		cairo_recording_surface_t *recording_surface = (cairo_recording_surface_t *)src;
+		cairo_bool_t bounded  = _cairo_surface_get_extents(src, &recording_extents);
+		if(bounded == FALSE)
+			clone = (cairo_gl_surface_t *)
+				_cairo_gl_surface_create_similar(&surface->base, 
+				src->content,
+				surface->width, surface->height);
+		else
+			clone = (cairo_gl_surface_t *)
+				_cairo_gl_surface_create_similar(&surface->base, 
+				src->content,
+				recording_extents.width, recording_extents.height);
+		if(unlikely(clone->base.status))
+		{
+			cairo_surface_destroy(&clone->base);
+			return NULL;
+		}
+		cairo_color_t clear_color;
+		clear_color.red = 0;
+		clear_color.green = 0;
+		clear_color.blue = 0;
+		clear_color.alpha = 0;
+		_cairo_gl_surface_clear (clone, &clear_color);
+		//cairo_surface_write_to_png(&clone->base, "./record.png");
+		/*
+		if(bounded == FALSE)
+			cairo_surface_set_device_offset(&img_src->base,
+				-surface->width / 2.0, -surface->height / 2.0);
+		else
+			cairo_surface_set_device_offset(&img_src->base, 
+				-recording_extents.x, -recording_extents.y);
+		*/
+		status = _cairo_recording_surface_replay(src, &clone->base);
+		if(unlikely(status))
+		{
+			cairo_surface_destroy(&clone->base);
+			return NULL;
+		}
+		//cairo_surface_write_to_png(&clone->base, "./record1.png");
+	}
+	else
+	{
+		//printf("cannot find clone\n");
+		status = _cairo_surface_acquire_source_image(src, &img_src, &extra);
+		if(unlikely(status))
+			return NULL;
+		//img_src = (cairo_image_surface_t *)src;
+		clone = (cairo_gl_surface_t *)
+			_cairo_gl_surface_create_similar(&surface->base, 
+				((cairo_surface_t *)img_src)->content,
+				img_src->width, img_src->height);
+
+		if(clone == NULL || cairo_surface_get_type(clone) == CAIRO_SURFACE_TYPE_IMAGE)
+		{
+			if(cairo_surface_get_type(src) != CAIRO_SURFACE_TYPE_IMAGE)
+			{
+				cairo_surface_destroy(&img_src->base);
+				if(extra != NULL)
+					free(extra);
+			}
+			if(clone != NULL)
+			{
+				cairo_surface_destroy(&clone->base);
+			}
+			
+			return NULL;
+		}
+		status = _cairo_gl_surface_upload_image(clone, img_src, 0, 0, 
+			img_src->width, img_src->height, 0, 0);
 		if(cairo_surface_get_type(src) != CAIRO_SURFACE_TYPE_IMAGE)
 		{
 			cairo_surface_destroy(&img_src->base);
 			if(extra != NULL)
 				free(extra);
 		}
-		if(clone != NULL)
+		if(unlikely (status))
 		{
 			cairo_surface_destroy(&clone->base);
+			return NULL;
 		}
-			
-		return NULL;
-	}
-	status = _cairo_gl_surface_upload_image(clone, img_src, 0, 0, 
-		img_src->width, img_src->height, 0, 0);
-	if(cairo_surface_get_type(src) != CAIRO_SURFACE_TYPE_IMAGE)
-	{
-		cairo_surface_destroy(&img_src->base);
-		if(extra != NULL)
-			free(extra);
-	}
-	if(unlikely (status))
-	{
-		cairo_surface_destroy(&clone->base);
-		return NULL;
 	}
 
 	// setup image surface snapshot of cloned gl surface
