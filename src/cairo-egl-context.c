@@ -41,8 +41,6 @@
 #include "cairo-gl-private.h"
 
 #include "cairo-error-private.h"
-//Henry Song
-#include <sys/time.h>
 
 typedef struct _cairo_egl_context {
     cairo_gl_context_t base;
@@ -51,7 +49,6 @@ typedef struct _cairo_egl_context {
     EGLContext context;
 
     EGLSurface dummy_surface;
-	// Henry Song
 	EGLContext target_context;
 	EGLSurface target_surface;
 	EGLDisplay target_display;
@@ -63,25 +60,16 @@ typedef struct _cairo_egl_surface {
     EGLSurface egl;
 } cairo_egl_surface_t;
 
-static long _get_tick(void)
-{
-	struct timeval now;
-	gettimeofday(&now, NULL);
-	return now.tv_sec * 1000000 + now.tv_usec;
-}
-
 static void
 _egl_acquire (void *abstract_ctx)
 {
     cairo_egl_context_t *ctx = abstract_ctx;
     EGLSurface current_surface;
    	cairo_egl_surface_t *surface = (cairo_egl_surface_t *) ctx->base.current_target;
-	long now = _get_tick();
 	EGLSurface current_su = eglGetCurrentSurface(EGL_DRAW);
 	EGLDisplay current_di = eglGetCurrentDisplay();
 	EGLContext current_co = eglGetCurrentContext();
-	//long then = _get_tick() - now;
-	//printf("get context takes %ld usec\n", then);
+
 	if(surface == NULL || _cairo_gl_surface_is_texture(ctx->base.current_target))
 	{
 		current_surface = ctx->dummy_surface;
@@ -93,62 +81,34 @@ _egl_acquire (void *abstract_ctx)
 		ctx->context != current_co ||
 		current_surface != current_su)
 	{
-		//long now = _get_tick();
-		//glFinish();
-		//long then = _get_tick();
-		//printf("in acquire glFinish takes %ld usec\n", then - now);
-    	eglMakeCurrent (ctx->display,
-		    current_surface, current_surface, ctx->context);
-		//printf("//////////////////// make current\n");
-		//now = _get_tick();
-		//printf("in acquire eglMakeCurrent takes %ld usec\n", now - then);
-		//printf("make current called in acquire\n");
+            eglMakeCurrent (ctx->display,
+                            current_surface, current_surface, ctx->context);
 	}
-	now = _get_tick() - now;
-	//printf("////////////////////in egl_acquire, takes %d us\n", now);
 }
 
 static void
 _egl_release (void *abstract_ctx)
 {
-	//long now = _get_tick();
     cairo_egl_context_t *ctx = abstract_ctx;
-
-    //eglMakeCurrent (ctx->display,
-	//	    EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-	//now = _get_tick() - now;
-	//printf("in egl_release, takes %d us\n", now);
 }
 
 static void
 _egl_make_current (void *abstract_ctx,
 	           cairo_gl_surface_t *abstract_surface)
 {
-	//long now = _get_tick();
     cairo_egl_context_t *ctx = abstract_ctx;
     cairo_egl_surface_t *surface = (cairo_egl_surface_t *) abstract_surface;
 	
 	EGLSurface current_su = eglGetCurrentSurface(EGL_DRAW);
 	EGLDisplay current_di = eglGetCurrentDisplay();
 	EGLContext current_co = eglGetCurrentContext();
-	//long then = _get_tick() - now;
-	//printf("in make current get context takes %ld usec\n", then);
 	if(ctx->display != current_di  ||
 		surface->egl != current_su ||
 		ctx->context != current_co)
 	{
-		//long now = _get_tick();
-		//glFinish();
-		//long then = _get_tick();
-		//printf("in make current glFinish takes %ld usec\n", then - now);
-    	eglMakeCurrent (ctx->display,
-		    surface->egl, surface->egl, ctx->context);
-		//now = _get_tick();
-		//printf("in make current eglMakeCurrent takes %ld usec\n", now - then);
-		//printf("called in egl_make_current\n");
+            eglMakeCurrent (ctx->display,
+                            surface->egl, surface->egl, ctx->context);
 	}
-	//now = _get_tick() - now;
-	//printf("in make_current, takes %d us\n", now);
 }
 
 static void
@@ -156,8 +116,8 @@ _egl_swap_buffers (void *abstract_ctx,
 		   cairo_gl_surface_t *abstract_surface)
 {
     cairo_egl_context_t *ctx = abstract_ctx;
-    cairo_egl_surface_t *surface = (cairo_egl_surface_t *) abstract_surface;	// Henry Song
-	//printf("called swap buffer\n");
+    cairo_egl_surface_t *surface = (cairo_egl_surface_t *) abstract_surface;
+
     eglSwapBuffers (ctx->display, surface->egl);
 }
 
@@ -242,13 +202,8 @@ cairo_egl_device_create (EGLDisplay dpy, EGLContext egl)
 	eglQueryContext (dpy, egl, EGL_CONFIG_ID, &config_attribs[1]);
 	eglChooseConfig (dpy, config_attribs, &config, 1, &numConfigs);
 
-	/*EGLint surface_type = -1;
-	eglGetConfigAttrib(dpy, config, EGL_SURFACE_TYPE, &surface_type);
-	printf("match surface type = %x\n", surface_type);
-	*/
 	ctx->dummy_surface = eglCreatePbufferSurface (dpy, config, attribs);
-	//EGLint e = eglGetError();
-	//printf("egl error = %x\n", e);
+
 	if (ctx->dummy_surface == NULL) {
 	    free (ctx);
 	    return _cairo_gl_context_create_in_error (CAIRO_STATUS_NO_MEMORY);
@@ -305,10 +260,5 @@ cairo_gl_surface_create_for_egl (cairo_device_t	*device,
 			    CAIRO_CONTENT_COLOR_ALPHA, width, height);
     surface->egl = egl;
 
-	// Henry Song
-	/*cairo_gl_surface_t *egl_surface = (cairo_gl_surface_t *)&(surface->base);
-	egl_surface->paint_to_self = FALSE;
-	egl_surface->offscreen_surface = cairo_surface_create_similar(egl_surface, CAIRO_CONTENT_COLOR_ALPHA, width, height);
-	*/
     return &surface->base.base;
 }
