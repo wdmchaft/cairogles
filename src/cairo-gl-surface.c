@@ -46,19 +46,9 @@
 #include "cairo-error-private.h"
 #include "cairo-gl-private.h"
 
-// Henry Song
 #include <sys/time.h>
 #include "cairo-surface-clipper-private.h"
 #include <math.h>
-//Henry Song test
-//cairo_path_fixed_t	*my_path = NULL;
-
-static long _get_tick(void)
-{
-	struct timeval now;
-	gettimeofday(&now, NULL);
-	return now.tv_sec * 1000000 + now.tv_usec;
-}
 
 static cairo_bool_t 
 _cairo_gl_need_extend(int size, int *out_size, float *scale)
@@ -99,32 +89,13 @@ _cairo_gl_need_extend(int size, int *out_size, float *scale)
 	return TRUE;
 }
 
-/*cairo_status_t
-_cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
-	cairo_image_surface_t *image_surface,
-	int src_x, int src_y,
-	int width, int height,
-	int dst_x, int dst_y);
-*/
 static cairo_int_status_t
 _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
 				   cairo_operator_t	    op,
 				   const cairo_color_t     *color,
 				   cairo_rectangle_int_t   *rects,
 				   int			    num_rects);
-// Henry Song
-/*
-cairo_status_t _cairo_gl_add_triangle(void *closure,
-	const cairo_point_t triangle[3]);
-cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
-	const cairo_point_t *midpt,
-	const cairo_point_t *points,
-	int npoints);
-cairo_status_t _cairo_gl_add_convex_quad(void *closure,
-	const cairo_point_t quad[4]);
-cairo_status_t _cairo_gl_add_convex_quad_for_clip(void *closure,
-	const cairo_point_t quad[4]);
-*/
+
 static cairo_int_status_t
 _cairo_gl_surface_mask(cairo_surface_t *abstract_surface,
 	cairo_operator_t op,
@@ -154,10 +125,9 @@ _cairo_gl_surface_composite (cairo_operator_t		  op,
 static cairo_status_t
 _cairo_gl_surface_flush (void *abstract_surface);
 
-// Henry Song
 static void
 _cairo_gl_surface_remove_from_cache(cairo_surface_t *abstract_surface);
-// Henry Song
+
 static cairo_status_t
 _cairo_gl_line_to(void *closure, const cairo_point_t *point);
 
@@ -226,10 +196,8 @@ _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vert
 	double *src_v = NULL;
 	double *mask_colors = NULL;
 	double *mask_v = NULL;
-	//cairo_gl_context_t *ctx;
+
 	cairo_gl_composite_t *setup = (cairo_gl_composite_t *)closure;
-	//printf("gl fill indices = %d, vertices = %d\n", npoints, vpoints);
-	//if(npoints > 10000)
 	int index = 0;
 	int stride = 4 * sizeof(GLfloat);
 	if(setup->src.type == CAIRO_GL_OPERAND_CONSTANT)
@@ -260,23 +228,6 @@ _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vert
 			st[index*2] = src_v[index*2];
 			st[index*2+1] = src_v[index*2+1];
 		}
-		/*
-		if(vpoints == 4)
-		{
-			printf("exceed, npoints = %d, vpoints = %d, setup = %x\n", npoints, vpoints, setup);
-			int i = 0;
-			for(i = 0; i < npoints; i++)
-				printf("%d, ", indices[i]);
-			printf("\n");
-			for(i = 0; i < vpoints; i++)
-				printf("(%0.5f, %0.5f) ", vertices[i*2], vertices[i*2+1]);
-			printf("\n");
-		}
-		if(vpoints == 4)
-		{
-			for(index = 0; index < vpoints; index++)
-				printf("st[%d].s = %0.5f, st[%d].t = %0.5f\n", index, st[index*2], index, st[index*2+1]);
-		}*/
 	}
 
 	if(setup->mask.type == CAIRO_GL_OPERAND_CONSTANT)
@@ -288,27 +239,6 @@ _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vert
 			index++;
 		}
 	}
-	/*
-	else if(setup->mask.type == CAIRO_GL_OPERAND_TEXTURE)
-	{
-		cairo_matrix_t m, m1;
-		v = (double *)malloc(sizeof(double)*vpoints*2);
-		colors = (char *)malloc(sizeof(GLfloat)*2*vpoints);
-		cairo_matrix_init_scale(&m, 1.0, 1.0);
-		cairo_matrix_multiply(&m, &m, &(setup->source->matrix));
-		cairo_matrix_init_scale(&m1, 1.0 / setup->src.texture.width,
-			1.0 / setup->src.texture.height);
-		cairo_matrix_multiply(&m, &m, &m1);
-		GLfloat *st = colors;
-		for(index = 0; index < vpoints; index++)
-		{
-			v[index*2] = vertices[index*2];
-			v[index*2+1] = vertices[index*2+1];
-			cairo_matrix_transform_point(&m, &v[index*2], &v[index*2+1]); 
-			st[index*2] = v[index*2];
-			st[index*2+1] = v[index*2+1];
-		}
-	}*/
 		// we need to fill colors with st values
 	cairo_status_t status = _cairo_gl_composite_begin_constant_color(setup, 
 			vpoints, 
@@ -332,9 +262,6 @@ _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vert
 
 	_cairo_gl_composite_fill_constant_color(ctx, npoints, indices);
 	// we need to release context
-	//status = _cairo_gl_context_release(ctx, status);
-	//printf("fill color finished\n");
-	//return CAIRO_STATUS_SUCCESS;
 	if(src_colors != NULL)
 		free(src_colors);
 	if(src_v != NULL)
@@ -350,7 +277,6 @@ cairo_status_t _cairo_gl_add_triangle(void *closure,
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
 	cairo_gl_composite_t *setup = indices->setup;
 	// first off, we need to flush if max
-	//printf("before add triangle indices = %d\n", indices->num_indices);
 	if(indices->num_indices > MAX_INDEX)
 	{
 		if(indices->setup != NULL)
@@ -394,7 +320,6 @@ cairo_status_t _cairo_gl_add_triangle(void *closure,
 	}
 	indices->num_indices += 3;
 	indices->num_vertices += 3;
-	//printf("after add triangle indices = %d\n", indices->num_indices);
 	return CAIRO_STATUS_SUCCESS;
 }
 
@@ -405,7 +330,6 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 {
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
 	cairo_gl_composite_t *setup = indices->setup;
-	//printf("before add triangle fan indices = %d\n", indices->num_indices);
 	// first off, we need to flush if max
 	if(indices->num_indices > MAX_INDEX)
 	{
@@ -480,7 +404,7 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 		indices->num_vertices += 1;
 		num_vertices = indices->num_vertices;
 	}
-	//printf("after add triangle fan indices = %d\n", indices->num_indices);
+
 	return CAIRO_STATUS_SUCCESS;
 }
 
@@ -490,11 +414,8 @@ cairo_status_t _cairo_gl_add_convex_quad_for_clip(void *closure,
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
 	cairo_gl_composite_t *setup = indices->setup;
 	// first off, we need to flush if max
-	//printf("before add quad indices = %d, setup = %x\n", indices->num_indices, indices->setup);
 	if(indices->num_indices > MAX_INDEX)
 	{
-		//if(indices->setup == NULL)
-		//	printf("setup = NULL\n");
 		if(indices->setup != NULL)
 		{
 			// let's create surface->indices_buf
@@ -578,7 +499,6 @@ cairo_status_t _cairo_gl_add_convex_quad_for_clip(void *closure,
 			_cairo_fixed_to_double(quad[2].y);
 	indices->num_indices += 2;
 	indices->num_vertices += 2;
-	//printf("after add quad indices = %d\n", indices->num_indices);
 	return CAIRO_STATUS_SUCCESS;
 }
 
@@ -588,11 +508,8 @@ cairo_status_t _cairo_gl_add_convex_quad(void *closure,
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
 	cairo_gl_composite_t *setup = indices->setup;
 	// first off, we need to flush if max
-	//printf("before add quad indices = %d, setup = %x\n", indices->num_indices, indices->setup);
 	if(indices->num_indices > MAX_INDEX)
 	{
-		//if(indices->setup == NULL)
-		//	printf("setup = NULL\n");
 		if(indices->setup != NULL)
 		{
 			_cairo_gl_fill(indices->setup, indices->num_vertices,
@@ -654,7 +571,7 @@ cairo_status_t _cairo_gl_add_convex_quad(void *closure,
 			_cairo_fixed_to_double(quad[2].y);
 	indices->num_indices += 2;
 	indices->num_vertices += 2;
-	//printf("after add quad indices = %d\n", indices->num_indices);
+
 	return CAIRO_STATUS_SUCCESS;
 }
 
@@ -664,11 +581,8 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
 	cairo_gl_composite_t *setup = indices->setup;
 	// first off, we need to flush if max
-	//printf("before add quad indices = %d, setup = %x\n", indices->num_indices, indices->setup);
 	if(indices->num_indices > MAX_INDEX)
 	{
-		//if(indices->setup == NULL)
-		//	printf("setup = NULL\n");
 		if(indices->setup != NULL)
 		{
 			if(indices->has_mask_vertices == TRUE)
@@ -751,14 +665,13 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 	}
 	indices->num_indices += 2;
 	indices->num_vertices += 2;
-	//printf("after add quad indices = %d\n", indices->num_indices);
+
 	return CAIRO_STATUS_SUCCESS;
 }
 
 static void _cairo_gl_free_path(_cairo_gl_path_t *path)
 {
 	_cairo_gl_path_t *temp;
-	//_cairo_gl_path_t *next = path->next;
 	_cairo_gl_path_t *current = path;
 	if(path == NULL)
 		return;
@@ -814,7 +727,6 @@ _cairo_gl_curve_to(void *closure, const cairo_point_t *p0,
 	double t;
 	double increment = 1.0 / VERTEX_INC;
 
-	//printf("start curve\n");
 	_cairo_gl_path_t *head = (_cairo_gl_path_t *)closure;
 	_cairo_gl_path_t *current_path = head->prev;
 
@@ -838,7 +750,6 @@ _cairo_gl_curve_to(void *closure, const cairo_point_t *p0,
 	y2 = _cairo_fixed_to_double(p2->y);
 	prevx = current_path->vertices->vertices[current_path->vertices->vertex_size-1].x;
 	prevy = current_path->vertices->vertices[current_path->vertices->vertex_size-1].y;
-	//printf(" p0 (%0.2f, %0.2f), p2 (%0.2f, %0.2f), prev (%0.2f, %0.2f)\n", x0, y0, x2, y2, prevx, prevy);
 	m_ax = prevx;
 	m_ay = prevy;
 	m_bx = -3.0 * prevx + 3.0 * x0;
@@ -849,26 +760,15 @@ _cairo_gl_curve_to(void *closure, const cairo_point_t *p0,
 	m_dy = -1.0 * prevy + 3.0 * y0 - 3.0 * y1 + y2;
 
 	t = increment;
-	//FILE *f = fopen("points", "a");
 	for(i = 0; i < VERTEX_INC; i++, t += increment)
 	{
 		x = m_ax + t * (m_bx + t * (m_cx + t * m_dx));
 		y = m_ay + t * (m_by + t * (m_cy + t * m_dy));
-		//printf("add curve to point (%0.2f, %0.2f)\n", x, y);
-		/*if(f)
-		{
-			fwrite((void *)&x, sizeof(double), 1, f);
-			fwrite((void *)&y, sizeof(double), 1, f);
-		}*/
 		index = current_path->vertices->vertex_size;
 		current_path->vertices->vertices[index].x = x;
 		current_path->vertices->vertices[index].y = y;
 		current_path->vertices->vertex_size ++;
 	}
-	/*if(f)
-		fclose(f);
-	*/
-
 
 	return CAIRO_STATUS_SUCCESS;
 }
@@ -876,31 +776,6 @@ _cairo_gl_curve_to(void *closure, const cairo_point_t *p0,
 static cairo_status_t
 _cairo_gl_close_path(void *closure)
 {
-/*
-	double x, y;
-	int index;
-	_cairo_gl_path_t *head = (_cairo_gl_path_t *)closure;
-	_cairo_gl_path_t *current_path = head->prev;
-
-	_cairo_gl_path_vertices_t *vertices = current_path->vertices;
-	if(vertices->vertex_size == vertices->capacity)
-	{
-		// make new one
-		_cairo_gl_path_vertices_t *new_vertices =
-			_cairo_gl_create_increase_path_vertices_capacity(vertices);
-		// remove current
-		free(vertices->vertices);
-		free(vertices);
-		current_path->vertices = new_vertices;
-	}
-	x = current_path->vertices->vertices[0].x;
-	y = current_path->vertices->vertices[0].y;
-	//printf("add close path (%0.2f, %0.2f)\n", x, y);
-	index = current_path->vertices->vertex_size;
-	current_path->vertices->vertices[index].x = x;
-	current_path->vertices->vertices[index].y = y;
-	current_path->vertices->vertex_size ++;
-*/
 	return CAIRO_STATUS_SUCCESS;
 }
 
@@ -925,7 +800,6 @@ _cairo_gl_line_to(void *closure, const cairo_point_t *point)
 	}
 	x = _cairo_fixed_to_double(point->x);
 	y = _cairo_fixed_to_double(point->y);
-	//printf("add line to point (%0.2f, %0.2f)\n", x, y);
 	index = current_path->vertices->vertex_size;
 	current_path->vertices->vertices[index].x = x;
 	current_path->vertices->vertices[index].y = y;
@@ -953,15 +827,6 @@ _cairo_gl_move_to(void *closure, const cairo_point_t *point)
 
 	x = _cairo_fixed_to_double(point->x);
 	y = _cairo_fixed_to_double(point->y);
-	//printf("add move to point (%0.2f, %0.2f)\n", x, y);
-
-	/*FILE *f = fopen("points", "w+");
-	if(f != NULL)
-	{
-		fwrite((void *)&x, sizeof(double), 1, f);
-		fwrite((void *)&y, sizeof(double), 1, f);
-		fclose(f);
-	}*/
 	index = new_path->vertices->vertex_size;
 	new_path->vertices->vertices[index].x = x;
 	new_path->vertices->vertices[index].y = y;
@@ -996,26 +861,16 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 			glDisable(GL_DEPTH_TEST);
 		
 			glColorMask(1, 1, 1, 1);
-			//glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-			//glStencilFunc(GL_EQUAL, 1, 1);
 			return CAIRO_STATUS_SUCCESS;
 		}
 		glEnable(GL_STENCIL_TEST);
 		glClear(GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glDisable(GL_DEPTH_TEST);
-		//glEnable(GL_DEPTH_TEST);
 		glStencilOp(GL_REPLACE,  GL_REPLACE, GL_REPLACE);
 		glStencilFunc(GL_ALWAYS, 1, 0xffffffff);
 		glColorMask(0, 0, 0, 0);
-		//printf("using cache\n");
 		while(exist_buf != NULL)
 		{
-			/*int i;
-			printf("existing vertex\n");
-			for(i = 0; i < exist_buf->indices->num_vertices; i++)
-			{
-				printf("vertex (%0.1f, %0.1f)\n", exist_buf->indices->vertices[i*2], exist_buf->indices->vertices[i*2+1]);
-			}*/
 			_cairo_gl_index_t *exist_indices = exist_buf->indices;
 			status = _cairo_gl_fill(setup, exist_indices->num_vertices, 
 				exist_indices->vertices, NULL, exist_indices->num_indices, 
@@ -1028,7 +883,6 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 			exist_buf = exist_buf->next;
 		}
 		glEnable(GL_DEPTH_TEST);
-		//glEnable(GL_STENCIL_TEST);
 		glColorMask(1, 1, 1, 1);
 		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 		glStencilFunc(GL_EQUAL, 1, 1);
@@ -1049,11 +903,8 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 			free(temp->indices);
 			free(temp);
 		}
-		//free((_cairo_gl_index_buf_t *)(surface->indices_buf));
 		surface->indices_buf = NULL;
 	}
-	//cairo_polygon_t polygons
-	//_cairo_gl_index_t indices;
 	if(clip->path != NULL)
 	{
 		fill_rule = clip->path->fill_rule;
@@ -1072,13 +923,8 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 	int got_traps = 0;
 	int remaining_boxes = clip->num_boxes;
 
-	// Henry Song test
-	//status = _cairo_path_fixed_fill_to_traps(&(clip_path->path), fill_rule, tolerance, &traps);
 	while(clip_path != NULL || remaining_boxes != 0)
 	{
-		// Let's analyze box first
-		//path = clip_path->path;
-		//_cairo_polygon_init(&polygon);
 		status = _cairo_gl_create_indices(&indices);
 		indices.setup = setup;
 		
@@ -1110,7 +956,6 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 				glDisable(GL_STENCIL_TEST);
 		
 				glColorMask(1, 1, 1, 1);
-				//glDisable(GL_STENCIL_TEST);
 				_cairo_gl_destroy_indices(&indices);
 				return status;
 			}
@@ -1126,7 +971,6 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 			{
 				got_traps = 1;
 			}
-			//printf("\n==================\n\n=========== attention\n");	
 			for(m = 0; m < traps.num_traps; m++)
 			{
 				top = _cairo_fixed_to_double(traps.traps[m].top);
@@ -1156,25 +1000,6 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 				points[2].y = traps.traps[m].bottom;
 				points[3].x = x_top_right;
 				points[3].y = traps.traps[m].top;
-				/*if(_cairo_fixed_to_double(points[0].x) == 0.0 &&
-				   _cairo_fixed_to_double(points[0].y) == 0.0 &&
-				   _cairo_fixed_to_double(points[1].x) == 0.0 &&
-				   _cairo_fixed_to_double(points[1].y) == 400.0 &&
-				   _cairo_fixed_to_double(points[2].x) == 400.0 &&
-				   _cairo_fixed_to_double(points[2].y) == 400.0 &&
-				   _cairo_fixed_to_double(points[3].x) == 400.0 &&
-				   _cairo_fixed_to_double(points[3].y) == 0.0)
-				{*/
-				/*printf("add clip path left (%0.5f, %0.5f) - (%0.5f, %0.5f), right (%0.5f, %0.5f) - (%0.1f, %0.1f)\n", 
-					_cairo_fixed_to_double(points[0].x),
-					_cairo_fixed_to_double(points[0].y),
-					_cairo_fixed_to_double(points[1].x),
-					_cairo_fixed_to_double(points[1].y),
-					_cairo_fixed_to_double(points[2].x),
-					_cairo_fixed_to_double(points[2].y),
-					_cairo_fixed_to_double(points[3].x),
-					_cairo_fixed_to_double(points[3].y));
-				//}*/
 				status = _cairo_gl_add_convex_quad_for_clip(&indices, points);
 				if(unlikely(status))
 				{
@@ -1183,7 +1008,6 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 					glDisable(GL_STENCIL_TEST);
 		
 					glColorMask(1, 1, 1, 1);
-					//glDisable(GL_STENCIL_TEST);
 					_cairo_gl_destroy_indices(&indices);
 					return status;
 				}
@@ -1216,12 +1040,6 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 		new_buf->indices->num_indices = indices.num_indices;
 		new_buf->indices->num_vertices = indices.num_vertices;
 		new_buf->indices->setup = indices.setup;
-		/*	int i;
-	
-		for(i = 0; i < new_buf->indices->num_vertices; i++)
-		{
-			printf("vertex (%0.1f, %0.1f)\n", new_buf->indices->vertices[i*2], new_buf->indices->vertices[i*2+1]);
-		}*/
 		status = _cairo_gl_fill(setup, indices.num_vertices, 
 			indices.vertices, NULL, indices.num_indices, indices.indices, setup->ctx);
 		_cairo_gl_destroy_indices(&indices);
@@ -1229,12 +1047,9 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 		{
 			glDisable(GL_STENCIL_TEST);
 			glDisable(GL_DEPTH_TEST);
-			//glEnable(GL_STENCIL_TEST);
 			glColorMask(1, 1, 1, 1);
 			return status;
 		}
-		//if(clip_path != NULL)
-		//	printf("we have prev clip path\n");
 	}
 	if(got_traps == 0)
 	{
@@ -1242,19 +1057,14 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 		glDisable(GL_DEPTH_TEST);
 		
 		glColorMask(1, 1, 1, 1);
-		//glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-		//glStencilFunc(GL_EQUAL, 1, 1);
 		return CAIRO_STATUS_SUCCESS;
 	}
 	// we done stencil test
-	//glDepthMask(GL_TRUE);
 	glEnable(GL_DEPTH_TEST);
-	//glEnable(GL_STENCIL_TEST);
 	glColorMask(1, 1, 1, 1);
 	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 	glStencilFunc(GL_EQUAL, 1, 1);
-	//_cairo_traps_fini(&traps);
-	//_cairo_gl_destroy_indices(&indices);
+
 	return CAIRO_STATUS_SUCCESS;
 }
 
@@ -1569,7 +1379,6 @@ _cairo_gl_surface_init (cairo_device_t *device,
     surface->orig_width = width;
     surface->orig_height = height;
     surface->needs_update = FALSE;
-	// Henry Song
 	surface->clip = NULL;
 	surface->needs_stencil = FALSE;
 	surface->tex_img = 0;
@@ -1669,19 +1478,6 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 	float scale = 1.0;
 
     glGenTextures (1, &tex);
-	//if(tex == 7)
-	//	printf("generate tex = %d\n", tex);
-	/*if(width > ctx->max_texture_size || height > ctx->max_texture_size)
-	{
-		width_scale = (float)ctx->max_texture_size / (float)width;
-		height_scale = (float)ctx->max_texture_size / (float)height;
-		if(width_scale < height_scale)
-			scale = width_scale;
-		else
-			scale = height_scale;
-		width = (int)(scale * orig_width);
-		height = (int)(scale * orig_height);
-	}*/
     surface = (cairo_gl_surface_t *)
 	_cairo_gl_surface_create_scratch_for_texture (ctx, content,
 						      tex, width, height);
@@ -1689,7 +1485,6 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 	return &surface->base;
 
     surface->owns_tex = TRUE;
-	//float *scale;
 	cairo_bool_t width_extend = _cairo_gl_need_extend(width, &(surface->extend_width), &(surface->extend_width_scale));
 	surface->extend_width_scale = 1.0;
 	cairo_bool_t height_extend = _cairo_gl_need_extend(height, &(surface->extend_height), &(surface->extend_height_scale));
@@ -1707,7 +1502,6 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 
 	surface->orig_width = orig_width;
 	surface->orig_height = orig_height;
-	//surface->scale = scale;
 
     switch (content) {
     default:
@@ -1819,7 +1613,6 @@ cairo_gl_surface_create (cairo_device_t		*abstract_device,
     }
 
     /* Cairo surfaces start out initialized to transparent (black) */
-	// Henry Song
 	if(content != CAIRO_CONTENT_ALPHA)
     	status = _cairo_gl_surface_clear (surface, CAIRO_COLOR_TRANSPARENT);
 
@@ -1996,15 +1789,12 @@ cairo_gl_surface_swapbuffers (cairo_surface_t *abstract_surface)
 
     if (unlikely (abstract_surface->status))
 	return;
-	//printf("abstract surface status = %d\n", abstract_surface->status);
+
     if (unlikely (abstract_surface->finished)) {
 	status = _cairo_surface_set_error (abstract_surface,
 		                           _cairo_error (CAIRO_STATUS_SURFACE_FINISHED));
-	//printf("finished = %d\n", abstract_surface->finished);
         return;
     }
-	// Henry Song
-	//printf("surface is gl = %d\n", _cairo_surface_is_gl(abstract_surface));
     if (! _cairo_surface_is_gl (abstract_surface)) {
 	status = _cairo_surface_set_error (abstract_surface,
 		                           CAIRO_STATUS_SURFACE_TYPE_MISMATCH);
@@ -2130,17 +1920,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 			cairo_surface_t *snapshot = _cairo_surface_has_snapshot((cairo_surface_t *)src, &_cairo_gl_surface_backend);
 			if(snapshot != NULL)
 			{
-				// src surface has snapshot
-				//cairo_gl_surface_t *s = (cairo_gl_surface_t *)snapshot;
-				//if(s->needs_extend == FALSE)
 					return (cairo_gl_surface_t *)cairo_surface_reference(snapshot);
-				// get snapshot of snapshot
-				/*else
-				{
-					cairo_surface_t *s1 = _cairo_surface_has_snapshot(snapshot, &_cairo_gl_surface_backend);
-					if(s1 != NULL)
-						return (cairo_gl_surface_t *)cairo_surface_reference(s1);
-				}*/
 			}
 			else // snapshot == NULL
 			{
@@ -2151,7 +1931,6 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 				if(snap1 == NULL)
 					return NULL;
 				cairo_gl_surface_t *snap1_gl = (cairo_gl_surface_t *)snap1;
-				//printf("--------------------------generate pot clone, tex = %d\n", snap1_gl->tex);
 				cairo_bool_t width_need_snapshot = 
 					_cairo_gl_need_extend(t->width,
 					&(snap1_gl->extend_width), 
@@ -2196,7 +1975,6 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 					return NULL;
 				}
 
-				//_cairo_gl_composite_set_mask_spans(setup);
 				cairo_gl_context_t *ctx;
 				status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 				if(unlikely(status))
@@ -2214,10 +1992,8 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 	
 				// we have the image uploaded, we need to setup vertices
 				GLfloat vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
-				//GLfloat mask_vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
 				double v[] = {0, 0, 0, 0, 0, 0, 0, 0};
 				GLfloat st[] = { 0, 0, 1, 0, 1, 1, 0, 1};
-				//GLfloat mask_st[] = { 0, 0, 1, 0, 1, 1, 0, 1};
 				vertices[0] = 0;
 				vertices[1] = 0;
 				vertices[2] = snap1_gl->width;
@@ -2261,13 +2037,9 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 				glDepthMask(GL_FALSE);
 				status = _cairo_gl_context_release(ctx, status);
 				cairo_pattern_destroy(pat);
-				//cairo_surface_write_to_png(snap1, "./test_1.png");
 	
 				_cairo_surface_attach_snapshot(src, &snap1_gl->base, _cairo_gl_surface_remove_from_cache);
 				return (cairo_gl_surface_t *)cairo_surface_reference(&(snap1_gl->base));
-				//cairo_surface_destroy(&(snap1_gl->base));
-//				_cairo_surface_detach_snapshot(&snap1_gl->base);
-				//return snap1_gl;
 			}
 		}
 	}
@@ -2308,30 +2080,18 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 		clear_color.blue = 0;
 		clear_color.alpha = 0;
 		_cairo_gl_surface_clear (clone, &clear_color);
-		//cairo_surface_write_to_png(&clone->base, "./record.png");
-		/*
-		if(bounded == FALSE)
-			cairo_surface_set_device_offset(&img_src->base,
-				-surface->width / 2.0, -surface->height / 2.0);
-		else
-			cairo_surface_set_device_offset(&img_src->base, 
-				-recording_extents.x, -recording_extents.y);
-		*/
 		status = _cairo_recording_surface_replay(src, &clone->base);
 		if(unlikely(status))
 		{
 			cairo_surface_destroy(&clone->base);
 			return NULL;
 		}
-		//cairo_surface_write_to_png(&clone->base, "./record1.png");
 	}
 	else
 	{
-		//printf("cannot find clone\n");
 		status = _cairo_surface_acquire_source_image(src, &img_src, &extra);
 		if(unlikely(status))
 			return NULL;
-		//img_src = (cairo_image_surface_t *)src;
 		clone = (cairo_gl_surface_t *)
 			_cairo_gl_surface_create_similar(&surface->base, 
 				((cairo_surface_t *)img_src)->content,
@@ -2547,9 +2307,6 @@ _cairo_gl_surface_get_image (cairo_gl_surface_t      *surface,
     unsigned int cpp;
     cairo_status_t status;
 
-	//long now = _get_tick();
-	// Henry Song
-
     /* Want to use a switch statement here but the compiler gets whiny. */
     if (surface->base.content == CAIRO_CONTENT_COLOR_ALPHA) {
 	format = GL_BGRA;
@@ -2616,7 +2373,6 @@ _cairo_gl_surface_get_image (cairo_gl_surface_t      *surface,
 			}
 		}
 		type = GL_UNSIGNED_BYTE;
-		//cpp = 4;
     }
 
     image = (cairo_image_surface_t*)
@@ -2653,31 +2409,11 @@ _cairo_gl_surface_get_image (cairo_gl_surface_t      *surface,
 	cairo_surface_destroy (&image->base);
 	return status;
     }
-
-	//long then = _get_tick();
-	//printf("download image takes %ld usec\n", then - now);
 	cairo_image_surface_t *argb32_image = _cairo_image_surface_coerce_to_format(image, CAIRO_FORMAT_ARGB32);
 	cairo_surface_destroy(&image->base);
 	image = argb32_image;
 	image->base.is_clear = 0;
-	//cairo_surface_write_to_png(&image->base, "./test2.png");
-	//cairo_surface_write_to_png(&image->base, "./test1.png");
 
-	// Henry Song
-	/*if(surface->external_tex == 0)
-	{
-		unsigned char *upside_down_data = (unsigned char *)malloc(sizeof(unsigned char)*(image->stride * image->height));
-		int i;
-		unsigned long last_low = (image->height -1) * image->stride;
-		for(i = 0; i < image->height; i++)
-		{
-			memcpy(upside_down_data+i*image->stride, image->data+last_low - i*image->stride, image->stride);
-		}
-		memcpy(image->data, upside_down_data, image->stride*image->height);
-		free(upside_down_data);
-	}*/
-
-	// we have the image, we need to scale if scale != 1.0
 	if(surface->scale != 1.0 || !_cairo_gl_surface_is_texture(surface))
 	{
 		float reverse_scale = 1.0 / surface->scale;
@@ -2715,12 +2451,9 @@ _cairo_gl_surface_get_image (cairo_gl_surface_t      *surface,
 	image->base.is_clear = 0;
 
     *image_out = image;
-	//cairo_surface_write_to_png(&image->base, "/root/test2.png");
     if (rect_out != NULL)
 	*rect_out = *interest;
 
-	//now  = _get_tick() - then;
-	//printf("convert image in cairo takes %ld usec\n", now);
     return CAIRO_STATUS_SUCCESS;
 }
 
@@ -2731,8 +2464,6 @@ _cairo_gl_surface_finish (void *abstract_surface)
     cairo_status_t status;
     cairo_gl_context_t *ctx;
 
-	//if(surface->tex == 7)
-	//printf("0-------------- in surface_finish, tex = %d, \n", surface->tex);
     status = _cairo_gl_context_acquire (surface->base.device, &ctx);
     if (unlikely (status))
         return status;
@@ -2785,7 +2516,6 @@ _cairo_gl_surface_finish (void *abstract_surface)
 			free(temp->indices);
 			free(temp);
 		}
-		//free((_cairo_gl_index_buf_t *)(surface->indices_buf));
 		surface->indices_buf = NULL;
 	}
 	surface->stencil_changed = FALSE;
@@ -2850,7 +2580,6 @@ _cairo_gl_surface_release_dest_image (void		      *abstract_surface,
 {
     cairo_status_t status;
 
-    //status = _cairo_gl_surface_draw_image (abstract_surface, image,
 	status = _cairo_gl_surface_upload_image(abstract_surface, image, 
 					   0, 0,
 					   image->width, image->height,
@@ -3441,15 +3170,11 @@ _cairo_gl_surface_paint (void *abstract_surface,
                                             &((cairo_solid_pattern_t *) source)->color);
         }
     }
-	// Henry Song
-	// let's take care of CAIRO_PATTERN_TYPE_SURFACE
 	return _cairo_gl_surface_mask(abstract_surface,
 	op,
 	source,
 	NULL,
 	clip);
-		
-    //return CAIRO_INT_STATUS_UNSUPPORTED;
 }
 
 static cairo_int_status_t
@@ -3469,36 +3194,11 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
     cairo_status_t status;
 	cairo_gl_context_t *ctx;
 	_cairo_gl_path_t *current;
-	//char *colors;
 	int stride;
 	int index;
 
-	// check whether needs to super sampling
-	if(clip != NULL)
-	{
-	//	surface->needs_super_sampling = TRUE;
-	}
-	/*if(surface->needs_super_sampling)
-	{
-		_cairo_gl_surface_super_sampling(abstract_surface);
-
-		surface->needs_super_sampling = FALSE;
-	}*/
-
-	// Henry Song
 	cairo_gl_composite_t *setup;
 
-
-
-
-	// Henry Song
-	//cairo_surface_write_to_png(abstract_surface, "/home/me/openvg/pc/test_dst.png");
-	long now = _get_tick();
-    struct timeval start, stop;
-	int spent;
-	//status = _cairo_surface_clipper_set_clip(&surface->clipper, clip);
-	//gettimeofday(&start, NULL);
-	// Henry Song
 	if(mask == NULL)
 		status = _cairo_composite_rectangles_init_for_paint(&extents,
 			surface->width,
@@ -3541,54 +3241,9 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 		clone = _cairo_gl_generate_clone(surface, src, extend);
 		if(clone == NULL)
 			return UNSUPPORTED("create_clone failed");
-		//cairo_surface_write_to_png(abstract_surface, "/root/test.png");
-		//cairo_surface_write_to_png(clone, "/root/test1.png");
-		//printf("write clone\n");
 	}
 	else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
 		solid = (cairo_solid_pattern_t *)source;
-	//printf("generate clone takes %ld usec\n", _get_tick() - now);
-	/*now = _get_tick() - now;
-	printf("clone takes %ld us\n", now);
-	now = _get_tick();*/
-	// Henry Song
-    //if (_cairo_clip_contains_extents (clip, &extents))
-	//clip = NULL;
-
-#if 0
-    if (extents.is_bounded && clip != NULL) {
-	cairo_clip_path_t *clip_path;
-
-	if (((clip_path = _clip_get_single_path (clip)) != NULL) &&
-	    _cairo_path_fixed_equal (&clip_path->path, path))
-	{
-	    clip = NULL;
-	}
-    }
-#endif
-
-    //if (clip != NULL) {
-	//clip = _cairo_clip_init_copy (&local_clip, clip);
-	//have_clip = TRUE;
-    //}
-
-	// Henry Song
-	//gettimeofday(&start, NULL);
-    //status = _cairo_clip_to_boxes (&clip, &extents, &clip_boxes, &num_boxes);
-	// Henry Song
-	//gettimeofday(&stop, NULL);
-	//spent = stop.tv_usec - start.tv_usec;
-	//spent += 1000000 * (stop.tv_sec - start.tv_sec);
-	//printf("_cairo_clip_to_boxes takes %d usec\n", spent);
-
-    //if (unlikely (status)) {
-	//if (have_clip)
-	//    _cairo_clip_fini (&local_clip);
-	//
-	//return status;
-    //}
-
-	// Henry Song
 	setup = (cairo_gl_composite_t *)malloc(sizeof(cairo_gl_composite_t));
 	
 	status = _cairo_gl_composite_init(setup, op, surface, FALSE,
@@ -3630,7 +3285,6 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 		return status;
 	}
 
-	//_cairo_gl_composite_set_mask_spans(setup);
 	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 	if(unlikely(status))
 	{
@@ -3640,16 +3294,8 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 		free(setup);
 		return status;
 	}
-	//printf("context acquire taks %ld usec\n", _get_tick() - now);
-	/*now = _get_tick() - now;
-	printf("acquire context takes %ld us\n", now);
-	now = _get_tick();*/
 	setup->ctx = ctx;
 	_cairo_gl_context_set_destination(ctx, surface);
-	//printf("set destination taks %ld usec\n", _get_tick() - now);
-	//now = _get_tick() - now;
-	//printf("set destination takes %ld us\n", now);
-	// Henry Song
 	if(clip != NULL)
 	{
 		if(surface->clip != NULL)
@@ -3701,8 +3347,6 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 			return status;
 		}
 	}
-	//now = _get_tick();
-	// set up solid color mask
 	cairo_gl_surface_t *mask_clone = NULL;
 	cairo_surface_t *mask_snapshot = NULL;
 	extend = 0;
@@ -3731,11 +3375,8 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 	}
 
 	_cairo_gl_context_set_destination(ctx, surface);
-	//if(clone != NULL)
-	//	printf("got clone, width = %d, height = %d\n", clone->orig_width, clone->orig_height);
 	if(mask_clone != NULL)
 	{
-		//printf("got mask clone, width = %d, height = %d\n", mask_clone->orig_width, mask_clone->orig_height);
 		float temp_width = mask_clone->width / mask_clone->extend_width_scale * mask_clone->scale;
 		float temp_height = mask_clone->height / mask_clone->extend_height_scale * mask_clone->scale;
 
@@ -3751,18 +3392,6 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 			extents.bounded.x, extents.bounded.y, 
 			extents.bounded.width, extents.bounded.height,
 			0, 0, 0);
-	//now = _get_tick() - now;
-	//printf("mask clone takes %ld us\n", now);
-	//now = _get_tick();
-	/*		
-	if(mask != NULL && mask->type == CAIRO_PATTERN_TYPE_SOLID)
-	{
-		setup->src.type = CAIRO_GL_OPERAND_CONSTANT;
-		_cairo_gl_composite_set_mask(setup, mask, 
-			0, 0,
-			0, 0, 
-			0, 0);
-	}*/
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
 		setup->src.type = CAIRO_GL_OPERAND_TEXTURE;
 	else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
@@ -3795,19 +3424,6 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 		return CAIRO_INT_STATUS_UNSUPPORTED;
 	}
 	
-/*	status = _cairo_gl_composite_set_source(setup,
-		source, extents.bounded.x, extents.bounded.y,
-		extents.bounded.x, extents.bounded.y, 
-		extents.bounded.width, extents.bounded.height);
-	if(unlikely(status))
-	{
-		_cairo_gl_composite_fini(setup);
-		free(setup);
-		return status;
-	}
-*/
-//	_cairo_gl_composite_set_mask_spans(setup);
-
 	// we have the image uploaded, we need to setup vertices
 	GLfloat vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
 	GLfloat mask_vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -3917,7 +3533,6 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 		v[7] = extents.bounded.y + extents.bounded.height;
 		if(mask != NULL && mask_clone != NULL)
 		{
-			//cairo_surface_write_to_png(mask_clone, "/home/me/test.png");
 			cairo_matrix_init_scale(&m, 1.0, 1.0);
 			cairo_matrix_multiply(&m, &m, &mask->matrix);
 			cairo_matrix_init_scale(&m1, 1.0 / mask_clone->width, 
@@ -4025,37 +3640,26 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 
 	_cairo_gl_composite_fill_constant_color(ctx, 4, NULL);
 	// we done drawings
-	//glDisable(GL_STENCIL_TEST);
-	//cairo_surface_write_to_png(abstract_surface, "/home/me/openvg/pc/test.png");
 	_cairo_gl_composite_fini(setup);
 	if(clone != NULL)
 	{
-		//cairo_surface_write_to_png(&(clone->base), "/home/me/openvg/pc/test_src.png");
 		cairo_surface_destroy(&clone->base);
 	}
 	if(mask_clone != NULL)
 	{
-		//cairo_surface_write_to_png(&(mask_clone->base), "/home/me/openvg/pc/test_mask.png");
 		cairo_surface_destroy(&mask_clone->base);
 	}
 	free(setup);
 	glDisable(GL_STENCIL_TEST);
 	glDisable(GL_DEPTH_TEST);
 	glDepthMask(GL_FALSE);
-	//_cairo_gl_context_release(ctx, status);
-	//glDeleteTextures(1, &surface->tex);
 	status = _cairo_gl_context_release(ctx, status);
-	//now = _get_tick() - now;
-	//printf("paint takes %ld us\n", now);
 	if(surface->needs_extend == TRUE)
 	{
 		if(_cairo_surface_has_snapshot(&(surface->base), &_cairo_gl_surface_backend))
 			_cairo_surface_detach_snapshot(&(surface->base));
 	}
 	surface->needs_new_data_surface = TRUE;
-	// Henry Song
-	long then = _get_tick() - now;
-	//printf("cairo surface mask takes %ld usec\n", then);
 	return status;
 }
 
@@ -4074,15 +3678,6 @@ _cairo_gl_surface_polygon (cairo_gl_surface_t *dst,
 
     if (clip != NULL) {
 	clip_region = _cairo_clip_get_region (clip);
-#if 0
-	if (unlikely (status == CAIRO_INT_STATUS_NOTHING_TO_DO))
-	    return CAIRO_STATUS_SUCCESS;
-	if (unlikely (_cairo_status_is_error (status)))
-	    return status;
-
-	if (status == CAIRO_INT_STATUS_UNSUPPORTED)
-            return UNSUPPORTED ("a clip surface would be required");
-#endif
     }
 
     if (! _cairo_surface_check_span_renderer (op, src, &dst->base, antialias))
@@ -4129,18 +3724,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 
 	_cairo_gl_index_t indices;
 	cairo_rectangle_int_t *clip_extent, stroke_extent;
-	/*if(clip != NULL)
-	{
-		_cairo_path_fixed_stroke_extents(path, style, ctm, ctm_inverse, 
-			tolerance, &stroke_extent);
-		clip_extent = _cairo_clip_get_extents(clip);
-		if(clip_extent->x <= stroke_extent.x && 
-		   clip_extent->y <= stroke_extent.y &&
-		   stroke_extent.width + stroke_extent.x <= clip_extent->width + clip_extent->x &&
-		   stroke_extent.height + stroke_extent.y <= clip_extent->height + clip_extent->y)
-			
-			clip = NULL;
-	}*/
 
 	if(antialias != CAIRO_ANTIALIAS_NONE || clip != NULL)
 	{
@@ -4148,10 +3731,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		//surface->needs_super_sampling = TRUE;
 	}
 	
-	// Henry Song
 	cairo_gl_composite_t *setup;
 	cairo_gl_context_t *ctx;
-
 
     status = _cairo_composite_rectangles_init_for_stroke (&extents,
 							  surface->width,
@@ -4162,13 +3743,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     if (unlikely (status))
 		return status;
 	
-	/*status = _cairo_gl_context_acquire (surface->base.device, &ctx);
-	if(unlikely(status))
-	{
-		return status;
-	}
-	_cairo_gl_context_set_destination(ctx, surface);
-	*/
 	if(extents.is_bounded == 0)
 	{
 		// it is unbounded operator
@@ -4197,7 +3771,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		}
 		if(surface->mask_surface == NULL)
 		{
-			//_cairo_gl_context_release(ctx, status);
 			return CAIRO_INT_STATUS_UNSUPPORTED;
 		}
 		
@@ -4214,13 +3787,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 				tolerance, antialias, NULL);
 		if(unlikely(status))
 		{
-			//_cairo_gl_context_release(ctx, status);
 			return status;
 		}
-		//long then = _get_tick() - now;
-		//printf("------ fill to mask takes %ld usec\n", then);
-		//now = _get_tick();
-		//printf("++++++++++ start paint mask\n");
 		surface->mask_surface->bound_fbo = TRUE;
 		cairo_surface_pattern_t mask_pattern;
 		surface->mask_surface->base.is_clear = FALSE;
@@ -4229,10 +3797,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		status = _cairo_surface_paint(&surface->base, op, &(mask_pattern.base), clip);
 		_cairo_pattern_fini(&mask_pattern.base);
 		surface->mask_surface->bound_fbo = FALSE;
-		//then = _get_tick() - now;
-		//printf("+++++++++++ paint mask takes %ld usec\n", then);
-
-		//_cairo_gl_context_release(ctx, status);
 		return status;
 	}
 
@@ -4306,21 +3870,9 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	}
 
 
-	//_cairo_gl_composite_set_mask_spans(setup);
-	/*status = _cairo_gl_context_acquire(surface->base.device, &ctx);
-	if(unlikely(status))
-	{
-		_cairo_gl_composite_fini(setup);
-		if(clone != NULL)
-			cairo_surface_destroy(&clone->base);
-		free(setup);
-		return status;
-	}*/
-
 	setup->ctx = ctx;
 	_cairo_gl_context_set_destination(ctx, surface);
 
-	// Henry Song
 	if(clip != NULL)
 	{
 		if(surface->clip != NULL)
@@ -4384,26 +3936,13 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 												_cairo_gl_add_convex_quad,
 												&indices);
 
-/*
-	int i;
-	printf("indices %d { \n", indices.num_indices);
-	for(i = 0; i < indices.num_indices; i++)
-		printf("%d, ", indices.indices[i]);
-	printf(" }\n");
-	printf("vertices %d \n", indices.num_vertices);
-	for(i = 0; i < indices.num_vertices; i++)
-		printf("(%0.1f, %0.1f), ", indices.vertices[i*2], indices.vertices[i*2+1]);
-	printf("\n");
-*/
 	int v, idx;
 	glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &v);
-	//glGetIntegerv(GL_MAX_ELEMENTS_INDICES);
 	// fill it, we fix t later
 	status = _cairo_gl_fill(setup, indices.num_vertices, 
 		indices.vertices, NULL, indices.num_indices, indices.indices,
 		setup->ctx);
 	
-	//glDisable(GL_STENCIL_TEST);
 	if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
 	_cairo_gl_destroy_indices(&indices);
@@ -4447,20 +3986,8 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	int stride;
 	int index;
 
-	// Henry Song
 	cairo_gl_composite_t *setup;
 	cairo_rectangle_int_t path_extent, *clip_extent;
-	/*if(clip != NULL)
-	{
-		_cairo_path_fixed_fill_extents(path, fill_rule, tolerance, &path_extent);
-		clip_extent = _cairo_clip_get_extents(clip);
-		if(clip_extent->x <= path_extent.x && 
-		   clip_extent->y <= path_extent.y &&
-		   path_extent.width + path_extent.x <= clip_extent->width + clip_extent->x &&
-		   path_extent.height + path_extent.y <= clip_extent->height + clip_extent->y)
-			
-			clip = NULL;
-	}*/
 
 	if(antialias != CAIRO_ANTIALIAS_NONE || clip != NULL)
 	{
@@ -4469,22 +3996,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	}
 		
 
-	// Henry Song
-
-	//printf("need stencil = %d\n", surface->needs_stencil);
-	// Henry Song
-	//long now = _get_tick();
-    struct timeval start, stop;
-	int spent;
-
-	/*if(antialias == CAIRO_ANTIALIAS_NONE )
-		glDisable(GL_MULTISAMPLE);
-	else
-		glEnable(GL_MULTISAMPLE);
-	*/
-	//status = _cairo_surface_clipper_set_clip(&surface->clipper, clip);
-	//gettimeofday(&start, NULL);
-	// Henry Song
 	// we keep this such that when clip and path do not intersect, 
 	// we simply return without actual draw - optimization
 	status = _cairo_composite_rectangles_init_for_fill (&extents,
@@ -4492,26 +4003,12 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 							surface->height,
 							op, source, path,
 							clip);
-	// Henry Song
-	//gettimeofday(&stop, NULL);
-	//spent = stop.tv_usec - start.tv_usec;
-	//spent += 1000000 * (stop.tv_sec - start.tv_sec);
-	//printf("_cairo_composite_rectangles_init_for_fill takes %d usec\n", spent);
     if (unlikely (status))
 	return status;
-	
-	/*status = _cairo_gl_context_acquire (surface->base.device, &ctx);
-	if(unlikely(status))
-	{
-		return status;
-	}
-	_cairo_gl_context_set_destination(ctx, surface);
-	*/
 	if(extents.is_bounded == 0)
 	{
 		// it is unbounded operator
 		// get this surface's mask
-		//printf("+++++++++++++++++++ start paint to mask\n");
 		if(surface->mask_surface != NULL && 
 		   (surface->mask_surface->width != surface->width ||
 		    surface->mask_surface->height != surface->height))
@@ -4536,7 +4033,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 		}
 		if(surface->mask_surface == NULL)
 		{
-			//status = _cairo_gl_context_release(ctx, status);
 			return CAIRO_INT_STATUS_UNSUPPORTED;
 		}
 		
@@ -4554,15 +4050,9 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 				tolerance, antialias, NULL);
 		if(unlikely(status))
 		{
-			//_cairo_gl_context_release(ctx, status);
 			return status;
 		}
-		//printf("\n++++++++++++++++++++ start paint mask to dest\n");
 		surface->mask_surface->bound_fbo = TRUE;
-		//long then = _get_tick() - now;
-		//printf("------ fill to mask takes %ld usec\n", then);
-		//now = _get_tick();
-		//printf("++++++++++ start paint mask\n");
 		cairo_surface_pattern_t mask_pattern;
 		surface->mask_surface->base.is_clear = FALSE;
 		_cairo_pattern_init_for_surface(&mask_pattern, surface->mask_surface);
@@ -4570,11 +4060,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 		status = _cairo_surface_paint(&surface->base, op, &(mask_pattern.base), clip);
 		_cairo_pattern_fini(&mask_pattern.base);
 		surface->mask_surface->bound_fbo = FALSE;
-		//printf("+++++++++++++ finish fill \n");
-		//then = _get_tick() - now;
-		//printf("+++++++++++ paint mask takes %ld usec\n", then);
-
-		//_cairo_gl_context_release(ctx, status);
 		return status;
 	}
 
@@ -4583,19 +4068,15 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	cairo_surface_t *snapshot = NULL;
 	cairo_solid_pattern_t *solid = NULL;
 
-	//if(surface->tex == 7)
-	//	printf("paint to 7\n");
 	int extend = 0;
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
 	{
-		//printf("inside get clone for fill\n");
 		cairo_surface_t *src = ((cairo_surface_pattern_t *)source)->surface;
 		if(source->extend == CAIRO_EXTEND_REPEAT || 
 		   source->extend == CAIRO_EXTEND_REFLECT)
 		   	extend = 1;
-		//printf("could not find snapshot\n");
 		clone = _cairo_gl_generate_clone(surface, src, extend);
-		//printf("======= clone width = %d, height = %d, width_scale = %0.2f, height_scale = %0.2f\n", clone->width, clone->height, clone->extend_width_scale, clone->extend_height_scale);
+
 		if(clone == NULL)
 		{
 			_cairo_gl_context_release(ctx, status);
@@ -4614,14 +4095,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 			cairo_surface_destroy(&clone->base);
 		return status;
 	}
-	/*_cairo_gl_context_set_destination(ctx, surface);
-	status = _cairo_gl_context_release(ctx, status);
-	if(unlikely(status))
-	{
-		if(clone != NULL)
-			cairo_surface_destroy(&clone->base);
-		return status;
-	}*/
 	setup = (cairo_gl_composite_t *)malloc(sizeof(cairo_gl_composite_t));
 	
 	status = _cairo_gl_composite_init(setup, op, surface, FALSE,
@@ -4663,22 +4136,11 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	}
 
 	// let's acquire context, set surface
-	//long now = _get_tick();
-	//status = _cairo_gl_context_acquire (surface->base.device, &ctx);
-	//if(unlikely(status))
-	//	return status;
 	setup->ctx = ctx;
-	//now = _get_tick() - now;
-	//printf("context_acquire  %d ms\n", now);
-	//now = _get_tick();
 	_cairo_gl_context_set_destination(ctx, surface);
-	//now = _get_tick() - now;
-	//printf("set destination %d ms\n", now);
-
 	// remember, we have set the current context, we need to release it
 	// when done
 
-//	_cairo_gl_composite_set_mask_spans(setup);
 	if(clip != NULL)
 	{
 		if(surface->clip != NULL)
@@ -4716,8 +4178,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	
 	if(surface->needs_stencil == TRUE)
 	{
-		// Henry Song test
-		//my_path = path;
 		status = _cairo_gl_clip(clip, setup, ctx, surface);
 		if(unlikely(status))
 		{
@@ -4765,10 +4225,8 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
 	// setup indices
 	cairo_traps_t traps;
-	//cairo_polygon_t polygons
 	_cairo_gl_index_t indices;
 	_cairo_traps_init(&traps);
-	//_cairo_polygon_init(&polygon);
 	status = _cairo_gl_create_indices(&indices);
 	indices.setup = setup;
 	cairo_point_t points[4];
@@ -4802,19 +4260,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 		dy = y1 - y2;
 		x_top_right = _cairo_fixed_from_double(x1 - dx * (y1 - top) /dy);
 		x_bottom_right = _cairo_fixed_from_double(x1  - dx * (y1 - bottom) /dy);
-/*
-		printf("left (%0.1f, %0.1f) (%0.1f, %0.1f), right (%0.1f, %0.1f) (%0.1f, %0.1f), top (%0.1f), bottom (%01.f)\n", 
-			_cairo_fixed_to_double(x_top_left),
-			_cairo_fixed_to_double(traps.traps[m].top),
-			_cairo_fixed_to_double(x_bottom_left),
-			_cairo_fixed_to_double(traps.traps[m].bottom),
-			_cairo_fixed_to_double(x_bottom_right),
-			_cairo_fixed_to_double(traps.traps[m].bottom),
-			_cairo_fixed_to_double(x_top_right),
-			_cairo_fixed_to_double(traps.traps[m].top),
-			_cairo_fixed_to_double(traps.traps[m].top),
-			_cairo_fixed_to_double(traps.traps[m].bottom));
-*/	
 		points[0].x = x_top_left;
 		points[0].y = traps.traps[m].top;
 		points[1].x = x_bottom_left;
@@ -4837,51 +4282,25 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 			free(setup);
 		}
 	}
-	/*
-	int i;
-	printf("indices %d { \n", indices.num_indices);
-	for(i = 0; i < indices.num_indices; i++)
-		printf("%d, ", indices.indices[i]);
-	printf(" }\n");
-	printf("vertices %d \n", indices.num_vertices);
-	for(i = 0; i < indices.num_vertices; i++)
-		printf("(%0.1f, %0.1f), ", indices.vertices[i*2], indices.vertices[i*2+1]);
-	printf("\n");
-	*/
-	//now = _get_tick();
 	status = _cairo_gl_fill(setup, indices.num_vertices, 
 		indices.vertices, NULL, indices.num_indices, indices.indices,
 		setup->ctx);
 	_cairo_traps_fini(&traps);
-	//now = _get_tick() - now;
-	//printf("gl_fill takes %d ms\n", now);
 	if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
-	//glDisable(GL_STENCIL_TEST);
 	_cairo_gl_destroy_indices(&indices);
 	_cairo_gl_composite_fini(setup);
 	free(setup);
 	glDisable(GL_STENCIL_TEST);
 	glDisable(GL_DEPTH_TEST);
 	glDepthMask(GL_FALSE);
-	//now = _get_tick();
 	status = _cairo_gl_context_release(ctx, status);
 	if(surface->needs_extend == TRUE)
 	{
 		if(_cairo_surface_has_snapshot(&(surface->base), &_cairo_gl_surface_backend))
 			_cairo_surface_detach_snapshot(&(surface->base));
 	}
-	//now = _get_tick() - now;
-	//printf("context_release takes %d ms\n", now);
-	//now = _get_tick() - now;
-	//printf("fill takes %ld us\n", now);
-    //    cairo_surface_write_to_png(&surface->base, "./test.png");
 	surface->needs_new_data_surface = TRUE;
-	/*if(op == CAIRO_OPERATOR_IN)
-	{
-		cairo_surface_write_to_png(abstract_surface, "/root/test.png");
-		printf("write to png\n");
-	}*/
 	return status;
 }
 
@@ -4914,7 +4333,6 @@ const cairo_surface_backend_t _cairo_gl_surface_backend = {
     _cairo_gl_surface_scaled_font_fini,
     _cairo_gl_surface_scaled_glyph_fini,
     _cairo_gl_surface_paint,
-	// Henry
     _cairo_gl_surface_mask, /* mask */
     _cairo_gl_surface_stroke,
     _cairo_gl_surface_fill,
@@ -4933,7 +4351,6 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
     cairo_bool_t has_alpha, needs_swap;
     cairo_gl_context_t *ctx;
     int cpp;
-	//int width, height;
 	cairo_image_surface_t *src;
     cairo_status_t status = CAIRO_STATUS_SUCCESS;
 	cairo_image_surface_t *clone = NULL;
@@ -4946,47 +4363,12 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
 	int orig_width = width;
 	int orig_height = height;
 
-    //GLenum format;
-    //GLuint tex;
-	
 	// lock gl context
     status = _cairo_gl_context_acquire (dst->base.device, &ctx);
     if (unlikely (status))
 	{
-		//glDeleteTextures(1, &tex);
 		return status;
 	}
-
-	//glGenTextures(1, &tex);
-	//error = glGetError();
-	//if(dst->tex_img != 0)
-	//	glDeleteTextures(1, &dst->tex_img);
-	//dst->tex_img = tex;
-	/*
-	_cairo_gl_context_activate(ctx, CAIRO_GL_TEX_TEMP);
-	glBindTexture(ctx->tex_target, dst->tex);
-	glTexParameteri(ctx->tex_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(ctx->tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	src = image_surface;
-	switch(src->base.content)
-	{
-		default:
-			ASSERT_NOT_REACHED;
-		case CAIRO_CONTENT_COLOR_ALPHA:
-			format = GL_RGBA;
-			break;
-		case CAIRO_CONTENT_ALPHA:
-			format = GL_RGBA;
-			break;
-		case CAIRO_CONTENT_COLOR:
-			format = GL_RGBA;
-			break;
-	}
-	glTexImage2D(ctx->tex_target, 0, format, src->width, src->height,
-		0, format, GL_UNSIGNED_BYTE, NULL);
-	error = glGetError();
-	*/
-
 
 	src = image_surface;
     if (! _cairo_gl_get_image_format_and_type (ctx->gl_flavor,
@@ -5027,7 +4409,6 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
 	if(dst->scale != 1.0)
 	{
 		//we have to shrink image
-		//cairo_surface_write_to_png(image_surface, "./test5.png");
 		shrink_image = (cairo_image_surface_t *)cairo_surface_create_similar(&image_surface->base,
 			cairo_surface_get_content(&image_surface->base),
 			dst->scale * orig_width,
@@ -5040,13 +4421,11 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
 		image_surface = shrink_image;
 		width = dst->scale * width;
 		height = dst->scale * height;
-		//cairo_surface_write_to_png(image_surface, "./test4.png");
 	}
 
 	if(ctx->gl_flavor == CAIRO_GL_FLAVOR_DESKTOP)
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, image_surface->stride / cpp);
 	error = glGetError();
-    //if (_cairo_gl_surface_is_texture (dst)) 
 	{
 		void *data_start = image_surface->data + src_y * image_surface->stride + src_x * cpp;
 		void *data_start_gles2 = NULL;
@@ -5076,7 +4455,6 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
 	    	glPixelStorei (GL_UNPACK_ALIGNMENT, 4);
 		}
 		error = glGetError();
-//        _cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
 
 		_cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
 		error = glGetError();
@@ -5087,40 +4465,20 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
 		glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		error = glGetError();
 
-		/*char *data = data_start_gles2;
-		if(data == NULL)
-			data = data_start;
-		int scan = 0;
-		*/
-		//struct timeval start, stop;
-		//gettimeofday(&start, NULL);
-		/*int i;
-		for(i = 0; i < image_surface->height; i++)
-		{
-			glTexSubImage2D(ctx->tex_target, 0, 0, i, image_surface->width, 1, format, type, data + i * image_surface->stride);
-		}*/
-		//gettimeofday(&stop, NULL);
-		//printf("glTexSubImage2D takes %d usec\n", (stop.tv_usec - start.tv_usec) + 1000000 * (stop.tv_sec - start.tv_sec));
 		glTexSubImage2D (ctx->tex_target, 0,
 				 dst_x, dst_y, width, height,
 				 format, type,
 				 data_start_gles2 != NULL ? data_start_gles2 :
 						    data_start);
 		error = glGetError();
-		//printf("upload image error = %x, dest (%d, %d)\n", error, dst_x, dst_y);
 
 		if (data_start_gles2)
 	    	free (data_start_gles2);
-
-		//cairo_surface_write_to_png(&dst->base, "/mnt/ums/test.png");
 	}
 
 FAIL:
 	if(ctx->gl_flavor == CAIRO_GL_FLAVOR_DESKTOP)
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-
-	//if(unlikely (status))
-		//glDeleteTextures(1, &dst->tex);
 
 	if(clone)
 		cairo_surface_destroy(&clone->base);
@@ -5129,8 +4487,6 @@ FAIL:
 		cairo_surface_destroy(&shrink_image->base);
 
 	status = _cairo_gl_context_release(ctx, status);
-	//if(dst->tex == 8)
-	//cairo_surface_write_to_png(&(dst->base), "/home/me/test3.png");
 	return status;
 }
 
@@ -5138,13 +4494,6 @@ static void
 _cairo_gl_surface_remove_from_cache(cairo_surface_t *abstract_surface)
 {
 	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
-	//if(surface->tex == 6)
-	//printf("-------------------removed from cache, tex = %d\n", surface->tex);
-	/*if(surface->tex != 0)
-	{
-		glDeleteTextures(1, &surface->tex);
-		surface->tex = 0;
-	}*/
 	cairo_surface_destroy(&surface->base);
 }
 
@@ -5215,8 +4564,6 @@ cairo_gl_surface_get_data(cairo_surface_t *abstract_surface)
 	_cairo_gl_surface_acquire_source_image (abstract_surface,
 					&(surface->data_surface),
 					&image_extra);
-	//cairo_surface_write_to_png(surface->data_surface, "/root/test1.png");
-	
 	return cairo_image_surface_get_data(surface->data_surface);
 }
 
