@@ -53,12 +53,15 @@
 #define FONT_STANDARD_SIZE 8
 #define FONT_SIZE_SMOOTH 0
 
-static long _get_tick()
+#if 0
+// this function is not used
+static long _get_tick(void)
 {
 	struct timeval now;
 	gettimeofday(&now, NULL);
 	return now.tv_sec * 1000000 + now.tv_usec;
 }
+#endif
 
 typedef struct _cairo_gl_glyph_private {
     cairo_rtree_node_t node;
@@ -75,7 +78,7 @@ _cairo_gl_glyph_cache_add_glyph (cairo_gl_context_t *ctx,
     cairo_gl_surface_t *cache_surface;
     cairo_gl_glyph_private_t *glyph_private;
     cairo_rtree_node_t *node = NULL;
-    cairo_status_t status;
+    cairo_int_status_t status;
     int width, height;
 
     width = glyph_surface->width;
@@ -91,7 +94,7 @@ _cairo_gl_glyph_cache_add_glyph (cairo_gl_context_t *ctx,
     if (status == CAIRO_INT_STATUS_UNSUPPORTED) {
 	status = _cairo_rtree_evict_random (&cache->rtree,
 				            width, height, &node);
-	if (status == CAIRO_STATUS_SUCCESS) {
+	if (status == CAIRO_INT_STATUS_SUCCESS) {
 	    status = _cairo_rtree_node_insert (&cache->rtree,
 		                               node, width, height, &node);
 	}
@@ -170,7 +173,9 @@ cairo_gl_context_get_glyph_cache (cairo_gl_context_t *ctx,
     cairo_content_t content;
 
     switch (format) 
-	{
+    {
+	case CAIRO_FORMAT_RGB30:
+	     break;
     	case CAIRO_FORMAT_RGB16_565:
     	case CAIRO_FORMAT_ARGB32:
     	case CAIRO_FORMAT_RGB24:
@@ -261,7 +266,7 @@ _cairo_gl_surface_owns_font (cairo_gl_surface_t *surface,
 void
 _cairo_gl_surface_scaled_font_fini (cairo_scaled_font_t  *scaled_font)
 {
-	int i;
+	//int i;
     cairo_list_del (&scaled_font->link);
 	// we need to remove corresponding max font
 	/*cairo_array_t user_data = (cairo_array_t)(scaled_font->user_data);
@@ -317,9 +322,31 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
     cairo_gl_glyph_cache_t *cache = NULL;
     cairo_gl_context_t *ctx;
     cairo_gl_composite_t setup;
-    cairo_status_t status;
+    cairo_int_status_t status;
+    cairo_color_t color;
+    
+    int m = 1;
+    cairo_matrix_t min_matrix;
+    cairo_matrix_t max_matrix;
+    cairo_scaled_font_t *min_font = NULL;
+    cairo_scaled_font_t *max_font = NULL;
+    cairo_bool_t font_match = FALSE;
+
+    cairo_bool_t setup_mask = FALSE;
+    _cairo_gl_index_t indices;
+
     int i = 0;
-	cairo_font_options_t options;
+    cairo_font_options_t options;
+
+    double font_scale = scaled_font->font_matrix.xx;
+    double default_font_scale = FONT_STANDARD_SIZE;
+    double x_advance;
+    double y_advance;
+    double min_x;
+    double min_y;
+    double max_x;
+    double max_y;
+    cairo_point_t points[4];
 
 	//cairo_antialias_t current_antialias = scaled_font->options.antialias;
 	//scaled_font->options.antialias = CAIRO_ANTIALIAS_SUBPIXEL;
@@ -359,7 +386,6 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 			return CAIRO_INT_STATUS_UNSUPPORTED;
 		}
 		
-		cairo_color_t color;
 		color.red = 0;
 		color.green = 0;
 		color.blue = 0;
@@ -482,8 +508,6 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		status = _cairo_gl_context_release(ctx, status);
 		return status;
 	}
-
-
 	
 	//printf("clipped \n");
 	// we have done clip
@@ -492,17 +516,10 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 	setup.op = op;
     _cairo_scaled_font_freeze_cache (scaled_font);
 	
-	int m = 1;
-	cairo_matrix_t min_matrix;
-	cairo_matrix_t max_matrix;
-	cairo_scaled_font_t *min_font = NULL;
-	cairo_scaled_font_t *max_font = NULL;
-	cairo_bool_t font_match = FALSE;
-
 	//long start = _get_tick();
 
-	double font_scale = scaled_font->font_matrix.xx;
-	double default_font_scale = FONT_STANDARD_SIZE;
+	//double font_scale = scaled_font->font_matrix.xx;
+	//double default_font_scale = FONT_STANDARD_SIZE;
 
 	/*if(ctx->gl_flavor == CAIRO_GL_FLAVOR_ES)
 		options.antialias = CAIRO_ANTIALIAS_SUBPIXEL;
@@ -649,21 +666,18 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		max_font->surface_backend = &_cairo_gl_surface_backend;
 	}
 
-	cairo_bool_t setup_mask = FALSE;
-	_cairo_gl_index_t indices;
 	status = _cairo_gl_create_indices(&indices);
 	indices.setup = &setup;
-	cairo_point_t points[4];
-	double x_advance = glyphs[0].x;
-	double y_advance = glyphs[0].y;
+	x_advance = glyphs[0].x;
+	y_advance = glyphs[0].y;
 
 	//long middle = _get_tick();
 	//printf("get font takes %ld usec for size %0.2f\n", middle - start,
 	//	scaled_font->font_matrix.xx);
 
 	// Henry Song
-	long max_time = 0;
-	long min_time = 0;
+	//long max_time = 0;
+	//long min_time = 0;
 
 	for(i = 0; i < num_glyphs; i++)
 	{
@@ -671,15 +685,21 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		cairo_scaled_glyph_t *max_glyph = NULL;
 		cairo_gl_glyph_private_t *glyph = NULL;
 		double max_x_offset, max_y_offset;
+		double x_offset, y_offset;
 		double min_x_offset = 0;
 		double min_y_offset = 0;
 		double x1, y1, x2, y2;
 		cairo_bool_t empty = FALSE;
 		double current_x_advance;
 		double current_y_advance;
+                double min_width = 0;
+                double min_height = 0;
+                double width;
+                double height;
+                float st[8];
 
-		cairo_fixed_t x_top_left, x_bottom_left;
-		cairo_fixed_t x_top_right, x_bottom_right;
+		//cairo_fixed_t x_top_left, x_bottom_left;
+		//cairo_fixed_t x_top_right, x_bottom_right;
 		
 		//long now1 = _get_tick();
 		status = _cairo_scaled_glyph_lookup(max_font,
@@ -832,10 +852,10 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 			}
 		}
 		
-		double min_x = 0;
-		double min_y = 0;
-		double max_x = max_glyph->metrics.x_advance;
-		double max_y = max_glyph->metrics.y_advance;
+		min_x = 0;
+		min_y = 0;
+		max_x = max_glyph->metrics.x_advance;
+		max_y = max_glyph->metrics.y_advance;
 		if(min_font != NULL)
 		{
 			min_x = min_glyph->metrics.x_advance;
@@ -897,7 +917,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 
 		max_x_offset = max_glyph->surface->base.device_transform.x0;
 		max_y_offset = max_glyph->surface->base.device_transform.y0;
-		double x_offset, y_offset;
+		//double x_offset, y_offset;
 		if(min_font != NULL) 
 		{
 			min_x_offset = min_glyph->surface->base.device_transform.x0;
@@ -906,15 +926,15 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		x_offset = (max_x_offset - min_x_offset) * font_scale / default_font_scale + min_x_offset;
 		y_offset = (max_y_offset - min_y_offset) * font_scale / default_font_scale + min_y_offset;
 
-		double min_width = 0;
-		double min_height = 0;
+		//double min_width = 0;
+		//double min_height = 0;
 		if(min_font != NULL)
 		{
 			min_width = min_glyph->surface->width;
 			min_height = min_glyph->surface->height;
 		}
-		double width = (max_glyph->surface->width - min_width) * font_scale / default_font_scale + min_width;
-		double height = (max_glyph->surface->height - min_height) * font_scale / default_font_scale + min_height;
+		width = (max_glyph->surface->width - min_width) * font_scale / default_font_scale + min_width;
+		height = (max_glyph->surface->height - min_height) * font_scale / default_font_scale + min_height;
 
 		//x1 = glyphs[i].x - x_offset;
 		//y1 = glyphs[i].y - y_offset;
@@ -934,7 +954,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		points[3].y = _cairo_fixed_from_double(y1);
 
 		//printf("get glyph cache\n");
-		float st[8];
+		//float st[8];
 		st[0] = glyph->p1.x;
 		st[1] = glyph->p1.y;
 		st[2] = glyph->p1.x;
@@ -1040,6 +1060,7 @@ _cairo_gl_surface_show_glyphs_via_mask (cairo_gl_surface_t	*dst,
     cairo_status_t status;
     cairo_bool_t has_component_alpha;
     int i;
+    cairo_gl_surface_t *mask;
 
     /* XXX: For non-CA, this should be CAIRO_CONTENT_ALPHA to save memory */
 	
@@ -1059,7 +1080,6 @@ _cairo_gl_surface_show_glyphs_via_mask (cairo_gl_surface_t	*dst,
 	*/
 	if(dst_width <= 0 || dst_height <= 0)
 		return CAIRO_INT_STATUS_UNSUPPORTED;
-	cairo_gl_surface_t *mask;
 
 	//long now =_get_tick();
     //printf("render glyphs via mask\n");
@@ -1077,7 +1097,7 @@ _cairo_gl_surface_show_glyphs_via_mask (cairo_gl_surface_t	*dst,
 
 	
         mask->base.is_clear = FALSE;
-	_cairo_pattern_init_for_surface (&mask_pattern, mask);
+	_cairo_pattern_init_for_surface (&mask_pattern, (cairo_surface_t*)mask);
 	//mask_pattern.base.has_component_alpha = has_component_alpha;
 	mask_pattern.base.has_component_alpha = FALSE;
 	//cairo_matrix_init_translate (&mask_pattern.base.matrix,
@@ -1120,11 +1140,14 @@ _cairo_gl_surface_show_glyphs (void			*abstract_dst,
     cairo_rectangle_int_t surface_extents;
     cairo_rectangle_int_t extents, *clipped_extents, intersect_extents;
 	cairo_rectangle_int_t surface_intersect_extents;
-    cairo_region_t *clip_region = NULL;
-    cairo_bool_t overlap, use_mask = FALSE;
+    //cairo_region_t *clip_region = NULL;
+    cairo_bool_t overlap;
+    //cairo_bool_t use_mask = FALSE;
     cairo_bool_t has_component_alpha;
     cairo_status_t status;
-    int i;
+    //int i;
+    cairo_gl_surface_t *null_mask = NULL;
+    cairo_bool_t needs_clip = FALSE;
 
 	if(num_glyphs == 0)
 		return CAIRO_STATUS_SUCCESS;
@@ -1273,9 +1296,7 @@ _cairo_gl_surface_show_glyphs (void			*abstract_dst,
     surface_extents.height = dst->height;
     if (! _cairo_rectangle_intersect (&surface_intersect_extents, &surface_extents))
 	goto EMPTY;
-	cairo_gl_surface_t *null_mask = NULL;
 	
-	cairo_bool_t needs_clip = FALSE;
 	if(clip != NULL)
 	{
 		if(clipped_extents->x > extents.x || clipped_extents->y > extents.y ||
@@ -1350,26 +1371,29 @@ void cairo_gl_font_extents(cairo_t *cr, cairo_font_extents_t *extents)
 	// we get the 
 	cairo_scaled_font_t *max_font = NULL;
 	cairo_scaled_font_t *min_font = NULL;
+        cairo_scaled_font_t *scaled_font = NULL;
 	int m;
+        double font_scale;
+        double default_font_scale = FONT_STANDARD_SIZE;
+        cairo_bool_t font_match = FALSE;
+        cairo_matrix_t max_matrix, min_matrix;
+        int max_font_size_interval = 512 / FONT_STANDARD_SIZE;
+        cairo_font_extents_t max_extents, min_extents;
+
 	cairo_font_extents(cr, extents);
 	if(unlikely(cr->status))
 		return;
 	
 	// get the scaled font
-	cairo_scaled_font_t *scaled_font = cairo_get_scaled_font(cr);
+	scaled_font = cairo_get_scaled_font(cr);
 	if(unlikely(scaled_font->status))
 	{
 		_cairo_status_set_error(&cr->status, _cairo_error(scaled_font->status));
 		return;
 	}
 
-	double font_scale = scaled_font->font_matrix.xx;
-	double default_font_scale = FONT_STANDARD_SIZE;
-	//font_scale = default_font_scale;
-	cairo_bool_t font_match = FALSE;
-	cairo_matrix_t max_matrix, min_matrix;
-	int max_font_size_interval = 512 / FONT_STANDARD_SIZE;
-
+	font_scale = scaled_font->font_matrix.xx;
+	
 	if(FONT_SIZE_SMOOTH != 1)
 	{
 		// we are in rotate mode
@@ -1433,7 +1457,6 @@ void cairo_gl_font_extents(cairo_t *cr, cairo_font_extents_t *extents)
 	if(min_font)
 		_cairo_scaled_font_freeze_cache(min_font);
 	*/
-	cairo_font_extents_t max_extents, min_extents;
 	
 	min_extents.ascent = 0;
 	min_extents.descent = 0;
@@ -1586,26 +1609,33 @@ void cairo_gl_text_extents(cairo_t *cr, const char *utf8,
 {
 	cairo_scaled_font_t *max_font = NULL;
 	cairo_scaled_font_t *min_font = NULL;
+        cairo_scaled_font_t *scaled_font = NULL;
 	int m;
+        double font_scale;
+        double default_font_scale = FONT_STANDARD_SIZE;
+        cairo_bool_t font_match = FALSE;
+        double x, y;
+        int max_font_size_interval = 512 / FONT_STANDARD_SIZE;
+        cairo_matrix_t max_matrix, min_matrix;
+        cairo_status_t status;
+        cairo_text_extents_t max_extents, min_extents;
+        int num_glyphs;
+        cairo_glyph_t *glyphs = NULL;
+
 	cairo_text_extents(cr, utf8, extents);
 	if(unlikely(cr->status))
 		return;
 	
 	// get the scaled font
-	cairo_scaled_font_t *scaled_font = cairo_get_scaled_font(cr);
+	scaled_font = cairo_get_scaled_font(cr);
 	if(unlikely(scaled_font->status))
 	{
 		_cairo_status_set_error(&cr->status, _cairo_error(scaled_font->status));
 		return;
 	}
 
-	double font_scale = scaled_font->font_matrix.xx;
-	double default_font_scale = FONT_STANDARD_SIZE;
+	font_scale = scaled_font->font_matrix.xx;
 	//font_scale = default_font_scale;
-	cairo_bool_t font_match = FALSE;
-	double x, y;
-	int max_font_size_interval = 512 / FONT_STANDARD_SIZE;
-	cairo_matrix_t max_matrix, min_matrix;
 
 	if(FONT_SIZE_SMOOTH != 1)
 	{
@@ -1667,8 +1697,6 @@ void cairo_gl_text_extents(cairo_t *cr, const char *utf8,
 	// we need to get surface for min/max font
 	cairo_get_current_point(cr, &x, &y);
 
-	cairo_status_t status;
-	cairo_text_extents_t max_extents, min_extents;
 	min_extents.x_bearing = 0;
 	min_extents.y_bearing = 0;
 	min_extents.width = 0;
@@ -1676,8 +1704,6 @@ void cairo_gl_text_extents(cairo_t *cr, const char *utf8,
 	min_extents.x_advance = 0;
 	min_extents.y_advance = 0;
 
-	int num_glyphs;
-	cairo_glyph_t *glyphs = NULL;
 	status = cairo_scaled_font_text_to_glyphs(max_font, x, y, utf8,
 		strlen(utf8), &glyphs, &num_glyphs, NULL, NULL, NULL);
 	if(status != CAIRO_STATUS_SUCCESS)
@@ -1747,15 +1773,15 @@ void cairo_gl_scaled_font_extents(cairo_scaled_font_t *scaled_font,
 	cairo_scaled_font_t *max_font = NULL;
 	cairo_scaled_font_t *min_font = NULL;
 	int m;
-	cairo_scaled_font_extents(scaled_font, extents);
-
 	double font_scale = scaled_font->font_matrix.xx;
 	double default_font_scale = FONT_STANDARD_SIZE;
 	//font_scale = default_font_scale;
 	cairo_bool_t font_match = FALSE;
 	cairo_matrix_t max_matrix, min_matrix;
 	int max_font_size_interval = 512 / FONT_STANDARD_SIZE;
+        cairo_font_extents_t max_extents, min_extents;
 
+        cairo_scaled_font_extents(scaled_font, extents);
 	if(FONT_SIZE_SMOOTH != 1)
 	{
 		// we are in rotate mode
@@ -1819,7 +1845,6 @@ void cairo_gl_scaled_font_extents(cairo_scaled_font_t *scaled_font,
 	if(min_font)
 		_cairo_scaled_font_freeze_cache(min_font);
 	*/
-	cairo_font_extents_t max_extents, min_extents;
 	
 	min_extents.ascent = 0;
 	min_extents.descent = 0;

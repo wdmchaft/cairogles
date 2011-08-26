@@ -51,12 +51,15 @@
 //#define GL_DEPTH_STENCIL 	0x84F9
 //#define GL_DEPTH24_STENCIL8_OES 0x88F0
 
-static long _get_tick()
+#if 0
+// this function is not used
+static long _get_tick(void)
 {
 	struct timeval now;
 	gettimeofday(&now, NULL);
 	return now.tv_sec * 1000000 + now.tv_usec;
 }
+#endif
 	
 static void
 _gl_lock (void *device)
@@ -297,10 +300,10 @@ _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
     /* Create a framebuffer object wrapping the texture so that we can render
      * to it.
      */
-	GLenum err;
+	//GLenum err;
 	if(surface->parent_surface != NULL)
 	{
-   		dispatch->GenFramebuffers (1, &(surface->parent_surface->fb));
+   	    dispatch->GenFramebuffers (1, &(surface->parent_surface->fb));
 	    dispatch->BindFramebuffer (GL_FRAMEBUFFER, surface->parent_surface->fb);
 	    dispatch->FramebufferTexture2D (GL_FRAMEBUFFER,
 				    GL_COLOR_ATTACHMENT0,

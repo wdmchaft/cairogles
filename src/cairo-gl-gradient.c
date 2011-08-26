@@ -51,16 +51,18 @@ cairo_status_t
 _cairo_gl_gradient_digest_linear_gradient(const cairo_gradient_pattern_t *pattern, float surface_height, float *stops, float *colors, float *offsets, float *total_dist, int *nstops, float *delta)
 {
 	double a, b, c, d;
+	int i;
+        cairo_matrix_t matrix;
+        cairo_linear_pattern_t *linear = NULL;
 	if(pattern->n_stops > 8)
 		return CAIRO_INT_STATUS_UNSUPPORTED;
 
 	// TODO: we take care of CAIRO_EXTEND_NONE later
 	// get matrix
-	cairo_matrix_t matrix;
 	memcpy(&matrix, &(pattern->base.matrix), sizeof(double)*6);
 	cairo_matrix_invert(&matrix);
 	// get transformed points
-	cairo_linear_pattern_t *linear = (cairo_linear_pattern_t *)pattern;
+	linear = (cairo_linear_pattern_t *)pattern;
 
 	a = linear->pd1.x;
 	b = linear->pd1.y;
@@ -75,7 +77,7 @@ _cairo_gl_gradient_digest_linear_gradient(const cairo_gradient_pattern_t *patter
 	stops[2] = c;
 	//stops[3] = surface_height - d;
 	stops[3] = d;
-	int i;
+	
 	for(i = 0; i < pattern->n_stops; i++)
 	{
 		colors[i*4] = pattern->stops[i].color.red;
@@ -104,16 +106,20 @@ cairo_status_t
 _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *pattern, float surface_height, float *scales, float *colors, float *offsets, int *nstops, float *circle_1, float *circle_2)
 {
 	double a, b, c, d;
+	double x, y, dx1, dy1;
+  	cairo_matrix_t matrix;
+        cairo_radial_pattern_t *radial = NULL;
+	int i;
+
 	if(pattern->n_stops > 8)
 		return CAIRO_INT_STATUS_UNSUPPORTED;
 
 	// TODO: we take care of CAIRO_EXTEND_NONE later
 	// get matrix
-	cairo_matrix_t matrix;
 	memcpy(&matrix, &(pattern->base.matrix), sizeof(double)*6);
 	cairo_matrix_invert(&matrix);
 	// get transformed points
-	cairo_radial_pattern_t *radial = (cairo_radial_pattern_t *)pattern;
+	radial = (cairo_radial_pattern_t *)pattern;
 
 	a = radial->cd1.center.x;
 	b = radial->cd1.center.y;
@@ -122,14 +128,12 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	cairo_matrix_transform_point(&matrix, &a, &b);
 	cairo_matrix_transform_point(&matrix, &c, &d);
 	// we have to transform radius
-	double dx1, dy1;
 	dx1 = 100.0; 
 	dy1 = 100.0;
 	cairo_matrix_transform_distance(&matrix, &dx1, &dy1);
 	scales[0] = 100.0 / dx1; 
 	scales[1] = 100.0 / dy1;
 
-	double x, y;
 	x = radial->cd1.radius;
 	y = 0;
 	cairo_matrix_transform_distance(&matrix, &x, &y);
@@ -148,7 +152,7 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	circle_2[1] = d;
 	//circle_2[2] = radial->cd2.radius;
 	circle_2[2] = x;
-	int i;
+
 	for(i = 0; i < pattern->n_stops; i++)
 	{
 		colors[i*4] = pattern->stops[i].color.red;

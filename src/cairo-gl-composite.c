@@ -46,6 +46,8 @@
 #include "cairo-gl-private.h"
 #include "cairo-gl-gradient-private.h"
 
+#if 0
+// this function is not used
 static cairo_int_status_t
 _cairo_gl_create_gradient_texture (cairo_gl_surface_t *dst,
 				   const cairo_gradient_pattern_t *pattern,
@@ -59,9 +61,9 @@ _cairo_gl_create_gradient_texture (cairo_gl_surface_t *dst,
 	return status;
 
     status = _cairo_gl_gradient_create (ctx, pattern->n_stops, pattern->stops, gradient);
-
     return _cairo_gl_context_release (ctx, status);
 }
+#endif
 
 /*
  * Like cairo_pattern_acquire_surface(), but returns a matrix that transforms
@@ -76,10 +78,10 @@ _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
 				 int width, int height,
 				 GLuint tex, int tex_width, int tex_height)
 {
-    cairo_status_t status;
-    cairo_matrix_t m;
-    cairo_gl_surface_t *surface;
-    cairo_surface_attributes_t *attributes;
+    //cairo_status_t status;
+    //cairo_matrix_t m;
+    //cairo_gl_surface_t *surface;
+    //cairo_surface_attributes_t *attributes;
 
 	// we use 
 	operand->type = CAIRO_GL_OPERAND_TEXTURE;
@@ -173,7 +175,7 @@ _cairo_gl_gradient_operand_init (cairo_gl_operand_t *operand,
 				 int dst_x, int dst_y)
 {
     const cairo_gradient_pattern_t *gradient = (const cairo_gradient_pattern_t *)pattern;
-    cairo_status_t status;
+    cairo_int_status_t status;
 
 
     assert (gradient->base.type == CAIRO_PATTERN_TYPE_LINEAR ||
@@ -227,11 +229,11 @@ _cairo_gl_gradient_operand_init (cairo_gl_operand_t *operand,
 		if (pattern->extend == CAIRO_EXTEND_NONE)
 			operand->type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE;
 		else if(pattern->extend == CAIRO_EXTEND_PAD)
-			operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD;
+			operand->type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD;
 		else if(pattern->extend == CAIRO_EXTEND_REPEAT)
-			operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT;
+			operand->type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT;
 		else if(pattern->extend == CAIRO_EXTEND_REFLECT)
-			operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT;
+			operand->type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT;
 
 		operand->gradient.pattern = gradient;
     } 
@@ -301,7 +303,7 @@ _cairo_gl_operand_init (cairo_gl_operand_t *operand,
 		        int width, int height,
 				GLuint tex, int tex_width, int tex_height)
 {
-    cairo_status_t status;
+    cairo_int_status_t status;
 
     switch (pattern->type) {
     case CAIRO_PATTERN_TYPE_SOLID:
@@ -452,11 +454,10 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
     char uniform_name[50];
     char *custom_part;
     static const char *names[] = { "source", "mask" };
-
+    GLint location;
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
     strcpy (uniform_name, names[tex_unit]);
     custom_part = uniform_name + strlen (names[tex_unit]);
-	cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-	GLint location;
 
     switch (operand->type) {
     default:
@@ -520,8 +521,10 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 		}
 		break;
 	/* fall through */
-	/*
+	
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
+	break;
+   /*
 	strcpy (custom_part, "_circle_d");
 	_cairo_gl_shader_bind_vec3   (ctx,
 				      uniform_name,
@@ -648,7 +651,7 @@ _cairo_gl_texture_set_extend (cairo_gl_context_t *ctx,
     case CAIRO_EXTEND_REPEAT:
 	glTexParameteri (target, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri (target, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	GLenum err = glGetError();
+	//GLenum err = glGetError();
 	break;
     case CAIRO_EXTEND_REFLECT:
 	glTexParameteri (target, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
@@ -766,9 +769,9 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
         break;
     case CAIRO_GL_OPERAND_TEXTURE:
         glActiveTexture (GL_TEXTURE0 + tex_unit);
-		GLenum error = glGetError();
+	//GLenum error = glGetError();
         glBindTexture (ctx->tex_target, operand->texture.tex);
-		error = glGetError();
+	//error = glGetError();
         _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
                                       operand->texture.attributes.extend);
         _cairo_gl_texture_set_filter (ctx, ctx->tex_target,
@@ -1308,7 +1311,7 @@ cairo_private void
 _cairo_gl_composite_fill_constant_color(cairo_gl_context_t *ctx,
 	unsigned int count, int *indices)
 {
-	GLenum error = glGetError();
+	//GLenum error = glGetError();
 	if(indices != NULL)
 	{
 		if(ctx->pre_shader)

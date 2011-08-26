@@ -53,16 +53,18 @@
 static cairo_bool_t 
 _cairo_gl_need_extend(int size, int *out_size, float *scale)
 {
+        cairo_bool_t need_extend = FALSE;
+        float f;
+        int d;
+        int extend_size = 1;
+
 	if(size <= 0)
 	{
 		*out_size = 0;
 		*scale = 0.0;
 		return FALSE;
 	}
-	cairo_bool_t need_extend = FALSE;
-	float f;
-	int d;
-	int extend_size = 1;
+
 	if(size == 1)
 	{
 		need_extend = 1;
@@ -127,7 +129,8 @@ _cairo_gl_surface_flush (void *abstract_surface);
 
 static void
 _cairo_gl_surface_remove_from_cache(cairo_surface_t *abstract_surface);
-
+#if 0
+// these function are not used
 static cairo_status_t
 _cairo_gl_line_to(void *closure, const cairo_point_t *point);
 
@@ -140,6 +143,7 @@ _cairo_gl_curve_to(void *closure, const cairo_point_t *p0,
 
 static cairo_status_t
 _cairo_gl_close_path(void *closure);
+#endif
 
 cairo_status_t
 _cairo_gl_create_indices(_cairo_gl_index_t *index)
@@ -195,11 +199,12 @@ _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vert
 	char *src_colors = NULL;
 	double *src_v = NULL;
 	double *mask_colors = NULL;
-	double *mask_v = NULL;
 
 	cairo_gl_composite_t *setup = (cairo_gl_composite_t *)closure;
 	int index = 0;
 	int stride = 4 * sizeof(GLfloat);
+	cairo_status_t status;
+
 	if(setup->src.type == CAIRO_GL_OPERAND_CONSTANT)
 	{
 		src_colors = (char *)malloc(sizeof(GLfloat)*4*vpoints);
@@ -212,6 +217,7 @@ _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vert
 	else if(setup->src.type == CAIRO_GL_OPERAND_TEXTURE)
 	{
 		cairo_matrix_t m, m1;
+		GLfloat *st = NULL;
 		src_v = (double *)malloc(sizeof(double)*vpoints*2);
 		src_colors = (char *)malloc(sizeof(GLfloat)*2*vpoints);
 		cairo_matrix_init_scale(&m, 1.0, 1.0);
@@ -219,7 +225,7 @@ _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vert
 		cairo_matrix_init_scale(&m1, 1.0 / setup->src.texture.width,
 			1.0 / setup->src.texture.height);
 		cairo_matrix_multiply(&m, &m, &m1);
-		GLfloat *st = src_colors;
+		st = src_colors;
 		for(index = 0; index < vpoints; index++)
 		{
 			src_v[index*2] = vertices[index*2];
@@ -240,7 +246,7 @@ _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vert
 		}
 	}
 		// we need to fill colors with st values
-	cairo_status_t status = _cairo_gl_composite_begin_constant_color(setup, 
+	status = _cairo_gl_composite_begin_constant_color(setup, 
 			vpoints, 
 			vertices, 
 			src_colors,
@@ -274,8 +280,15 @@ _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vert
 cairo_status_t _cairo_gl_add_triangle(void *closure,
 	const cairo_point_t triangle[3])
 {
+        int last_index = 0;
+        int start_index = 0;
+        int i;
+        int num_indices, num_vertices;
+
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
-	cairo_gl_composite_t *setup = indices->setup;
+        cairo_gl_composite_t *setup = indices->setup;
+        num_indices = indices->num_indices;
+        num_vertices = indices->num_vertices;
 	// first off, we need to flush if max
 	if(indices->num_indices > MAX_INDEX)
 	{
@@ -295,11 +308,7 @@ cairo_status_t _cairo_gl_add_triangle(void *closure,
 		// we need to increase
 		_cairo_gl_increase_indices(indices);
 	}
-	int last_index = 0;
-	int start_index = 0;
-	int i;
-	int num_indices = indices->num_indices;
-	int num_vertices = indices->num_vertices;
+
 	if(num_indices != 0)
 	{
 		// we are not the first
@@ -328,8 +337,17 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 	const cairo_point_t *points,
 	int npoints)
 {
+        int last_index = 0;
+        int start_index = 0;
+        int i;
+        int num_indices, num_vertices;
+	    int mid_index;
+
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
-	cairo_gl_composite_t *setup = indices->setup;
+        cairo_gl_composite_t *setup = indices->setup;
+        num_indices = indices->num_indices;
+        num_vertices = indices->num_vertices;
+	//printf("before add triangle fan indices = %d\n", indices->num_indices);
 	// first off, we need to flush if max
 	if(indices->num_indices > MAX_INDEX)
 	{
@@ -349,11 +367,7 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 		// we need to increase
 		_cairo_gl_increase_indices(indices);
 	}
-	int last_index = 0;
-	int start_index = 0;
-	int i;
-	int num_indices = indices->num_indices;
-	int num_vertices = indices->num_vertices;
+
 	if(num_indices != 0)
 	{
 		// we are not the first
@@ -366,7 +380,7 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 	num_indices = indices->num_indices;
 	// add midpoints
 	num_indices = indices->num_indices;
-	int mid_index = start_index;
+	mid_index = start_index;
 	indices->indices[num_indices] = mid_index;
 	indices->indices[num_indices+1] = mid_index + 1;
 	indices->indices[num_indices+2] = mid_index + 2;
@@ -411,21 +425,32 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 cairo_status_t _cairo_gl_add_convex_quad_for_clip(void *closure,
 	const cairo_point_t quad[4])
 {
+        int last_index = 0;
+        int start_index = 0;
+        int i;
+        int num_indices, num_vertices;
+
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
 	cairo_gl_composite_t *setup = indices->setup;
+        num_indices = indices->num_indices;
+        num_vertices = indices->num_vertices;
+
 	// first off, we need to flush if max
 	if(indices->num_indices > MAX_INDEX)
 	{
 		if(indices->setup != NULL)
 		{
+	                _cairo_gl_index_buf_t *buf = NULL;
+        	        _cairo_gl_index_buf_t *new_buf = NULL;
+
 			// let's create surface->indices_buf
-			_cairo_gl_index_buf_t *buf = (_cairo_gl_index_buf_t *)(indices->setup->dst->indices_buf);
+			buf = (_cairo_gl_index_buf_t *)(indices->setup->dst->indices_buf);
 			if(buf != NULL)
 			{
 				while(buf->next != NULL)
 					buf = buf->next;
 			}
-			_cairo_gl_index_buf_t *new_buf = (_cairo_gl_index_buf_t *)malloc(sizeof(_cairo_gl_index_buf_t));
+			new_buf = (_cairo_gl_index_buf_t *)malloc(sizeof(_cairo_gl_index_buf_t));
 			new_buf->next = NULL;
 			if(buf != NULL)
 				buf->next = new_buf;
@@ -458,11 +483,7 @@ cairo_status_t _cairo_gl_add_convex_quad_for_clip(void *closure,
 		// we need to increase
 		_cairo_gl_increase_indices(indices);
 	}
-	int last_index = 0;
-	int start_index = 0;
-	int i;
-	int num_indices = indices->num_indices;
-	int num_vertices = indices->num_vertices;
+	
 	if(num_indices != 0)
 	{
 		// we are not the first
@@ -505,8 +526,16 @@ cairo_status_t _cairo_gl_add_convex_quad_for_clip(void *closure,
 cairo_status_t _cairo_gl_add_convex_quad(void *closure,
 	const cairo_point_t quad[4])
 {
-	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
-	cairo_gl_composite_t *setup = indices->setup;
+     int last_index = 0;
+     int start_index = 0;
+     int i;
+     int num_indices,num_vertices;
+
+	 _cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
+	 cairo_gl_composite_t *setup = indices->setup;
+     num_indices = indices->num_indices;
+     num_vertices = indices->num_vertices;
+
 	// first off, we need to flush if max
 	if(indices->num_indices > MAX_INDEX)
 	{
@@ -529,11 +558,7 @@ cairo_status_t _cairo_gl_add_convex_quad(void *closure,
 		// we need to increase
 		_cairo_gl_increase_indices(indices);
 	}
-	int last_index = 0;
-	int start_index = 0;
-	int i;
-	int num_indices = indices->num_indices;
-	int num_vertices = indices->num_vertices;
+
 	if(num_indices != 0)
 	{
 		// we are not the first
@@ -578,8 +603,15 @@ cairo_status_t _cairo_gl_add_convex_quad(void *closure,
 cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 	const cairo_point_t quad[4], const float *mask_quad)
 {
+        int last_index = 0;
+        int start_index = 0;
+        int i;
+        int num_indices, num_vertices;
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
 	cairo_gl_composite_t *setup = indices->setup;
+        num_indices = indices->num_indices;
+        num_vertices = indices->num_vertices;
+
 	// first off, we need to flush if max
 	if(indices->num_indices > MAX_INDEX)
 	{
@@ -608,11 +640,7 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 		// we need to increase
 		_cairo_gl_increase_indices(indices);
 	}
-	int last_index = 0;
-	int start_index = 0;
-	int i;
-	int num_indices = indices->num_indices;
-	int num_vertices = indices->num_vertices;
+
 	if(num_indices != 0)
 	{
 		// we are not the first
@@ -847,6 +875,11 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 	cairo_clip_path_t *clip_path = NULL;
 	_cairo_gl_index_t indices;
 	cairo_traps_t traps;
+    _cairo_gl_index_buf_t *current, *temp = NULL;
+    cairo_point_t points[4];
+    int got_traps = 0;
+    int remaining_boxes;
+
 	
 	// enable depth mask
 	glDepthMask(GL_TRUE);
@@ -871,7 +904,8 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 		glColorMask(0, 0, 0, 0);
 		while(exist_buf != NULL)
 		{
-			_cairo_gl_index_t *exist_indices = exist_buf->indices;
+			_cairo_gl_index_t *exist_indices = NULL; 
+            exist_indices = exist_buf->indices;
 			status = _cairo_gl_fill(setup, exist_indices->num_vertices, 
 				exist_indices->vertices, NULL, exist_indices->num_indices, 
 				exist_indices->indices, setup->ctx);
@@ -890,7 +924,6 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 	}
 
 	// clean up clip cache
-	_cairo_gl_index_buf_t *current, *temp;
 	if(surface->indices_buf != NULL)
 	{	
 		current = (_cairo_gl_index_buf_t *)surface->indices_buf;
@@ -912,19 +945,17 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 		clip_path = clip->path;
 	}
 	
-	cairo_point_t points[4];
-	
 	glEnable(GL_STENCIL_TEST);
 	glClear(GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
 	glStencilOp(GL_REPLACE,  GL_REPLACE, GL_REPLACE);
 	glStencilFunc(GL_ALWAYS, 1, 0xffffffff);
 	glColorMask(0, 0, 0, 0);
-	int got_traps = 0;
-	int remaining_boxes = clip->num_boxes;
 
 	while(clip_path != NULL || remaining_boxes != 0)
 	{
+		_cairo_gl_index_buf_t *buf = NULL;
+   		_cairo_gl_index_buf_t *new_buf	= NULL;
 		status = _cairo_gl_create_indices(&indices);
 		indices.setup = setup;
 		
@@ -964,9 +995,9 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 		
 		if(clip_path != NULL)
 		{
+			int m;
 			_cairo_traps_init(&traps);
 			status = _cairo_path_fixed_fill_to_traps(&(clip_path->path), fill_rule, tolerance, &traps);
-			int m;
 			if(traps.num_traps != 0)
 			{
 				got_traps = 1;
@@ -1017,13 +1048,13 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 		}
 		// first off, we need to flush if max
 		// let's create surface->indices_buf
-		_cairo_gl_index_buf_t *buf = (_cairo_gl_index_buf_t *)(indices.setup->dst->indices_buf);
+		buf = (_cairo_gl_index_buf_t *)(indices.setup->dst->indices_buf);
 		if(buf != NULL)
 		{
 			while(buf->next != NULL)
 				buf = buf->next;
 		}
-		_cairo_gl_index_buf_t *new_buf = (_cairo_gl_index_buf_t *)malloc(sizeof(_cairo_gl_index_buf_t));
+		new_buf = (_cairo_gl_index_buf_t *)malloc(sizeof(_cairo_gl_index_buf_t));
 		new_buf->next = NULL;
 		if(buf != NULL)
 			buf->next = new_buf;
@@ -1304,6 +1335,9 @@ _cairo_gl_get_image_format_and_type_gl (pixman_format_code_t pixman_format,
     case PIXMAN_yv12:
     case PIXMAN_x2r10g10b10:
     case PIXMAN_a2r10g10b10:
+    case PIXMAN_r8g8b8a8:
+    case PIXMAN_r8g8b8x8:
+    case PIXMAN_x14r6g6b6:
     default:
 	return FALSE;
     }
@@ -1371,6 +1405,9 @@ _cairo_gl_surface_init (cairo_device_t *device,
 			int width, int height)
 {
     cairo_gl_context_t *ctx;
+    float width_scale, height_scale;
+    cairo_status_t status;
+    cairo_bool_t width_need_snapshot, height_need_snapshot;
     _cairo_surface_init (&surface->base,
 			 &_cairo_gl_surface_backend,
 			 device,
@@ -1388,10 +1425,8 @@ _cairo_gl_surface_init (cairo_device_t *device,
 	surface->scale = 1.0;
 	surface->width = width;
 	surface->height = height;
-	float width_scale, height_scale;
-	int scaled_width, scaled_height;
-    
-	cairo_status_t status = _cairo_gl_context_acquire (device, &ctx);
+	//int scaled_width, scaled_height;
+    status = _cairo_gl_context_acquire (device, &ctx);
     if (unlikely (status))
 	return;
 	if(width > ctx->max_texture_size || height > ctx->max_texture_size)
@@ -1407,11 +1442,10 @@ _cairo_gl_surface_init (cairo_device_t *device,
 	}
     status = _cairo_gl_context_release (ctx, status);
 	// we need to setup extend
-	float *scale;
-	cairo_bool_t width_need_snapshot = _cairo_gl_need_extend(surface->width,
+	width_need_snapshot = _cairo_gl_need_extend(surface->width,
 		&(surface->extend_width), &(surface->extend_width_scale));
 	surface->extend_width_scale = 1.0;
-	cairo_bool_t height_need_snapshot = _cairo_gl_need_extend(surface->height, 
+	height_need_snapshot = _cairo_gl_need_extend(surface->height, 
 		&(surface->extend_height), &(surface->extend_height_scale));
 	surface->extend_height_scale = 1.0;
 	if(width_need_snapshot || height_need_snapshot)
@@ -1432,6 +1466,7 @@ _cairo_gl_surface_create_scratch_for_texture (cairo_gl_context_t   *ctx,
 					      int		    height)
 {
     cairo_gl_surface_t *surface;
+    cairo_bool_t width_need_snapshot, height_need_snapshot;
 
     assert (width <= ctx->max_framebuffer_size && height <= ctx->max_framebuffer_size);
 
@@ -1449,11 +1484,11 @@ _cairo_gl_surface_create_scratch_for_texture (cairo_gl_context_t   *ctx,
     glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	// we need to setup extend
-	float *scale;
-	cairo_bool_t width_need_snapshot = _cairo_gl_need_extend(surface->width,
+	//float *scale;
+	width_need_snapshot = _cairo_gl_need_extend(surface->width,
 		&(surface->extend_width), &(surface->extend_width_scale));
 	surface->extend_width_scale = 1.0;
-	cairo_bool_t height_need_snapshot = _cairo_gl_need_extend(surface->height, 
+	height_need_snapshot = _cairo_gl_need_extend(surface->height, 
 		&(surface->extend_height), &(surface->extend_height_scale));
 	surface->extend_height_scale = 1.0;
 	if(width_need_snapshot || height_need_snapshot)
@@ -1471,11 +1506,12 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
     cairo_gl_surface_t *surface;
     GLenum format;
     GLuint tex;
-	int orig_width = width;
-	int orig_height = height;
-	float width_scale;
-	float height_scale;
-	float scale = 1.0;
+    cairo_bool_t width_extend, height_extend;
+    int orig_width = width;
+    int orig_height = height;
+	//float width_scale;
+	//float height_scale;
+	//float scale = 1.0;
 
     glGenTextures (1, &tex);
     surface = (cairo_gl_surface_t *)
@@ -1485,9 +1521,10 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 	return &surface->base;
 
     surface->owns_tex = TRUE;
-	cairo_bool_t width_extend = _cairo_gl_need_extend(width, &(surface->extend_width), &(surface->extend_width_scale));
+	//float *scale;
+	width_extend = _cairo_gl_need_extend(width, &(surface->extend_width), &(surface->extend_width_scale));
 	surface->extend_width_scale = 1.0;
-	cairo_bool_t height_extend = _cairo_gl_need_extend(height, &(surface->extend_height), &(surface->extend_height_scale));
+	height_extend = _cairo_gl_need_extend(height, &(surface->extend_height), &(surface->extend_height_scale));
 	surface->extend_height_scale = 1.0;
 	if(width_extend && height_extend)
 		surface->needs_extend = FALSE;
@@ -1667,6 +1704,7 @@ cairo_gl_surface_create_for_texture (cairo_device_t	*abstract_device,
 	int orig_height = height;
 	float new_width_scale;
 	float new_height_scale;
+    cairo_bool_t width_extend, height_extend;
 
     if (! CAIRO_CONTENT_VALID (content))
 	return _cairo_surface_create_in_error (_cairo_error (CAIRO_STATUS_INVALID_CONTENT));
@@ -1705,8 +1743,8 @@ cairo_gl_surface_create_for_texture (cairo_device_t	*abstract_device,
 
 	surface->external_tex = TRUE;
 	surface->owns_tex = FALSE;
-	cairo_bool_t width_extend = _cairo_gl_need_extend(width, &(surface->extend_width), &(surface->extend_width_scale));
-	cairo_bool_t height_extend = _cairo_gl_need_extend(height, &(surface->extend_height), &(surface->extend_height_scale));
+	width_extend = _cairo_gl_need_extend(width, &(surface->extend_width), &(surface->extend_width_scale));
+	height_extend = _cairo_gl_need_extend(height, &(surface->extend_height), &(surface->extend_height_scale));
 	if(width_extend && height_extend)
 		surface->needs_extend = FALSE;
 	else
@@ -1834,6 +1872,7 @@ _cairo_gl_surface_create_similar (void		 *abstract_surface,
 
 	int orig_width, orig_height;
 	float new_width_scale, new_height_scale;
+    float scale = 1.0;
 
     if (width < 1 || height < 1)
         return cairo_image_surface_create (_cairo_format_from_content (content),
@@ -1845,7 +1884,6 @@ _cairo_gl_surface_create_similar (void		 *abstract_surface,
 
 	orig_width = width;
 	orig_height = height;
-	float scale = 1.0;
     if (width > ctx->max_texture_size ||
 	height > ctx->max_texture_size)
     {
@@ -1888,11 +1926,12 @@ RELEASE:
 	// we need to setup extend
 	if(surface != NULL && surface->type == CAIRO_SURFACE_TYPE_GL)
 	{
+		cairo_bool_t width_need_snapshot, height_need_snapshot;
 		cairo_gl_surface_t *gl = (cairo_gl_surface_t *)surface;
-		cairo_bool_t width_need_snapshot = _cairo_gl_need_extend(gl->width,
+		width_need_snapshot = _cairo_gl_need_extend(gl->width,
 			&(gl->extend_width), &(gl->extend_width_scale));
 		gl->extend_width_scale = 1.0;
-		cairo_bool_t height_need_snapshot = _cairo_gl_need_extend(gl->height, 
+		height_need_snapshot = _cairo_gl_need_extend(gl->height, 
 			&(gl->extend_height), &(gl->extend_height_scale));
 		gl->extend_height_scale = 1.0;
 		if(width_need_snapshot || height_need_snapshot)
@@ -1910,9 +1949,11 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 	cairo_gl_surface_t *clone = NULL;
 	cairo_surface_t *snapshot = NULL;
 	cairo_image_surface_t *img_src = NULL;
+    void *extra = NULL;
+
 	if(cairo_surface_get_type(src) == CAIRO_SURFACE_TYPE_GL)
 	{
-		cairo_gl_surface_t *s = (cairo_gl_surface_t *)src;
+		//cairo_gl_surface_t *s = (cairo_gl_surface_t *)src;
 		if(extend == 0)
 			return (cairo_gl_surface_t *)cairo_surface_reference(src);
 		else
@@ -1925,26 +1966,35 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 			else // snapshot == NULL
 			{
 				// we need to generate a snapshot
+				cairo_bool_t width_need_snapshot, height_need_snapshot;
+				cairo_gl_surface_t *snap1_gl = NULL;
+				cairo_gl_composite_t *setup = NULL;
+				cairo_pattern_t *pat = NULL;
+				cairo_gl_context_t *ctx = NULL;
+                GLfloat vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
+                //GLfloat mask_vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
+                //double v[] = {0, 0, 0, 0, 0, 0, 0, 0};
+                GLfloat st[] = { 0, 0, 1, 0, 1, 1, 0, 1};
+				cairo_operator_t op = CAIRO_OPERATOR_OVER;
+
 				cairo_gl_surface_t *t = (cairo_gl_surface_t *)src;
 				cairo_surface_t *snap1 = cairo_surface_create_similar(src,
 					src->content, t->extend_width, t->extend_height);
 				if(snap1 == NULL)
 					return NULL;
-				cairo_gl_surface_t *snap1_gl = (cairo_gl_surface_t *)snap1;
-				cairo_bool_t width_need_snapshot = 
+				snap1_gl = (cairo_gl_surface_t *)snap1;
+				width_need_snapshot = 
 					_cairo_gl_need_extend(t->width,
 					&(snap1_gl->extend_width), 
 					&(snap1_gl->extend_width_scale));
-				cairo_bool_t height_need_snapshot = 
+				height_need_snapshot = 
 					_cairo_gl_need_extend(t->height, 
 					&(snap1_gl->extend_height), 
 					&(snap1_gl->extend_height_scale));
 				if(width_need_snapshot || height_need_snapshot)
 					snap1_gl->needs_extend = TRUE;
 				snap1_gl->scale = t->scale;
-				cairo_gl_composite_t *setup;
-				cairo_operator_t op = CAIRO_OPERATOR_OVER;
-
+				
 				setup = (cairo_gl_composite_t *)malloc(sizeof(cairo_gl_composite_t));
 				status = _cairo_gl_composite_init(setup, op, snap1_gl, 
 					FALSE, NULL);
@@ -1956,7 +2006,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 					free(setup);
 					return NULL;
 				}
-				cairo_pattern_t *pat = cairo_pattern_create_for_surface(src);
+				pat = cairo_pattern_create_for_surface(src);
 				setup->source = pat;
 
 				// set up source
@@ -1975,7 +2025,6 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 					return NULL;
 				}
 
-				cairo_gl_context_t *ctx;
 				status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 				if(unlikely(status))
 				{
@@ -1991,9 +2040,6 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 				setup->src.type = CAIRO_GL_OPERAND_TEXTURE;
 	
 				// we have the image uploaded, we need to setup vertices
-				GLfloat vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
-				double v[] = {0, 0, 0, 0, 0, 0, 0, 0};
-				GLfloat st[] = { 0, 0, 1, 0, 1, 1, 0, 1};
 				vertices[0] = 0;
 				vertices[1] = 0;
 				vertices[2] = snap1_gl->width;
@@ -2053,7 +2099,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 		return _cairo_gl_generate_clone(surface, snapshot, extend);
 	}
 	
-	void *extra;
+
 	if(_cairo_surface_is_recording(src))
 	{
 		cairo_rectangle_int_t recording_extents;
@@ -2306,6 +2352,7 @@ _cairo_gl_surface_get_image (cairo_gl_surface_t      *surface,
     pixman_format_code_t pixman_format;
     unsigned int cpp;
     cairo_status_t status;
+    cairo_image_surface_t *argb32_image;
 
     /* Want to use a switch statement here but the compiler gets whiny. */
     if (surface->base.content == CAIRO_CONTENT_COLOR_ALPHA) {
@@ -2409,7 +2456,7 @@ _cairo_gl_surface_get_image (cairo_gl_surface_t      *surface,
 	cairo_surface_destroy (&image->base);
 	return status;
     }
-	cairo_image_surface_t *argb32_image = _cairo_image_surface_coerce_to_format(image, CAIRO_FORMAT_ARGB32);
+	argb32_image = _cairo_image_surface_coerce_to_format(image, CAIRO_FORMAT_ARGB32);
 	cairo_surface_destroy(&image->base);
 	image = argb32_image;
 	image->base.is_clear = 0;
@@ -2462,7 +2509,8 @@ _cairo_gl_surface_finish (void *abstract_surface)
 {
     cairo_gl_surface_t *surface = abstract_surface;
     cairo_status_t status;
-    cairo_gl_context_t *ctx;
+    cairo_gl_context_t *ctx = NULL;
+    _cairo_gl_index_buf_t *current, *temp = NULL;
 
     status = _cairo_gl_context_acquire (surface->base.device, &ctx);
     if (unlikely (status))
@@ -2495,7 +2543,7 @@ _cairo_gl_surface_finish (void *abstract_surface)
 		surface->tex = 0;
 	}
 	if(surface->tex_img != 0)
-		glDeleteTextures(1, &surface->tex_img);
+		glDeleteTextures(1, (GLuint*)&surface->tex_img);
 
 	// release clip
 	if(surface->clip != NULL)
@@ -2503,7 +2551,6 @@ _cairo_gl_surface_finish (void *abstract_surface)
 		_cairo_clip_destroy(surface->clip);
 		surface->clip = NULL;
 	}
-	_cairo_gl_index_buf_t *current, *temp;
 	if(surface->indices_buf != NULL)
 	{	
 		current = (_cairo_gl_index_buf_t *)surface->indices_buf;
@@ -2620,7 +2667,7 @@ _cairo_gl_surface_clone_similar (void		     *abstract_surface,
 	    _cairo_gl_surface_create_similar (&surface->base,
 		                              src->content,
 					      width, height);
-	if (clone == NULL || cairo_surface_get_type(clone) == CAIRO_SURFACE_TYPE_IMAGE)
+	if (clone == NULL || cairo_surface_get_type((cairo_surface_t*)clone) == CAIRO_SURFACE_TYPE_IMAGE)
 	    return UNSUPPORTED ("create_similar failed");
 	if (clone->base.status)
 	    return clone->base.status;
@@ -3145,16 +3192,16 @@ _cairo_gl_surface_paint (void *abstract_surface,
 			 cairo_clip_t	    *clip)
 {
 	// clip path is already scaled
-	cairo_rectangle_int_t source_extents, *clip_extents = NULL;
-	cairo_gl_composite_t *setup;
-	cairo_gl_context_t *ctx;
-	char *colors;
-	int stride;
-	GLfloat stencil_color[] ={ 0, 0, 0, 1};
-	cairo_image_surface_t *image_surface;
-	void *image_extra;
+	//cairo_rectangle_int_t source_extents, *clip_extents = NULL;
+	//cairo_gl_composite_t *setup;
+	//cairo_gl_context_t *ctx;
+	//char *colors;
+	//int stride;
+	//GLfloat stencil_color[] ={ 0, 0, 0, 1};
+	//cairo_image_surface_t *image_surface;
+	//void *image_extra;
 
-	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
+	//cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
 
     /* simplify the common case of clearing the surface */
     if (clip == NULL) {
@@ -3185,19 +3232,37 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 	cairo_clip_t *clip)
 {
     cairo_gl_surface_t *surface = abstract_surface;
-    cairo_composite_rectangles_t extents, mas_extents;
-    cairo_box_t boxes_stack[32], *clip_boxes = boxes_stack;
-    cairo_clip_t local_clip;
-    cairo_bool_t have_clip = FALSE;
-    int num_boxes = ARRAY_LENGTH (boxes_stack);
-    cairo_polygon_t polygon;
+    cairo_composite_rectangles_t extents; 
+    //cairo_box_t boxes_stack[32] ,*clip_boxes = boxes_stack;
+    //cairo_clip_t local_clip;
+    //cairo_bool_t have_clip = FALSE;
+    //int num_boxes = ARRAY_LENGTH (boxes_stack);
+    //cairo_polygon_t polygon;
     cairo_status_t status;
-	cairo_gl_context_t *ctx;
-	_cairo_gl_path_t *current;
-	int stride;
-	int index;
-
-	cairo_gl_composite_t *setup;
+    cairo_gl_composite_t *setup = NULL;
+    cairo_gl_context_t *ctx = NULL;
+    cairo_gl_surface_t *clone = NULL;
+    //cairo_surface_t *snapshot = NULL;
+    cairo_solid_pattern_t *solid = NULL;
+    cairo_gl_surface_t *mask_clone = NULL;
+    //cairo_surface_t *mask_snapshot = NULL;
+    //float temp_width, temp_height;
+	//_cairo_gl_path_t *current;
+	//char *colors;
+	//int stride;
+	//int index;
+    GLfloat vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
+    GLfloat mask_vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
+    double v[] = {0, 0, 0, 0, 0, 0, 0, 0};
+    GLfloat st[] = { 0, 0, 1, 0, 1, 1, 0, 1};
+    GLfloat mask_st[] = { 0, 0, 1, 0, 1, 1, 0, 1};
+    GLfloat colors[] = {0, 0, 0, 0,
+                        0, 0, 0, 0,
+                        0, 0, 0, 0,
+                        0, 0, 0, 0};
+    int i = 0;
+    cairo_matrix_t m, m1;
+    int extend = 0;
 
 	if(mask == NULL)
 		status = _cairo_composite_rectangles_init_for_paint(&extents,
@@ -3227,10 +3292,6 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 		return status;
 	
 	// upload image
-	cairo_gl_surface_t *clone = NULL;
-	cairo_surface_t *snapshot = NULL;
-	cairo_solid_pattern_t *solid = NULL;
-	int extend = 0;
 	if(source->extend == CAIRO_EXTEND_REPEAT ||
 		source->extend == CAIRO_EXTEND_REFLECT)
 		extend = 1;
@@ -3347,8 +3408,6 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 			return status;
 		}
 	}
-	cairo_gl_surface_t *mask_clone = NULL;
-	cairo_surface_t *mask_snapshot = NULL;
 	extend = 0;
 	if(mask != NULL)
 	{
@@ -3425,15 +3484,6 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 	}
 	
 	// we have the image uploaded, we need to setup vertices
-	GLfloat vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
-	GLfloat mask_vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
-	double v[] = {0, 0, 0, 0, 0, 0, 0, 0};
-	GLfloat st[] = { 0, 0, 1, 0, 1, 1, 0, 1};
-	GLfloat mask_st[] = { 0, 0, 1, 0, 1, 1, 0, 1};
-	GLfloat colors[] = {0, 0, 0, 0,
-					    0, 0, 0, 0,
-						0, 0, 0, 0,
-						0, 0, 0, 0};
 	v[0] = extents.bounded.x;
 	v[1] = extents.bounded.y;
 	v[2] = extents.bounded.x + extents.bounded.width;
@@ -3442,10 +3492,9 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 	v[5] = extents.bounded.y + extents.bounded.height;
 	v[6] = extents.bounded.x;
 	v[7] = extents.bounded.y + extents.bounded.height;
-	int i = 0;
 	for(i = 0; i < 8; i++)
 		vertices[i] = v[i];
-	cairo_matrix_t m, m1;
+
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
 	{
 		// compute s, t for bounding box
@@ -3520,7 +3569,7 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 			glDisable(GL_STENCIL_TEST);
 			glDisable(GL_DEPTH_TEST);
 			glDepthMask(GL_FALSE);
-			cairo_status_t status1 = _cairo_gl_context_release(ctx, status);
+			//cairo_status_t status1 = _cairo_gl_context_release(ctx, status);
 			return status;
 		}
 		v[0] = extents.bounded.x;
@@ -3715,15 +3764,25 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 {
     cairo_gl_surface_t *surface = abstract_surface;
     cairo_composite_rectangles_t extents;
-    cairo_box_t boxes_stack[32], *clip_boxes = boxes_stack;
-    int num_boxes = ARRAY_LENGTH (boxes_stack);
-    cairo_clip_t local_clip;
-    cairo_bool_t have_clip = FALSE;
-    cairo_polygon_t polygon;
+    //cairo_box_t boxes_stack[32], *clip_boxes = boxes_stack;
+    //int num_boxes = ARRAY_LENGTH (boxes_stack);
+    //cairo_clip_t local_clip;
+    //cairo_bool_t have_clip = FALSE;
+    //cairo_polygon_t polygon;
     cairo_status_t status;
+    _cairo_gl_index_t indices;
+    // Henry Song
+    cairo_gl_composite_t *setup = NULL;
+    cairo_gl_context_t *ctx = NULL;
+    cairo_color_t color;
+    cairo_surface_pattern_t mask_pattern;
+    cairo_gl_surface_t *clone = NULL;
+    //cairo_surface_t *snapshot = NULL;
+    cairo_solid_pattern_t *solid = NULL;
+    int extend = 0;
+    int v;
 
-	_cairo_gl_index_t indices;
-	cairo_rectangle_int_t *clip_extent, stroke_extent;
+	//cairo_rectangle_int_t *clip_extent, stroke_extent;
 
 	if(antialias != CAIRO_ANTIALIAS_NONE || clip != NULL)
 	{
@@ -3731,9 +3790,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		//surface->needs_super_sampling = TRUE;
 	}
 	
-	cairo_gl_composite_t *setup;
-	cairo_gl_context_t *ctx;
-
     status = _cairo_composite_rectangles_init_for_stroke (&extents,
 							  surface->width,
 							  surface->height,
@@ -3774,7 +3830,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 			return CAIRO_INT_STATUS_UNSUPPORTED;
 		}
 		
-		cairo_color_t color;
 		color.red = 0;
 		color.green = 0;
 		color.blue = 0;
@@ -3806,11 +3861,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		return status;
 
 	// upload image
-	cairo_gl_surface_t *clone = NULL;
-	cairo_surface_t *snapshot = NULL;
-	cairo_solid_pattern_t *solid = NULL;
-
-	int extend = 0;
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
 	{
 		cairo_surface_t *src = ((cairo_surface_pattern_t *)source)->surface;
@@ -3936,7 +3986,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 												_cairo_gl_add_convex_quad,
 												&indices);
 
-	int v, idx;
+
 	glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &v);
 	// fill it, we fix t later
 	status = _cairo_gl_fill(setup, indices.num_vertices, 
@@ -3974,17 +4024,30 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     cairo_gl_surface_t *surface = abstract_surface;
 	
     cairo_composite_rectangles_t extents;
-    cairo_box_t boxes_stack[32], *clip_boxes = boxes_stack;
-    cairo_clip_t local_clip;
-    cairo_bool_t have_clip = FALSE;
-    int num_boxes = ARRAY_LENGTH (boxes_stack);
-    cairo_polygon_t polygon;
+    //cairo_box_t boxes_stack[32], *clip_boxes = boxes_stack;
+    //cairo_clip_t local_clip;
+    //cairo_bool_t have_clip = FALSE;
+    //int num_boxes = ARRAY_LENGTH (boxes_stack);
+    //cairo_polygon_t polygon;
     cairo_status_t status;
-	cairo_gl_context_t *ctx;
-	_cairo_gl_path_t *current;
-	char *colors;
-	int stride;
-	int index;
+    cairo_color_t color;
+    cairo_surface_pattern_t mask_pattern;
+    cairo_gl_surface_t *clone = NULL;
+    //cairo_surface_t *snapshot = NULL;
+    cairo_solid_pattern_t *solid = NULL;
+    cairo_gl_context_t *ctx = NULL;
+    cairo_traps_t traps;
+    //cairo_polygon_t polygons
+    _cairo_gl_index_t indices;
+    cairo_point_t points[4];
+    int m;
+    cairo_fixed_t x_top_left, x_bottom_left;
+    cairo_fixed_t x_top_right, x_bottom_right;
+    double x1, x2;
+    double y1, y2;
+    double dx, dy;
+    double top, bottom;
+    int extend = 0;
 
 	cairo_gl_composite_t *setup;
 	cairo_rectangle_int_t path_extent, *clip_extent;
@@ -4036,8 +4099,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 			return CAIRO_INT_STATUS_UNSUPPORTED;
 		}
 		
-		
-		cairo_color_t color;
 		color.red = 0;
 		color.green = 0;
 		color.blue = 0;
@@ -4053,9 +4114,8 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 			return status;
 		}
 		surface->mask_surface->bound_fbo = TRUE;
-		cairo_surface_pattern_t mask_pattern;
 		surface->mask_surface->base.is_clear = FALSE;
-		_cairo_pattern_init_for_surface(&mask_pattern, surface->mask_surface);
+		_cairo_pattern_init_for_surface(&mask_pattern, (cairo_surface_t*)surface->mask_surface);
 		mask_pattern.base.has_component_alpha = FALSE;
 		status = _cairo_surface_paint(&surface->base, op, &(mask_pattern.base), clip);
 		_cairo_pattern_fini(&mask_pattern.base);
@@ -4064,11 +4124,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	}
 
 	// upload image
-	cairo_gl_surface_t *clone = NULL;
-	cairo_surface_t *snapshot = NULL;
-	cairo_solid_pattern_t *solid = NULL;
-
-	int extend = 0;
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
 	{
 		cairo_surface_t *src = ((cairo_surface_pattern_t *)source)->surface;
@@ -4224,21 +4279,11 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	}
 
 	// setup indices
-	cairo_traps_t traps;
-	_cairo_gl_index_t indices;
 	_cairo_traps_init(&traps);
 	status = _cairo_gl_create_indices(&indices);
 	indices.setup = setup;
-	cairo_point_t points[4];
 
 	status = _cairo_path_fixed_fill_to_traps(path, fill_rule, tolerance, &traps);
-	int m;
-	cairo_fixed_t x_top_left, x_bottom_left;
-	cairo_fixed_t x_top_right, x_bottom_right;
-	double x1, x2;
-	double y1, y2;
-	double dx, dy;
-	double top, bottom;
 	for(m = 0; m < traps.num_traps; m++)
 	{
 		top = _cairo_fixed_to_double(traps.traps[m].top);
@@ -4353,15 +4398,14 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
     int cpp;
 	cairo_image_surface_t *src;
     cairo_status_t status = CAIRO_STATUS_SUCCESS;
-	cairo_image_surface_t *clone = NULL;
-	cairo_image_surface_t *shrink_image = NULL;
-	GLenum error;
+    cairo_image_surface_t *clone = NULL;
+    cairo_image_surface_t *shrink_image = NULL;
+    GLenum error;
+    int orig_width = width;
+    int orig_height = height;
 
 	if(dst->tex == 0)
 		return CAIRO_INT_STATUS_UNSUPPORTED;
-
-	int orig_width = width;
-	int orig_height = height;
 
 	// lock gl context
     status = _cairo_gl_context_acquire (dst->base.device, &ctx);
@@ -4408,12 +4452,13 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
 	
 	if(dst->scale != 1.0)
 	{
+		cairo_t *cr = NULL;
 		//we have to shrink image
 		shrink_image = (cairo_image_surface_t *)cairo_surface_create_similar(&image_surface->base,
 			cairo_surface_get_content(&image_surface->base),
 			dst->scale * orig_width,
 			dst->scale * orig_height);
-		cairo_t *cr = cairo_create(&shrink_image->base);
+		cr = cairo_create(&shrink_image->base);
 		cairo_scale(cr, dst->scale, dst->scale);
 		cairo_set_source_surface(cr, &image_surface->base, 0, 0);
 		cairo_paint(cr);
@@ -4438,9 +4483,9 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
 	 * b. the row stride cannot be handled by GL itself using a 4 byte alignment
 	 *    constraint
 	 */
-		if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES &&
-	   		(image_surface->width * cpp < src->stride - 3) ||
-			width != image_surface->width)
+		if ((ctx->gl_flavor == CAIRO_GL_FLAVOR_ES) &&
+	   		((image_surface->width * cpp < src->stride - 3) ||
+			width != image_surface->width))
 		{
     		glPixelStorei (GL_UNPACK_ALIGNMENT, 1);
 		   	 status = _cairo_gl_surface_extract_image_data (image_surface, 
@@ -4499,9 +4544,10 @@ _cairo_gl_surface_remove_from_cache(cairo_surface_t *abstract_surface)
 
 void cairo_gl_reset_device(cairo_device_t *device)
 {
+	cairo_gl_context_t *ctx = NULL;
 	if(device == NULL)
 		return;
-	cairo_gl_context_t *ctx = (cairo_gl_context_t *)device;
+	ctx = (cairo_gl_context_t *)device;
 	ctx->reset(ctx);
 }
 
@@ -4510,6 +4556,8 @@ cairo_status_t
 _cairo_gl_surface_mark_dirty_rectangle(cairo_surface_t *abstract_surface,
 	int x, int y, int width, int height)
 {
+    cairo_gl_context_t *ctx;
+    cairo_status_t status;
 	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
 	if(surface->tex == 0)
 		return CAIRO_INT_STATUS_UNSUPPORTED;
@@ -4517,9 +4565,7 @@ _cairo_gl_surface_mark_dirty_rectangle(cairo_surface_t *abstract_surface,
 		return CAIRO_STATUS_SUCCESS;
 
 	// we need to upload the portion to 
-	cairo_gl_context_t *ctx;
-	cairo_status_t status;
-    status = _cairo_gl_context_acquire (surface->base.device, &ctx);
+	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
     if (unlikely (status))
 		return status;
     _cairo_gl_composite_flush (ctx);
@@ -4537,7 +4583,9 @@ _cairo_gl_surface_mark_dirty_rectangle(cairo_surface_t *abstract_surface,
 unsigned char *
 cairo_gl_surface_get_data(cairo_surface_t *abstract_surface)
 {
+	void *image_extra = NULL;
 	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
+
 	if(!_cairo_surface_is_gl(abstract_surface))
 		return NULL;
 	if(surface->tex == 0)
@@ -4557,10 +4605,6 @@ cairo_gl_surface_get_data(cairo_surface_t *abstract_surface)
 	}
 	surface->needs_new_data_surface = FALSE;
 	// create an image surface
-    cairo_rectangle_int_t extents;
-
-    void *image_extra = NULL;
-
 	_cairo_gl_surface_acquire_source_image (abstract_surface,
 					&(surface->data_surface),
 					&image_extra);
@@ -4570,7 +4614,9 @@ cairo_gl_surface_get_data(cairo_surface_t *abstract_surface)
 int 
 cairo_gl_surface_get_stride(cairo_surface_t *abstract_surface)
 {
+	void *image_extra = NULL;
 	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
+
 	if(!_cairo_surface_is_gl(abstract_surface))
 		return 0;
 	if(surface->needs_new_data_surface == FALSE)
@@ -4587,10 +4633,6 @@ cairo_gl_surface_get_stride(cairo_surface_t *abstract_surface)
 	}
 	surface->needs_new_data_surface = FALSE;
 	// create an image surface
-    cairo_rectangle_int_t extents;
-
-    void *image_extra = NULL;
-
 	_cairo_gl_surface_acquire_source_image (abstract_surface,
 					&(surface->data_surface),
 					&image_extra);
@@ -4600,7 +4642,9 @@ cairo_gl_surface_get_stride(cairo_surface_t *abstract_surface)
 cairo_format_t 
 cairo_gl_surface_get_format(cairo_surface_t *abstract_surface)
 {
-	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
+	void *image_extra = NULL;
+    cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
+
 	if(!_cairo_surface_is_gl(abstract_surface))
 		return 0;
 	if(surface->needs_new_data_surface == FALSE)
@@ -4617,11 +4661,7 @@ cairo_gl_surface_get_format(cairo_surface_t *abstract_surface)
 	}
 	surface->needs_new_data_surface = FALSE;
 	// create an image surface
-    cairo_rectangle_int_t extents;
-
-    void *image_extra = NULL;
-
-	_cairo_gl_surface_acquire_source_image (abstract_surface,
+    _cairo_gl_surface_acquire_source_image (abstract_surface,
 					&(surface->data_surface),
 					&image_extra);
 	return cairo_image_surface_get_format(surface->data_surface);
@@ -4630,7 +4670,9 @@ cairo_gl_surface_get_format(cairo_surface_t *abstract_surface)
 cairo_surface_t *
 cairo_gl_surface_get_image_surface(cairo_surface_t *abstract_surface)
 {
+	void *image_extra = NULL;
 	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
+
 	if(!_cairo_surface_is_gl(abstract_surface))
 		return NULL;
 	
@@ -4648,10 +4690,6 @@ cairo_gl_surface_get_image_surface(cairo_surface_t *abstract_surface)
 	}
 	surface->needs_new_data_surface = FALSE;
 	// create an image surface
-    cairo_rectangle_int_t extents;
-
-    void *image_extra = NULL;
-
 	_cairo_gl_surface_acquire_source_image (abstract_surface,
 					&(surface->data_surface),
 					&image_extra);

@@ -112,7 +112,8 @@ _glx_acquire (void *abstract_ctx)
 		ctx->target_context = ctx->context;
 */
     	//glXMakeCurrent (ctx->display, current_drawable, ctx->context);
-    	Bool result = glXMakeContextCurrent (ctx->display, current_drawable, current_drawable, ctx->context);
+    	//Bool result = glXMakeContextCurrent (ctx->display, current_drawable, current_drawable, ctx->context);
+    	glXMakeContextCurrent (ctx->display, current_drawable, current_drawable, ctx->context);
 		//printf("glXMakeContextCurrent = %d\n", result);
 		/*if(result != 1)
 		{
@@ -156,7 +157,7 @@ _glx_make_current (void *abstract_ctx, cairo_gl_surface_t *abstract_surface)
 static void
 _glx_release (void *abstract_ctx)
 {
-    cairo_glx_context_t *ctx = abstract_ctx;
+    //cairo_glx_context_t *ctx = abstract_ctx;
 
 //    if (!ctx->has_multithread_makecurrent) {
 //	glXMakeCurrent (ctx->display, None, None);
