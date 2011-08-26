@@ -97,7 +97,7 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
 				   int			    num_rects);
 
 static cairo_int_status_t
-_cairo_gl_surface_mask(cairo_surface_t *abstract_surface,
+_cairo_gl_surface_mask(void *abstract_surface,
 	cairo_operator_t op,
 	const cairo_pattern_t *source,
 	const cairo_pattern_t *mask,
@@ -208,7 +208,7 @@ _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vert
 		cairo_matrix_init_scale(&m1, 1.0 / setup->src.texture.width,
 			1.0 / setup->src.texture.height);
 		cairo_matrix_multiply(&m, &m, &m1);
-		st = src_colors;
+		st = (GLfloat*)src_colors;
 		for(index = 0; index < vpoints; index++)
 		{
 			src_v[index*2] = vertices[index*2];
@@ -221,7 +221,7 @@ _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vert
 
 	if(setup->mask.type == CAIRO_GL_OPERAND_CONSTANT)
 	{
-		mask_colors = (char *)malloc(sizeof(GLfloat)*4*vpoints);
+		mask_colors = malloc(sizeof(GLfloat)*4*vpoints);
 		while(index < vpoints)
 		{
 			memcpy(mask_colors+index*stride, &(setup->mask.constant.color), stride);
@@ -688,7 +688,6 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 	cairo_fill_rule_t fill_rule;
 	double tolerance = 0.1;
 	cairo_status_t status;
-	cairo_path_fixed_t path;
 	cairo_clip_path_t *clip_path = NULL;
 	_cairo_gl_index_t indices;
 	cairo_traps_t traps;
@@ -758,7 +757,6 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 	if(clip->path != NULL)
 	{
 		fill_rule = clip->path->fill_rule;
-		path = clip->path->path;
 		clip_path = clip->path;
 	}
 	
@@ -1589,20 +1587,15 @@ cairo_gl_surface_set_size (cairo_surface_t *abstract_surface,
 			   int              height)
 {
     cairo_gl_surface_t *surface = (cairo_gl_surface_t *) abstract_surface;
-    cairo_status_t status;
 
     if (unlikely (abstract_surface->status))
 	return;
     if (unlikely (abstract_surface->finished)) {
-	status = _cairo_surface_set_error (abstract_surface,
-		                           _cairo_error (CAIRO_STATUS_SURFACE_FINISHED));
         return;
     }
 
     if (! _cairo_surface_is_gl (abstract_surface) ||
         _cairo_gl_surface_is_texture (surface)) {
-	status = _cairo_surface_set_error (abstract_surface,
-		                           _cairo_error (CAIRO_STATUS_SURFACE_TYPE_MISMATCH));
 	return;
     }
 
@@ -1733,7 +1726,7 @@ _cairo_gl_surface_create_similar (void		 *abstract_surface,
 		g->orig_width = orig_width;
 		g->orig_height = orig_height;
 	}
-RELEASE:
+
     status = _cairo_gl_context_release (ctx, status);
     if (unlikely (status)) {
         cairo_surface_destroy (surface);
@@ -1920,7 +1913,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 	if(_cairo_surface_is_recording(src))
 	{
 		cairo_rectangle_int_t recording_extents;
-		cairo_recording_surface_t *recording_surface = (cairo_recording_surface_t *)src;
+		cairo_color_t clear_color;
 		cairo_bool_t bounded  = _cairo_surface_get_extents(src, &recording_extents);
 		if(bounded == FALSE)
 			clone = (cairo_gl_surface_t *)
@@ -1937,7 +1930,6 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 			cairo_surface_destroy(&clone->base);
 			return NULL;
 		}
-		cairo_color_t clear_color;
 		clear_color.red = 0;
 		clear_color.green = 0;
 		clear_color.blue = 0;
@@ -1960,7 +1952,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 				((cairo_surface_t *)img_src)->content,
 				img_src->width, img_src->height);
 
-		if(clone == NULL || cairo_surface_get_type(clone) == CAIRO_SURFACE_TYPE_IMAGE)
+		if(clone == NULL || cairo_surface_get_type(&clone->base) == CAIRO_SURFACE_TYPE_IMAGE)
 		{
 			if(cairo_surface_get_type(src) != CAIRO_SURFACE_TYPE_IMAGE)
 			{
@@ -2547,7 +2539,7 @@ _cairo_gl_surface_composite (cairo_operator_t		  op,
                                                    dx, dy,
                                                    width, height,
                                                    dst_x, dst_y);
-            if (status != CAIRO_INT_STATUS_UNSUPPORTED)
+            if (status != CAIRO_STATUS_SUCCESS)
                 return status;
         }
     }
@@ -2762,7 +2754,7 @@ _cairo_gl_surface_paint (void *abstract_surface,
 }
 
 static cairo_int_status_t
-_cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
+_cairo_gl_surface_mask (void *abstract_surface,
 	cairo_operator_t op,
 	const cairo_pattern_t *source,
 	const cairo_pattern_t *mask,
@@ -2854,7 +2846,8 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 		free(setup);
 		return status;
 	}
-	setup->source = source;
+
+	setup->source = (cairo_pattern_t*)source;
 
 	// set up source
 	if(clone == NULL)
@@ -3274,10 +3267,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     cairo_gl_composite_t *setup = NULL;
     cairo_gl_context_t *ctx = NULL;
     cairo_color_t color;
-    cairo_surface_pattern_t mask_pattern;
     cairo_gl_surface_t *clone = NULL;
     //cairo_surface_t *snapshot = NULL;
-    cairo_solid_pattern_t *solid = NULL;
     int extend = 0;
     int v;
 
@@ -3300,6 +3291,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	
 	if(extents.is_bounded == 0)
 	{
+		cairo_surface_pattern_t mask_pattern;
+
 		// it is unbounded operator
 		// get this surface's mask
 		if(surface->mask_surface != NULL && 
@@ -3344,9 +3337,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 			return status;
 		}
 		surface->mask_surface->bound_fbo = TRUE;
-		cairo_surface_pattern_t mask_pattern;
 		surface->mask_surface->base.is_clear = FALSE;
-		_cairo_pattern_init_for_surface(&mask_pattern, surface->mask_surface);
+		_cairo_pattern_init_for_surface(&mask_pattern, &surface->mask_surface->base);
 		mask_pattern.base.has_component_alpha = FALSE;
 		status = _cairo_surface_paint(&surface->base, op, &(mask_pattern.base), clip);
 		_cairo_pattern_fini(&mask_pattern.base);
@@ -3373,9 +3365,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 			return UNSUPPORTED("create_clone failed");
 		}
 	}
-	else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
-		solid = (cairo_solid_pattern_t *)source;
-
 	
 	setup = (cairo_gl_composite_t *)malloc(sizeof(cairo_gl_composite_t));
 	
@@ -3390,7 +3379,9 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		_cairo_gl_context_release(ctx, status);
 		return status;
 	}
-	setup->source = source;
+
+	setup->source = (cairo_pattern_t*)source;
+
 	if(clone == NULL)
 		status = _cairo_gl_composite_set_source(setup,
 			source, extents.bounded.x, extents.bounded.y,
@@ -3533,7 +3524,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     cairo_surface_pattern_t mask_pattern;
     cairo_gl_surface_t *clone = NULL;
     //cairo_surface_t *snapshot = NULL;
-    cairo_solid_pattern_t *solid = NULL;
     cairo_gl_context_t *ctx = NULL;
     cairo_traps_t traps;
     //cairo_polygon_t polygons
@@ -3549,7 +3539,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     int extend = 0;
 
 	cairo_gl_composite_t *setup;
-	cairo_rectangle_int_t path_extent, *clip_extent;
 
 	if(antialias != CAIRO_ANTIALIAS_NONE || clip != NULL)
 	{
@@ -3637,10 +3626,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 			return UNSUPPORTED("create_clone failed");
 		}
 	}
-	else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
-		solid = (cairo_solid_pattern_t *)source;
-	
-
 	
 	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 	if(unlikely(status))
@@ -3899,7 +3884,6 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
     cairo_status_t status = CAIRO_STATUS_SUCCESS;
     cairo_image_surface_t *clone = NULL;
     cairo_image_surface_t *shrink_image = NULL;
-    GLenum error;
     int orig_width = width;
     int orig_height = height;
 
@@ -3969,7 +3953,6 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
 
 	if(ctx->gl_flavor == CAIRO_GL_FLAVOR_DESKTOP)
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, image_surface->stride / cpp);
-	error = glGetError();
 	{
 		void *data_start = image_surface->data + src_y * image_surface->stride + src_x * cpp;
 		void *data_start_gles2 = NULL;
@@ -3998,24 +3981,17 @@ _cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
 		{
 	    	glPixelStorei (GL_UNPACK_ALIGNMENT, 4);
 		}
-		error = glGetError();
 
 		_cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
-		error = glGetError();
 		glBindTexture (ctx->tex_target, dst->tex);
-		error = glGetError();
 		glTexParameteri (ctx->tex_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		error = glGetError();
 		glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		error = glGetError();
 
 		glTexSubImage2D (ctx->tex_target, 0,
 				 dst_x, dst_y, width, height,
 				 format, type,
 				 data_start_gles2 != NULL ? data_start_gles2 :
 						    data_start);
-		error = glGetError();
-
 		if (data_start_gles2)
 	    	free (data_start_gles2);
 	}
