@@ -2997,7 +2997,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT;
 	}
 	else if(source->type == CAIRO_PATTERN_TYPE_RADIAL)
-		setup->src.type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE;
+		setup->src.type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE;
 	else
 	{
 		if(clone != NULL)
@@ -3748,7 +3748,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT;
 	}
 	else if(source->type == CAIRO_PATTERN_TYPE_RADIAL)
-		setup->src.type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE;
+		setup->src.type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE;
 	else
 	{
 		if(clone != NULL)
