@@ -53,7 +53,6 @@
 static cairo_bool_t 
 _cairo_gl_need_extend(int size, int *out_size, float *scale)
 {
-        cairo_bool_t need_extend = FALSE;
         float f;
         int d;
         int extend_size = 1;
@@ -67,7 +66,6 @@ _cairo_gl_need_extend(int size, int *out_size, float *scale)
 
 	if(size == 1)
 	{
-		need_extend = 1;
 		*out_size = 2;
 		*scale = 2.0;
 		return TRUE;
@@ -129,21 +127,6 @@ _cairo_gl_surface_flush (void *abstract_surface);
 
 static void
 _cairo_gl_surface_remove_from_cache(cairo_surface_t *abstract_surface);
-#if 0
-// these function are not used
-static cairo_status_t
-_cairo_gl_line_to(void *closure, const cairo_point_t *point);
-
-static cairo_status_t
-_cairo_gl_move_to(void *closure, const cairo_point_t *point);
-
-static cairo_status_t
-_cairo_gl_curve_to(void *closure, const cairo_point_t *p0,
-	const cairo_point_t *p1, const cairo_point_t *p2);
-
-static cairo_status_t
-_cairo_gl_close_path(void *closure);
-#endif
 
 cairo_status_t
 _cairo_gl_create_indices(_cairo_gl_index_t *index)
@@ -697,172 +680,6 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 	return CAIRO_STATUS_SUCCESS;
 }
 
-static void _cairo_gl_free_path(_cairo_gl_path_t *path)
-{
-	_cairo_gl_path_t *temp;
-	_cairo_gl_path_t *current = path;
-	if(path == NULL)
-		return;
-	
-	while(current != NULL)
-	{
-		free(current->vertices->vertices);
-		free(current->vertices);
-		temp = current->prev;
-		if(temp != NULL)
-			temp->next = NULL;
-		temp = current;
-		current = current->next;
-		if(current != NULL)
-			current->prev = NULL;
-		free(temp);
-		temp->next = NULL;
-		temp->prev = NULL;
-	}
-}
-
-static _cairo_gl_path_vertices_t *
-_cairo_gl_create_increase_path_vertices_capacity(_cairo_gl_path_vertices_t *current)
-{
-	_cairo_gl_path_vertices_t *new_vertices = (_cairo_gl_path_vertices_t *)malloc(sizeof(_cairo_gl_path_vertices_t));
-	if(current != NULL)
-	{
-		new_vertices->vertices = (_cairo_gl_vertex_t *)malloc(sizeof(_cairo_gl_vertex_t)*(current->capacity *2));
-		memcpy(new_vertices->vertices, current->vertices, current->vertex_size * sizeof(_cairo_gl_vertex_t));
-		new_vertices->capacity = current->capacity *2;
-		new_vertices->vertex_size = current->vertex_size;
-	}
-	else
-	{
-		new_vertices->vertices = (_cairo_gl_vertex_t *)malloc(sizeof(_cairo_gl_vertex_t)*(VERTEX_INC));
-		new_vertices->capacity = VERTEX_INC;
-		new_vertices->vertex_size = 0;
-	}
-		
-	return new_vertices;
-}
-
-static cairo_status_t
-_cairo_gl_curve_to(void *closure, const cairo_point_t *p0,
-	const cairo_point_t *p1, const cairo_point_t *p2)
-{
-	double x0, y0, x1, y1, x2, y2;
-	double prevx, prevy;
-
-	double m_ax, m_ay, m_bx, m_by, m_cx, m_cy, m_dx, m_dy;
-	int index, i;
-	double x, y;
-	double t;
-	double increment = 1.0 / VERTEX_INC;
-
-	_cairo_gl_path_t *head = (_cairo_gl_path_t *)closure;
-	_cairo_gl_path_t *current_path = head->prev;
-
-	_cairo_gl_path_vertices_t *vertices = current_path->vertices;
-	if(vertices->vertex_size + VERTEX_INC >= vertices->capacity)
-	{
-		// make new one
-		_cairo_gl_path_vertices_t *new_vertices = 
-			_cairo_gl_create_increase_path_vertices_capacity(vertices);
-		// remove current
-		free(vertices->vertices);
-		free(vertices);
-		current_path->vertices = new_vertices;
-	}
-
-	x0 = _cairo_fixed_to_double(p0->x);
-	y0 = _cairo_fixed_to_double(p0->y);
-	x1 = _cairo_fixed_to_double(p1->x);
-	y1 = _cairo_fixed_to_double(p1->y);
-	x2 = _cairo_fixed_to_double(p2->x);
-	y2 = _cairo_fixed_to_double(p2->y);
-	prevx = current_path->vertices->vertices[current_path->vertices->vertex_size-1].x;
-	prevy = current_path->vertices->vertices[current_path->vertices->vertex_size-1].y;
-	m_ax = prevx;
-	m_ay = prevy;
-	m_bx = -3.0 * prevx + 3.0 * x0;
-	m_by = -3.0 * prevy + 3.0 * y0;
-	m_cx = 3.0 * prevx - 6.0 * x0 + 3.0 * x1;
-	m_cy = 3.0 * prevy - 6.0 * y0 + 3.0 * y1;
-	m_dx = -1.0 * prevx + 3.0 * x0 - 3.0 * x1 + x2;
-	m_dy = -1.0 * prevy + 3.0 * y0 - 3.0 * y1 + y2;
-
-	t = increment;
-	for(i = 0; i < VERTEX_INC; i++, t += increment)
-	{
-		x = m_ax + t * (m_bx + t * (m_cx + t * m_dx));
-		y = m_ay + t * (m_by + t * (m_cy + t * m_dy));
-		index = current_path->vertices->vertex_size;
-		current_path->vertices->vertices[index].x = x;
-		current_path->vertices->vertices[index].y = y;
-		current_path->vertices->vertex_size ++;
-	}
-
-	return CAIRO_STATUS_SUCCESS;
-}
-
-static cairo_status_t
-_cairo_gl_close_path(void *closure)
-{
-	return CAIRO_STATUS_SUCCESS;
-}
-
-static cairo_status_t
-_cairo_gl_line_to(void *closure, const cairo_point_t *point)
-{
-	double x, y;
-	int index;
-	_cairo_gl_path_t *head = (_cairo_gl_path_t *)closure;
-	_cairo_gl_path_t *current_path = head->prev;
-
-	_cairo_gl_path_vertices_t *vertices = current_path->vertices;
-	if(vertices->vertex_size == vertices->capacity)
-	{
-		// make new one
-		_cairo_gl_path_vertices_t *new_vertices =
-			_cairo_gl_create_increase_path_vertices_capacity(vertices);
-		// remove current
-		free(vertices->vertices);
-		free(vertices);
-		current_path->vertices = new_vertices;
-	}
-	x = _cairo_fixed_to_double(point->x);
-	y = _cairo_fixed_to_double(point->y);
-	index = current_path->vertices->vertex_size;
-	current_path->vertices->vertices[index].x = x;
-	current_path->vertices->vertices[index].y = y;
-	current_path->vertices->vertex_size ++;
-
-	return CAIRO_STATUS_SUCCESS;
-}
-
-static cairo_status_t
-_cairo_gl_move_to(void *closure, const cairo_point_t *point)
-{
-	double x, y;
-	int index;
-	_cairo_gl_path_t *head = (_cairo_gl_path_t *)closure;
-	_cairo_gl_path_t *tail = head->prev;
-	// we need to create a new _cairo_gl_path_t;
-	_cairo_gl_path_t *new_path = (_cairo_gl_path_t *)malloc(sizeof(_cairo_gl_path_t));
-	new_path->next = head;
-	new_path->prev = tail;
-	tail->next = new_path;
-	head->prev = new_path;
-
-	new_path->vertices = 
-		_cairo_gl_create_increase_path_vertices_capacity(NULL);
-
-	x = _cairo_fixed_to_double(point->x);
-	y = _cairo_fixed_to_double(point->y);
-	index = new_path->vertices->vertex_size;
-	new_path->vertices->vertices[index].x = x;
-	new_path->vertices->vertices[index].y = y;
-	new_path->vertices->vertex_size ++;
-
-	return CAIRO_STATUS_SUCCESS;
-}
-
 cairo_status_t
 _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup, 
 	cairo_gl_context_t *ctx,
@@ -956,9 +773,6 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 	{
 		_cairo_gl_index_buf_t *buf = NULL;
    		_cairo_gl_index_buf_t *new_buf	= NULL;
-		status = _cairo_gl_create_indices(&indices);
-		indices.setup = setup;
-		
 		cairo_fixed_t x_top_left, x_bottom_left;
 		cairo_fixed_t x_top_right, x_bottom_right;
 		double x1, x2;
@@ -966,6 +780,9 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 		double dx, dy;
 		double top, bottom;
 		int box_index;
+
+		status = _cairo_gl_create_indices(&indices);
+		indices.setup = setup;
 		
 		if(remaining_boxes != 0)
 		{
@@ -2175,8 +1992,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 
 	// setup image surface snapshot of cloned gl surface
 	_cairo_surface_attach_snapshot(src, &clone->base, _cairo_gl_surface_remove_from_cache);
-	return _cairo_gl_generate_clone(surface, clone, extend);
-
+	return _cairo_gl_generate_clone(surface, &clone->base, extend);
 }
 
 cairo_status_t
@@ -2691,58 +2507,6 @@ _cairo_gl_surface_clone_similar (void		     *abstract_surface,
     return UNSUPPORTED ("unknown src surface type in clone_similar");
 }
 
-/** Creates a cairo-gl pattern surface for the given trapezoids */
-static cairo_status_t
-_cairo_gl_get_traps_pattern (cairo_gl_surface_t *dst,
-			     int dst_x, int dst_y,
-			     int width, int height,
-			     cairo_trapezoid_t *traps,
-			     int num_traps,
-			     cairo_antialias_t antialias,
-			     cairo_surface_pattern_t *pattern)
-{
-    pixman_format_code_t pixman_format;
-    pixman_image_t *image;
-    cairo_surface_t *surface;
-    int i;
-
-    pixman_format = antialias != CAIRO_ANTIALIAS_NONE ? PIXMAN_a8 : PIXMAN_a1,
-    image = pixman_image_create_bits (pixman_format, width, height, NULL, 0);
-    if (unlikely (image == NULL))
-	return _cairo_error (CAIRO_STATUS_NO_MEMORY);
-
-    for (i = 0; i < num_traps; i++) {
-	pixman_trapezoid_t trap;
-
-	trap.top = _cairo_fixed_to_16_16 (traps[i].top);
-	trap.bottom = _cairo_fixed_to_16_16 (traps[i].bottom);
-
-	trap.left.p1.x = _cairo_fixed_to_16_16 (traps[i].left.p1.x);
-	trap.left.p1.y = _cairo_fixed_to_16_16 (traps[i].left.p1.y);
-	trap.left.p2.x = _cairo_fixed_to_16_16 (traps[i].left.p2.x);
-	trap.left.p2.y = _cairo_fixed_to_16_16 (traps[i].left.p2.y);
-
-	trap.right.p1.x = _cairo_fixed_to_16_16 (traps[i].right.p1.x);
-	trap.right.p1.y = _cairo_fixed_to_16_16 (traps[i].right.p1.y);
-	trap.right.p2.x = _cairo_fixed_to_16_16 (traps[i].right.p2.x);
-	trap.right.p2.y = _cairo_fixed_to_16_16 (traps[i].right.p2.y);
-
-	pixman_rasterize_trapezoid (image, &trap, -dst_x, -dst_y);
-    }
-
-    surface = _cairo_image_surface_create_for_pixman_image (image,
-							    pixman_format);
-    if (unlikely (surface->status)) {
-	pixman_image_unref (image);
-	return surface->status;
-    }
-
-    _cairo_pattern_init_for_surface (pattern, surface);
-    cairo_surface_destroy (surface);
-
-    return CAIRO_STATUS_SUCCESS;
-}
-
 static cairo_int_status_t
 _cairo_gl_surface_composite (cairo_operator_t		  op,
 			     const cairo_pattern_t	 *src,
@@ -2845,47 +2609,6 @@ _cairo_gl_surface_composite (cairo_operator_t		  op,
 }
 
 static cairo_int_status_t
-_cairo_gl_surface_composite_trapezoids (cairo_operator_t op,
-					const cairo_pattern_t *pattern,
-					void *abstract_dst,
-					cairo_antialias_t antialias,
-					int src_x, int src_y,
-					int dst_x, int dst_y,
-					unsigned int width,
-					unsigned int height,
-					cairo_trapezoid_t *traps,
-					int num_traps,
-					cairo_region_t *clip_region)
-{
-    cairo_gl_surface_t *dst = abstract_dst;
-    cairo_surface_pattern_t traps_pattern;
-    cairo_int_status_t status;
-
-    if (! _cairo_gl_operator_is_supported (op))
-	return UNSUPPORTED ("unsupported operator");
-
-    status = _cairo_gl_get_traps_pattern (dst,
-					  dst_x, dst_y, width, height,
-					  traps, num_traps, antialias,
-					  &traps_pattern);
-    if (unlikely (status))
-	return status;
-
-    status = _cairo_gl_surface_composite (op,
-					  pattern, &traps_pattern.base, dst,
-					  src_x, src_y,
-					  0, 0,
-					  dst_x, dst_y,
-					  width, height,
-					  clip_region);
-
-    _cairo_pattern_fini (&traps_pattern.base);
-
-    assert (status != CAIRO_INT_STATUS_UNSUPPORTED);
-    return status;
-}
-
-static cairo_int_status_t
 _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
 				   cairo_operator_t	    op,
 				   const cairo_color_t     *color,
@@ -2953,192 +2676,6 @@ typedef struct _cairo_gl_surface_span_renderer {
 
     cairo_gl_context_t *ctx;
 } cairo_gl_surface_span_renderer_t;
-
-static cairo_status_t
-_cairo_gl_render_bounded_spans (void *abstract_renderer,
-				int y, int height,
-				const cairo_half_open_span_t *spans,
-				unsigned num_spans)
-{
-    cairo_gl_surface_span_renderer_t *renderer = abstract_renderer;
-
-    if (num_spans == 0)
-	return CAIRO_STATUS_SUCCESS;
-
-    do {
-	if (spans[0].coverage) {
-            _cairo_gl_composite_emit_rect (renderer->ctx,
-                                           spans[0].x, y,
-                                           spans[1].x, y + height,
-                                           spans[0].coverage);
-	}
-
-	spans++;
-    } while (--num_spans > 1);
-
-    return CAIRO_STATUS_SUCCESS;
-}
-
-static cairo_status_t
-_cairo_gl_render_unbounded_spans (void *abstract_renderer,
-				  int y, int height,
-				  const cairo_half_open_span_t *spans,
-				  unsigned num_spans)
-{
-    cairo_gl_surface_span_renderer_t *renderer = abstract_renderer;
-
-    if (y > renderer->ymin) {
-        _cairo_gl_composite_emit_rect (renderer->ctx,
-                                       renderer->xmin, renderer->ymin,
-                                       renderer->xmax, y,
-                                       0);
-    }
-
-    if (num_spans == 0) {
-        _cairo_gl_composite_emit_rect (renderer->ctx,
-                                       renderer->xmin, y,
-                                       renderer->xmax, y + height,
-                                       0);
-    } else {
-        if (spans[0].x != renderer->xmin) {
-            _cairo_gl_composite_emit_rect (renderer->ctx,
-                                           renderer->xmin, y,
-                                           spans[0].x,     y + height,
-                                           0);
-        }
-
-        do {
-            _cairo_gl_composite_emit_rect (renderer->ctx,
-                                           spans[0].x, y,
-                                           spans[1].x, y + height,
-                                           spans[0].coverage);
-            spans++;
-        } while (--num_spans > 1);
-
-        if (spans[0].x != renderer->xmax) {
-            _cairo_gl_composite_emit_rect (renderer->ctx,
-                                           spans[0].x,     y,
-                                           renderer->xmax, y + height,
-                                           0);
-        }
-    }
-
-    renderer->ymin = y + height;
-    return CAIRO_STATUS_SUCCESS;
-}
-
-static cairo_status_t
-_cairo_gl_finish_unbounded_spans (void *abstract_renderer)
-{
-    cairo_gl_surface_span_renderer_t *renderer = abstract_renderer;
-
-    if (renderer->ymax > renderer->ymin) {
-        _cairo_gl_composite_emit_rect (renderer->ctx,
-                                       renderer->xmin, renderer->ymin,
-                                       renderer->xmax, renderer->ymax,
-                                       0);
-    }
-
-    return _cairo_gl_context_release (renderer->ctx, CAIRO_STATUS_SUCCESS);
-}
-
-static cairo_status_t
-_cairo_gl_finish_bounded_spans (void *abstract_renderer)
-{
-    cairo_gl_surface_span_renderer_t *renderer = abstract_renderer;
-
-    return _cairo_gl_context_release (renderer->ctx, CAIRO_STATUS_SUCCESS);
-}
-
-static void
-_cairo_gl_surface_span_renderer_destroy (void *abstract_renderer)
-{
-    cairo_gl_surface_span_renderer_t *renderer = abstract_renderer;
-
-    if (!renderer)
-	return;
-
-    _cairo_gl_composite_fini (&renderer->setup);
-
-    free (renderer);
-}
-
-static cairo_bool_t
-_cairo_gl_surface_check_span_renderer (cairo_operator_t	       op,
-				       const cairo_pattern_t  *pattern,
-				       void		      *abstract_dst,
-				       cairo_antialias_t       antialias)
-{
-    if (! _cairo_gl_operator_is_supported (op))
-	return FALSE;
-
-    return TRUE;
-
-    (void) pattern;
-    (void) abstract_dst;
-    (void) antialias;
-}
-
-static cairo_span_renderer_t *
-_cairo_gl_surface_create_span_renderer (cairo_operator_t	 op,
-					const cairo_pattern_t	*src,
-					void			*abstract_dst,
-					cairo_antialias_t	 antialias,
-					const cairo_composite_rectangles_t *rects,
-					cairo_region_t		*clip_region)
-{
-    cairo_gl_surface_t *dst = abstract_dst;
-    cairo_gl_surface_span_renderer_t *renderer;
-    cairo_status_t status;
-    const cairo_rectangle_int_t *extents;
-
-    renderer = calloc (1, sizeof (*renderer));
-    if (unlikely (renderer == NULL))
-	return _cairo_span_renderer_create_in_error (CAIRO_STATUS_NO_MEMORY);
-
-    renderer->base.destroy = _cairo_gl_surface_span_renderer_destroy;
-    if (rects->is_bounded) {
-	renderer->base.render_rows = _cairo_gl_render_bounded_spans;
-        renderer->base.finish =      _cairo_gl_finish_bounded_spans;
-	extents = &rects->bounded;
-    } else {
-	renderer->base.render_rows = _cairo_gl_render_unbounded_spans;
-        renderer->base.finish =      _cairo_gl_finish_unbounded_spans;
-	extents = &rects->unbounded;
-    }
-    renderer->xmin = extents->x;
-    renderer->xmax = extents->x + extents->width;
-    renderer->ymin = extents->y;
-    renderer->ymax = extents->y + extents->height;
-
-    status = _cairo_gl_composite_init (&renderer->setup,
-                                       op, dst,
-                                       FALSE, extents);
-    if (unlikely (status))
-        goto FAIL;
-
-    status = _cairo_gl_composite_set_source (&renderer->setup, src,
-                                             extents->x, extents->y,
-                                             extents->x, extents->y,
-                                             extents->width, extents->height,
-											 0, 0, 0);
-    if (unlikely (status))
-        goto FAIL;
-
-    _cairo_gl_composite_set_mask_spans (&renderer->setup);
-    _cairo_gl_composite_set_clip_region (&renderer->setup, clip_region);
-
-    status = _cairo_gl_composite_begin (&renderer->setup, &renderer->ctx);
-    if (unlikely (status))
-        goto FAIL;
-
-    return &renderer->base;
-
-FAIL:
-    _cairo_gl_composite_fini (&renderer->setup);
-    free (renderer);
-    return _cairo_span_renderer_create_in_error (status);
-}
 
 static cairo_bool_t
 _cairo_gl_surface_get_extents (void		     *abstract_surface,
@@ -3710,44 +3247,6 @@ _cairo_gl_surface_mask (cairo_surface_t *abstract_surface,
 	}
 	surface->needs_new_data_surface = TRUE;
 	return status;
-}
-
-static cairo_int_status_t
-_cairo_gl_surface_polygon (cairo_gl_surface_t *dst,
-                           cairo_operator_t op,
-                           const cairo_pattern_t *src,
-                           cairo_polygon_t *polygon,
-                           cairo_fill_rule_t fill_rule,
-                           cairo_antialias_t antialias,
-                           const cairo_composite_rectangles_t *extents,
-                           cairo_clip_t *clip)
-{
-    cairo_status_t status;
-    cairo_region_t *clip_region = NULL;
-
-    if (clip != NULL) {
-	clip_region = _cairo_clip_get_region (clip);
-    }
-
-    if (! _cairo_surface_check_span_renderer (op, src, &dst->base, antialias))
-        return UNSUPPORTED ("no span renderer");
-
-    if (op == CAIRO_OPERATOR_SOURCE)
-        return UNSUPPORTED ("SOURCE compositing doesn't work in GL");
-    if (op == CAIRO_OPERATOR_CLEAR) {
-        op = CAIRO_OPERATOR_DEST_OUT;
-        src = &_cairo_pattern_white.base;
-    }
-
-    status = _cairo_surface_composite_polygon (&dst->base,
-                                               op,
-                                               src,
-                                               fill_rule,
-                                               antialias,
-                                               extents,
-                                               polygon,
-                                               clip_region);
-    return status;
 }
 
 static cairo_int_status_t
