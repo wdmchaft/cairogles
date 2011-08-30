@@ -358,7 +358,7 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 {
 	cairo_status_t status;
 	double a, b, c, d;
-	double x, y, dx1, dy1;
+	double x, y, dx1, dy1, dx2, dy2;
   	cairo_matrix_t matrix;
 	double x1, x2, y1, y2;
 	double tangent_1_x, tangent_1_y;
@@ -393,12 +393,19 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	cairo_matrix_transform_point(&matrix, &a, &b);
 	cairo_matrix_transform_point(&matrix, &c, &d);
 	// we have to transform radius
-	dx1 = 100.0; 
-	dy1 = 100.0;
-	cairo_matrix_transform_distance(&matrix, &dx1, &dy1);
-	scales[0] = 100.0 / dx1; 
-	scales[1] = 100.0 / dy1;
+	dx2= 100.0; 
+	dy2 = 0.0;
+	dx1 = 0.0;
+	dy1 = 0.0;
+	cairo_matrix_transform_point(&matrix, &dx1, &dy1);
+	cairo_matrix_transform_point(&matrix, &dx2, &dy2);
 
+	scales[0] = 100.0 / sqrt((dx1 - dx2)*(dx1 - dx2) + (dy1 - dy2)*(dy1 - dy2));
+	dx2 = 0.0;
+	dy2 = 100.0;
+	cairo_matrix_transform_point(&matrix, &dx2, &dy2);
+	scales[1] = 100.0 / sqrt((dx1 - dx2)*(dx1 - dx2) + (dy1 - dy2)*(dy1 - dy2));
+	//printf("scale = (%0.2f, %0.2f)\n", scales[0], scales[1]);
 	x = radial->cd1.radius;
 	y = 0;
 	cairo_matrix_transform_distance(&matrix, &x, &y);
@@ -407,18 +414,18 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	{
 		reverse = TRUE;
 		circle_2[0] = a;
-		//circle_1[1] = surface_height - b;
-		circle_2[1] = b;
+		circle_2[1] = surface_height - b;
+		//circle_2[1] = b;
 		//circle_1[2] = radial->cd1.radius;
-		circle_2[2] = x;
+		circle_2[2] = radial->cd1.radius;
 	}
 	else
 	{
 		circle_1[0] = a;
-		//circle_1[1] = surface_height - b;
-		circle_1[1] = b;
+		circle_1[1] = surface_height - b;
+		//circle_1[1] = b;
 		//circle_1[2] = radial->cd1.radius;
-		circle_1[2] = x;
+		circle_1[2] = radial->cd1.radius;
 	}
 	
 	x = radial->cd2.radius;
@@ -427,18 +434,18 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	if(reverse == TRUE)
 	{
 		circle_1[0] = c;
-		//circle_2[1] = surface_height - d;
-		circle_1[1] = d;
+		circle_1[1] = surface_height - d;
+		//circle_1[1] = d;
 		//circle_2[2] = radial->cd2.radius;
-		circle_1[2] = x;
+		circle_1[2] = radial->cd2.radius;
 	}
 	else
 	{
 		circle_2[0] = c;
-		//circle_2[1] = surface_height - d;
-		circle_2[1] = d;
+		circle_2[1] = surface_height - d;
+		//circle_2[1] = d;
 		//circle_2[2] = radial->cd2.radius;
-		circle_2[2] = x;
+		circle_2[2] = radial->cd2.radius;
 	}
 		
 	if(reverse == FALSE)

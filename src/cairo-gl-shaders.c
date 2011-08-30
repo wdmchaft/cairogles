@@ -1349,6 +1349,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	break;
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
 	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE:
+	/*
 	_cairo_output_stream_printf (stream,
 		"uniform vec2 %s_stops[8];\n"
 		"uniform vec4 %s_colors[8];\n"
@@ -1371,6 +1372,8 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"  if(x < 0)\n"
 		"    return -1; // out of cone\n"
 		"  if(x >= 0 && x < %s_tangents[0].x
+	*/
+		break;
     case CAIRO_GL_OPERAND_SPANS:
         _cairo_output_stream_printf (stream, 
             "varying float %s_coverage;\n"
