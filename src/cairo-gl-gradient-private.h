@@ -93,5 +93,5 @@ _cairo_gl_gradient_equal (const void *key_a, const void *key_b);
 cairo_status_t
 _cairo_gl_gradient_digest_linear_gradient(const cairo_gradient_pattern_t *pattern, float surface_height, float *stops, float *colors, float *offsets, float *total_dist, int *nstops, float *delta);
 cairo_status_t
-_cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *pattern, float surface_height, float *scales, float *colors, float *offsets, int *nstops, float *circle_1, float *circle_2);
+_cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *pattern, float surface_height, float *scales, float *colors, float *offsets, int *nstops, float *circle_1, float *circle_2, cairo_bool_t *circle_in_circle, cairo_matrix_t *matrix_1, cairo_matrix_t *matrix_2, float *tangents, float *end_point);
 #endif /* CAIRO_GL_GRADIENT_PRIVATE_H */

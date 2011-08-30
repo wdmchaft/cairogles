@@ -176,6 +176,7 @@ _cairo_gl_gradient_operand_init (cairo_gl_operand_t *operand,
 {
     const cairo_gradient_pattern_t *gradient = (const cairo_gradient_pattern_t *)pattern;
     cairo_int_status_t status;
+	cairo_matrix_t matrix1, matrix2;
 
 
     assert (gradient->base.type == CAIRO_PATTERN_TYPE_LINEAR ||
@@ -235,7 +236,7 @@ _cairo_gl_gradient_operand_init (cairo_gl_operand_t *operand,
 		else if(pattern->extend == CAIRO_EXTEND_REFLECT)
 			operand->type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT;
 
-		operand->gradient.pattern = gradient;
+		//operand->gradient.pattern = gradient;
     } 
 	else 
 	{
@@ -246,14 +247,55 @@ _cairo_gl_gradient_operand_init (cairo_gl_operand_t *operand,
 			operand->gradient.offsets,
 			&(operand->gradient.nstops),
 			operand->gradient.circle_1,
-			operand->gradient.circle_2);
+			operand->gradient.circle_2,
+			&operand->gradient.circle_in_circle,
+			&matrix1, &matrix2,
+			operand->gradient.tangents,
+			operand->gradient.endpoint);
 		if(unlikely(status))
 			return CAIRO_INT_STATUS_UNSUPPORTED;
-		operand->gradient.pattern = gradient;
+		operand->gradient.matrix1[0] = matrix1.xx;
+		operand->gradient.matrix1[1] = matrix1.xy;
+		operand->gradient.matrix1[2] = matrix1.yx;
+		operand->gradient.matrix1[3] = matrix1.yy;
+		operand->gradient.matrix1[4] = matrix1.x0;
+		operand->gradient.matrix1[5] = matrix1.y0;
+
+		operand->gradient.matrix2[0] = matrix2.xx;
+		operand->gradient.matrix2[1] = matrix2.xy;
+		operand->gradient.matrix2[2] = matrix2.yx;
+		operand->gradient.matrix2[3] = matrix2.yy;
+		operand->gradient.matrix2[4] = matrix2.x0;
+		operand->gradient.matrix2[5] = matrix2.y0;
+		//operand->gradient.pattern = gradient;
 		if (pattern->extend == CAIRO_EXTEND_NONE)
-	   		operand->type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE;
-		else
-	    	operand->type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT;
+		{
+			if(operand->gradient.circle_in_circle)
+	   			operand->type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE;
+			else
+	   			operand->type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE;
+		}
+		else if(pattern->extend == CAIRO_EXTEND_PAD)
+		{
+			if(operand->gradient.circle_in_circle)
+	    		operand->type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE;
+			else
+	    		operand->type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE;
+		}
+		else if(pattern->extend == CAIRO_EXTEND_REPEAT)
+		{
+			if(operand->gradient.circle_in_circle)
+				operand->type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE;
+			else
+				operand->type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE;
+		}
+		else if(pattern->extend == CAIRO_EXTEND_REFLECT)
+		{
+			if(operand->gradient.circle_in_circle)
+				operand->type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE;
+			else
+				operand->type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE;
+		}
 	}
 
     //cairo_matrix_translate (&operand->gradient.m, src_x - dst_x, src_y - dst_y);
@@ -273,9 +315,14 @@ _cairo_gl_operand_destroy (cairo_gl_operand_t *operand)
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
+	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
+	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
 	//_cairo_gl_gradient_destroy (operand->gradient.gradient);
 	break;
     case CAIRO_GL_OPERAND_TEXTURE:
@@ -345,9 +392,14 @@ _cairo_gl_operand_get_filter (cairo_gl_operand_t *operand)
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
+	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
+	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
 	filter = CAIRO_FILTER_BILINEAR;
 	break;
     default:
@@ -381,9 +433,14 @@ _cairo_gl_operand_get_extend (cairo_gl_operand_t *operand)
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
+	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
+	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
 	extend = operand->gradient.extend;
 	break;
     default:
@@ -475,8 +532,8 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
                                     operand->constant.color[2],
                                     operand->constant.color[3]);
         break;
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
 		if(tex_unit == 0)
 		{
 			_cairo_gl_shader_bind_vec4v(ctx, "source_colors",
@@ -497,6 +554,14 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 			_cairo_gl_shader_bind_vec2v(ctx, "source_scales",
 				1, 
 				operand->gradient.scales);
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "source_pad");
+			if(location != -1)
+			{
+				if(operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE)
+					dispatch->Uniform1i(location, 0);
+				else
+					dispatch->Uniform1i(location, 1);
+			}
 		}
 		else
 		{
@@ -518,11 +583,99 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 			_cairo_gl_shader_bind_vec2v(ctx, "mask_scales",
 				1, 
 				operand->gradient.scales);
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "mask_pad");
+			if(location != -1)
+			{
+				if(operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE)
+					dispatch->Uniform1i(location, 0);
+				else
+					dispatch->Uniform1i(location, 1);
+			}
+		}
+		break;
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE:
+		if(tex_unit == 0)
+		{
+			_cairo_gl_shader_bind_vec4v(ctx, "source_colors",
+				operand->gradient.nstops,
+				operand->gradient.colors);
+			_cairo_gl_shader_bind_floatv(ctx, "source_offsets",
+				operand->gradient.nstops,
+				operand->gradient.offsets);
+			_cairo_gl_shader_bind_vec3v(ctx, "source_circle_1", 
+				1,
+				operand->gradient.circle_1);
+			_cairo_gl_shader_bind_vec3v(ctx, "source_circle_2", 
+				1, 
+				operand->gradient.circle_2);
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "source_nstops");
+			if(location != -1)
+				dispatch->Uniform1i(location, operand->gradient.nstops);
+			_cairo_gl_shader_bind_vec2v(ctx, "source_scales",
+				1, 
+				operand->gradient.scales);
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "source_pad");
+			if(location != -1)
+			{
+				if(operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE)
+					dispatch->Uniform1i(location, 0);
+				else
+					dispatch->Uniform1i(location, 1);
+			}
+			_cairo_gl_shader_bind_vec4v(ctx, "source_tangents",
+				2, operand->gradient.tangents);
+			_cairo_gl_shader_bind_vec2v(ctx, "source_endpoint",
+				1, operand->gradient.endpoint);
+			_cairo_gl_shader_bind_vec3v(ctx, "source_matrix1",
+				2, operand->gradient.matrix1);
+			_cairo_gl_shader_bind_vec3v(ctx, "source_matrix2",
+				2, operand->gradient.matrix2);
+		}
+		else
+		{
+			_cairo_gl_shader_bind_vec4v(ctx, "mask_colors",
+				operand->gradient.nstops,
+				operand->gradient.colors);
+			_cairo_gl_shader_bind_floatv(ctx, "mask_offsets",
+				operand->gradient.nstops,
+				operand->gradient.offsets);
+			_cairo_gl_shader_bind_vec3v(ctx, "mask_circle_1", 
+				1,
+				operand->gradient.circle_1);
+			_cairo_gl_shader_bind_vec3v(ctx, "mask_circle_2", 
+				1, 
+				operand->gradient.circle_2);
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "mask_nstops");
+			if(location != -1)
+				dispatch->Uniform1i(location, operand->gradient.nstops);
+			_cairo_gl_shader_bind_vec2v(ctx, "mask_scales",
+				1, 
+				operand->gradient.scales);
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "mask_pad");
+			if(location != -1)
+			{
+				if(operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE)
+					dispatch->Uniform1i(location, 0);
+				else
+					dispatch->Uniform1i(location, 1);
+			}
+			_cairo_gl_shader_bind_vec4v(ctx, "source_tangents",
+				2, operand->gradient.tangents);
+			_cairo_gl_shader_bind_vec2v(ctx, "source_endpoint",
+				1, operand->gradient.endpoint);
+			_cairo_gl_shader_bind_vec3v(ctx, "source_matrix1",
+				2, operand->gradient.matrix1);
+			_cairo_gl_shader_bind_vec3v(ctx, "source_matrix2",
+				2, operand->gradient.matrix2);
 		}
 		break;
 	/* fall through */
 	
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
 	break;
    /*
 	strcpy (custom_part, "_circle_d");
@@ -711,9 +864,14 @@ _cairo_gl_operand_needs_setup (cairo_gl_operand_t *dest,
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
         /* XXX: improve this */
         return TRUE;
     default:
@@ -788,9 +946,14 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
 		_cairo_gl_gradient_reference(operand->gradient.gradient);
 		break;
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
         _cairo_gl_gradient_reference (operand->gradient.gradient);
         glActiveTexture (GL_TEXTURE0 + tex_unit);
         glBindTexture (ctx->tex_target, operand->gradient.gradient->tex);
@@ -830,9 +993,14 @@ _cairo_gl_context_destroy_operand (cairo_gl_context_t *ctx,
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
         _cairo_gl_gradient_destroy (ctx->operands[tex_unit].gradient.gradient);
         dispatch->DisableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
         break;
@@ -922,9 +1090,14 @@ _cairo_gl_operand_get_vertex_size (cairo_gl_operand_type_t type)
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
         return 2 * sizeof (GLfloat);
     }
 }
@@ -1470,9 +1643,14 @@ _cairo_gl_operand_emit (cairo_gl_operand_t *operand,
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
         {
 	    double s = x;
 	    double t = y;

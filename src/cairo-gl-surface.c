@@ -267,21 +267,20 @@ cairo_status_t _cairo_gl_add_triangle(void *closure,
         int start_index = 0;
         int i;
         int num_indices, num_vertices;
+		cairo_status_t status;
 
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
         cairo_gl_composite_t *setup = indices->setup;
-        num_indices = indices->num_indices;
-        num_vertices = indices->num_vertices;
 	// first off, we need to flush if max
 	if(indices->num_indices > MAX_INDEX)
 	{
 		if(indices->setup != NULL)
-			_cairo_gl_fill(indices->setup, indices->num_vertices,
+			status = _cairo_gl_fill(indices->setup, indices->num_vertices,
 				indices->vertices, NULL, indices->num_indices, 
 				indices->indices, indices->setup->ctx);
 		// cleanup
-		_cairo_gl_destroy_indices(indices);
-		_cairo_gl_create_indices(indices);
+		status = _cairo_gl_destroy_indices(indices);
+		status = _cairo_gl_create_indices(indices);
 		indices->setup = setup;
 	}
 	// we add a triangle to strip, we add 3 vertices and 5 indices;
@@ -289,8 +288,10 @@ cairo_status_t _cairo_gl_add_triangle(void *closure,
 		indices->num_vertices + 3 >= indices->capacity)
 	{
 		// we need to increase
-		_cairo_gl_increase_indices(indices);
+		status = _cairo_gl_increase_indices(indices);
 	}
+    num_indices = indices->num_indices;
+    num_vertices = indices->num_vertices;
 
 	if(num_indices != 0)
 	{
@@ -325,22 +326,21 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
         int i;
         int num_indices, num_vertices;
 	    int mid_index;
+		cairo_status_t status;
 
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
         cairo_gl_composite_t *setup = indices->setup;
-        num_indices = indices->num_indices;
-        num_vertices = indices->num_vertices;
 	//printf("before add triangle fan indices = %d\n", indices->num_indices);
 	// first off, we need to flush if max
 	if(indices->num_indices > MAX_INDEX)
 	{
 		if(indices->setup != NULL)
-			_cairo_gl_fill(indices->setup, indices->num_vertices,
+			status = _cairo_gl_fill(indices->setup, indices->num_vertices,
 				indices->vertices, NULL, indices->num_indices, 
 				indices->indices, indices->setup->ctx);
 		// cleanup
-		_cairo_gl_destroy_indices(indices);
-		_cairo_gl_create_indices(indices);
+		status = _cairo_gl_destroy_indices(indices);
+		status = _cairo_gl_create_indices(indices);
 		indices->setup = setup;
 	}
 	// we add a triangle fan to strip, we add npoints+1 vertices and (npoints-2)*2 indices;
@@ -348,9 +348,10 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 		indices->num_vertices + npoints + 1 >= indices->capacity)
 	{
 		// we need to increase
-		_cairo_gl_increase_indices(indices);
+		status = _cairo_gl_increase_indices(indices);
 	}
-
+    num_vertices = indices->num_vertices;
+	num_indices = indices->num_indices;
 	if(num_indices != 0)
 	{
 		// we are not the first
@@ -412,11 +413,10 @@ cairo_status_t _cairo_gl_add_convex_quad_for_clip(void *closure,
         int start_index = 0;
         int i;
         int num_indices, num_vertices;
+		cairo_status_t status;
 
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
 	cairo_gl_composite_t *setup = indices->setup;
-        num_indices = indices->num_indices;
-        num_vertices = indices->num_vertices;
 
 	// first off, we need to flush if max
 	if(indices->num_indices > MAX_INDEX)
@@ -450,12 +450,12 @@ cairo_status_t _cairo_gl_add_convex_quad_for_clip(void *closure,
 			new_buf->indices->num_vertices = indices->num_vertices;
 			new_buf->indices->setup = indices->setup;
 
-			_cairo_gl_fill(indices->setup, indices->num_vertices,
+			status = _cairo_gl_fill(indices->setup, indices->num_vertices,
 				indices->vertices, NULL, indices->num_indices, 
 				indices->indices, indices->setup->ctx);
 			// cleanup
-			_cairo_gl_destroy_indices(indices);
-			_cairo_gl_create_indices(indices);
+			status = _cairo_gl_destroy_indices(indices);
+			status = _cairo_gl_create_indices(indices);
 			indices->setup = setup;
 		}
 	}
@@ -464,8 +464,10 @@ cairo_status_t _cairo_gl_add_convex_quad_for_clip(void *closure,
 		indices->num_vertices + 4 >= indices->capacity)
 	{
 		// we need to increase
-		_cairo_gl_increase_indices(indices);
+		status = _cairo_gl_increase_indices(indices);
 	}
+    num_indices = indices->num_indices;
+    num_vertices = indices->num_vertices;
 	
 	if(num_indices != 0)
 	{
@@ -513,24 +515,23 @@ cairo_status_t _cairo_gl_add_convex_quad(void *closure,
      int start_index = 0;
      int i;
      int num_indices,num_vertices;
+	 cairo_status_t status;
 
 	 _cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
 	 cairo_gl_composite_t *setup = indices->setup;
-     num_indices = indices->num_indices;
-     num_vertices = indices->num_vertices;
 
 	// first off, we need to flush if max
 	if(indices->num_indices > MAX_INDEX)
 	{
 		if(indices->setup != NULL)
 		{
-			_cairo_gl_fill(indices->setup, indices->num_vertices,
+			status = _cairo_gl_fill(indices->setup, indices->num_vertices,
 				indices->vertices, NULL, 
 				indices->num_indices, 
 				indices->indices, indices->setup->ctx);
 			// cleanup
-			_cairo_gl_destroy_indices(indices);
-			_cairo_gl_create_indices(indices);
+			status = _cairo_gl_destroy_indices(indices);
+			status = _cairo_gl_create_indices(indices);
 			indices->setup = setup;
 		}
 	}
@@ -539,8 +540,10 @@ cairo_status_t _cairo_gl_add_convex_quad(void *closure,
 		indices->num_vertices + 4 >= indices->capacity)
 	{
 		// we need to increase
-		_cairo_gl_increase_indices(indices);
+		status = _cairo_gl_increase_indices(indices);
 	}
+     num_indices = indices->num_indices;
+     num_vertices = indices->num_vertices;
 
 	if(num_indices != 0)
 	{
@@ -590,10 +593,9 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
         int start_index = 0;
         int i;
         int num_indices, num_vertices;
+		cairo_status_t status;
 	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
 	cairo_gl_composite_t *setup = indices->setup;
-        num_indices = indices->num_indices;
-        num_vertices = indices->num_vertices;
 
 	// first off, we need to flush if max
 	if(indices->num_indices > MAX_INDEX)
@@ -601,18 +603,18 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 		if(indices->setup != NULL)
 		{
 			if(indices->has_mask_vertices == TRUE)
-				_cairo_gl_fill(indices->setup, indices->num_vertices,
+				status = _cairo_gl_fill(indices->setup, indices->num_vertices,
 					indices->vertices, indices->mask_vertices, 
 					indices->num_indices, 
 					indices->indices, indices->setup->ctx);
 			else
-				_cairo_gl_fill(indices->setup, indices->num_vertices,
+				status = _cairo_gl_fill(indices->setup, indices->num_vertices,
 					indices->vertices, NULL, 
 					indices->num_indices, 
 					indices->indices, indices->setup->ctx);
 			// cleanup
-			_cairo_gl_destroy_indices(indices);
-			_cairo_gl_create_indices(indices);
+			status = _cairo_gl_destroy_indices(indices);
+			status = _cairo_gl_create_indices(indices);
 			indices->setup = setup;
 		}
 	}
@@ -621,8 +623,10 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 		indices->num_vertices + 4 >= indices->capacity)
 	{
 		// we need to increase
-		_cairo_gl_increase_indices(indices);
+		status = _cairo_gl_increase_indices(indices);
 	}
+    num_indices = indices->num_indices;
+    num_vertices = indices->num_vertices;
 
 	if(num_indices != 0)
 	{
@@ -694,7 +698,7 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
     _cairo_gl_index_buf_t *current, *temp = NULL;
     cairo_point_t points[4];
     int got_traps = 0;
-    int remaining_boxes;
+    int remaining_boxes = clip->num_boxes;
 
 	
 	// enable depth mask
@@ -802,7 +806,7 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 				glDisable(GL_STENCIL_TEST);
 		
 				glColorMask(1, 1, 1, 1);
-				_cairo_gl_destroy_indices(&indices);
+				status = _cairo_gl_destroy_indices(&indices);
 				return status;
 			}
 			remaining_boxes -= 1;
@@ -854,7 +858,7 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 					glDisable(GL_STENCIL_TEST);
 		
 					glColorMask(1, 1, 1, 1);
-					_cairo_gl_destroy_indices(&indices);
+					status = _cairo_gl_destroy_indices(&indices);
 					return status;
 				}
 			}
@@ -888,7 +892,7 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 		new_buf->indices->setup = indices.setup;
 		status = _cairo_gl_fill(setup, indices.num_vertices, 
 			indices.vertices, NULL, indices.num_indices, indices.indices, setup->ctx);
-		_cairo_gl_destroy_indices(&indices);
+		status = _cairo_gl_destroy_indices(&indices);
 		if(unlikely(status))
 		{
 			glDisable(GL_STENCIL_TEST);
@@ -1934,7 +1938,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 		clear_color.green = 0;
 		clear_color.blue = 0;
 		clear_color.alpha = 0;
-		_cairo_gl_surface_clear (clone, &clear_color);
+		status = _cairo_gl_surface_clear (clone, &clear_color);
 		status = _cairo_recording_surface_replay(src, &clone->base);
 		if(unlikely(status))
 		{
@@ -2969,14 +2973,14 @@ _cairo_gl_surface_mask (void *abstract_surface,
 		float temp_width = mask_clone->width / mask_clone->extend_width_scale * mask_clone->scale;
 		float temp_height = mask_clone->height / mask_clone->extend_height_scale * mask_clone->scale;
 
-		_cairo_gl_composite_set_mask(setup, mask, 
+		status = _cairo_gl_composite_set_mask(setup, mask, 
 			extents.bounded.x, extents.bounded.y,
 			extents.bounded.x, extents.bounded.y, 
 			extents.bounded.width, extents.bounded.height,
 			mask_clone->tex, (int)temp_width, (int)temp_height); 
 	}
 	else
-		_cairo_gl_composite_set_mask(setup, mask, 
+		status = _cairo_gl_composite_set_mask(setup, mask, 
 			extents.bounded.x, extents.bounded.y,
 			extents.bounded.x, extents.bounded.y, 
 			extents.bounded.width, extents.bounded.height,
@@ -2997,7 +3001,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT;
 	}
 	else if(source->type == CAIRO_PATTERN_TYPE_RADIAL)
-		setup->src.type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE;
+		setup->src.type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE;
 	else
 	{
 		if(clone != NULL)
@@ -3326,7 +3330,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		color.green = 0;
 		color.blue = 0;
 		color.alpha = 0;
-		_cairo_gl_surface_clear(surface->mask_surface, &color);
+		status = _cairo_gl_surface_clear(surface->mask_surface, &color);
 		surface->mask_surface->bound_fbo = TRUE;
 		
 		status = _cairo_gl_surface_stroke(surface->mask_surface, 
@@ -3361,7 +3365,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		clone = _cairo_gl_generate_clone(surface, src, extend);
 		if(clone == NULL)
 		{
-			_cairo_gl_context_release(ctx, status);
+			status = _cairo_gl_context_release(ctx, status);
 			return UNSUPPORTED("create_clone failed");
 		}
 	}
@@ -3376,7 +3380,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		if(clone != NULL)
 			cairo_surface_destroy(&clone->base);
 		free(setup);
-		_cairo_gl_context_release(ctx, status);
+		status = _cairo_gl_context_release(ctx, status);
 		return status;
 	}
 
@@ -3405,7 +3409,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		if(clone != NULL)
 			cairo_surface_destroy(&clone->base);
 		free(setup);
-		_cairo_gl_context_release(ctx, status);
+		status = _cairo_gl_context_release(ctx, status);
 		return status;
 	}
 
@@ -3485,7 +3489,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	
 	if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
-	_cairo_gl_destroy_indices(&indices);
+	status = _cairo_gl_destroy_indices(&indices);
 	_cairo_gl_composite_fini(setup);
 	free(setup);
 	glDisable(GL_STENCIL_TEST);
@@ -3591,7 +3595,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 		color.green = 0;
 		color.blue = 0;
 		color.alpha = 0;
-		_cairo_gl_surface_clear(surface->mask_surface, &color);
+		status = _cairo_gl_surface_clear(surface->mask_surface, &color);
 		surface->mask_surface->bound_fbo = TRUE;
 		
 		status = _cairo_gl_surface_fill(surface->mask_surface, 
@@ -3622,7 +3626,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
 		if(clone == NULL)
 		{
-			_cairo_gl_context_release(ctx, status);
+			status = _cairo_gl_context_release(ctx, status);
 			return UNSUPPORTED("create_clone failed");
 		}
 	}
@@ -3644,7 +3648,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 			cairo_surface_destroy(&clone->base);
 		_cairo_gl_composite_fini(setup);
 		free(setup);
-		_cairo_gl_context_release(ctx, status);
+		status = _cairo_gl_context_release(ctx, status);
 		return status;
 	}
 	setup->source = source;
@@ -3670,7 +3674,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 			cairo_surface_destroy(&clone->base);
 		_cairo_gl_composite_fini(setup);
 		free(setup);
-		_cairo_gl_context_release(ctx, status);
+		status = _cairo_gl_context_release(ctx, status);
 		return status;
 	}
 
@@ -3748,7 +3752,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT;
 	}
 	else if(source->type == CAIRO_PATTERN_TYPE_RADIAL)
-		setup->src.type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE;
+		setup->src.type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE;
 	else
 	{
 		if(clone != NULL)
@@ -3806,7 +3810,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 			glDisable(GL_STENCIL_TEST);
 			glDisable(GL_DEPTH_TEST);
 			glDepthMask(GL_FALSE);
-			_cairo_gl_destroy_indices(&indices);
+			status = _cairo_gl_destroy_indices(&indices);
 			_cairo_gl_composite_fini(setup);
 			free(setup);
 		}
@@ -3817,7 +3821,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	_cairo_traps_fini(&traps);
 	if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
-	_cairo_gl_destroy_indices(&indices);
+	status = _cairo_gl_destroy_indices(&indices);
 	_cairo_gl_composite_fini(setup);
 	free(setup);
 	glDisable(GL_STENCIL_TEST);
@@ -4045,7 +4049,7 @@ _cairo_gl_surface_mark_dirty_rectangle(cairo_surface_t *abstract_surface,
 		return status;
     _cairo_gl_composite_flush (ctx);
     _cairo_gl_context_set_destination (ctx, surface);
-	_cairo_gl_surface_upload_image(surface, surface->data_surface,
+	status = _cairo_gl_surface_upload_image(surface, (cairo_image_surface_t *)surface->data_surface,
 		x, y, width, height, x, y);
 	if(_cairo_surface_has_snapshot(&surface->base, &_cairo_gl_surface_backend))
 		_cairo_surface_detach_snapshot(&surface->base);
@@ -4081,7 +4085,7 @@ cairo_gl_surface_get_data(cairo_surface_t *abstract_surface)
 	surface->needs_new_data_surface = FALSE;
 	// create an image surface
 	_cairo_gl_surface_acquire_source_image (abstract_surface,
-					&(surface->data_surface),
+					(cairo_image_surface_t **)&(surface->data_surface),
 					&image_extra);
 	return cairo_image_surface_get_data(surface->data_surface);
 }
@@ -4109,7 +4113,7 @@ cairo_gl_surface_get_stride(cairo_surface_t *abstract_surface)
 	surface->needs_new_data_surface = FALSE;
 	// create an image surface
 	_cairo_gl_surface_acquire_source_image (abstract_surface,
-					&(surface->data_surface),
+					(cairo_image_surface_t **)&(surface->data_surface),
 					&image_extra);
 	return cairo_image_surface_get_stride(surface->data_surface);
 }
@@ -4137,7 +4141,7 @@ cairo_gl_surface_get_format(cairo_surface_t *abstract_surface)
 	surface->needs_new_data_surface = FALSE;
 	// create an image surface
     _cairo_gl_surface_acquire_source_image (abstract_surface,
-					&(surface->data_surface),
+					(cairo_image_surface_t **)&(surface->data_surface),
 					&image_extra);
 	return cairo_image_surface_get_format(surface->data_surface);
 }
@@ -4166,7 +4170,7 @@ cairo_gl_surface_get_image_surface(cairo_surface_t *abstract_surface)
 	surface->needs_new_data_surface = FALSE;
 	// create an image surface
 	_cairo_gl_surface_acquire_source_image (abstract_surface,
-					&(surface->data_surface),
+					(cairo_image_surface_t **)&(surface->data_surface),
 					&image_extra);
 	
 	return cairo_surface_reference(surface->data_surface);

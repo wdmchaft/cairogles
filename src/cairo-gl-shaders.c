@@ -565,9 +565,14 @@ cairo_gl_operand_get_var_type (cairo_gl_operand_type_t type)
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
     case CAIRO_GL_OPERAND_TEXTURE:
         return CAIRO_GL_VAR_TEXCOORDS;
     case CAIRO_GL_OPERAND_SPANS:
@@ -676,8 +681,14 @@ _cairo_gl_shader_needs_border_fade (cairo_gl_operand_t *operand)
 	    operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD ||
 	    operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT ||
 	    operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT ||
-	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE ||
-	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0);
+	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE ||
+	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE ||
+	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE ||
+	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE ||
+	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE ||
+	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE ||
+	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE ||
+	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE);
 }
 
 static void
@@ -1096,6 +1107,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr);
 	break;
+	/*
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
 	_cairo_output_stream_printf (stream,
 	    "varying vec2 %s_texcoords;\n"
@@ -1134,7 +1146,6 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	}
 	break;
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
-	/*
 	_cairo_output_stream_printf (stream,
 	    "varying vec2 %s_texcoords;\n"
 	    "uniform vec2 %s_texdims;\n"
@@ -1179,7 +1190,8 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	}
 	break;
 	*/
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
+	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
 	_cairo_output_stream_printf (stream,
 		"uniform vec2 %s_stops[8];\n"
 		"uniform vec4 %s_colors[8];\n"
@@ -1188,6 +1200,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"uniform vec3 %s_circle_1;\n"
 		"uniform vec3 %s_circle_2;\n"
 		"uniform vec2 %s_scales;\n"
+		"uniform int %s_pad;\n"
 		"vec2 %s_get_xy(vec2 coord)\n"
 		"{\n"
 		"  if(%s_circle_1[2] == 0.0)\n"
@@ -1255,9 +1268,19 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"{\n"
 		"  %s_dis = %s_get_distance_from_start(coord);\n"
 		"  if(%s_dis >= 1.0 || %s_dis >= %s_offsets[%s_nstops-1])\n"
-		"    return %s_colors[%s_nstops-1];\n"
+		"  {\n"
+		"    if(%s_pad == 1)\n"
+		"      return %s_colors[%s_nstops-1];\n"
+		"    else\n"
+		"      return vec4(0.0, 0.0, 0.0, 0.0);\n"
+		"  }\n"
 		"  else if(%s_dis <= 0.0 || %s_dis <= %s_offsets[0])\n"
-		"    return %s_colors[0];\n"
+		"  {\n"
+		"    if(%s_pad == 1)\n"
+		"      return %s_colors[0];\n"
+		"    else\n"
+		"      return vec4(0.0, 0.0, 0.0, 0.0);\n"
+		"  }\n"
 		"  if(%s_nstops == 2)\n"
 		"  {\n"
 		"    %s_relative_dis = %s_dis - %s_offsets[0];\n"
@@ -1293,7 +1316,8 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
-		namestr, namestr, namestr, namestr, namestr, namestr, namestr);
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr);
 /*
 	    "varying vec2 %s_texcoords;\n"
 	    "uniform sampler2D%s %s_sampler;\n"
