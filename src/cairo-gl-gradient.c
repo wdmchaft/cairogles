@@ -501,7 +501,7 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 			*circle_in_circle = TRUE;
 	}
 	if(*circle_in_circle == TRUE)
-		return;
+		return CAIRO_STATUS_SUCCESS;
 
 
 	// compute tangent points for 2nd circle

@@ -1347,6 +1347,30 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	    namestr, namestr, namestr, rectstr, namestr);
 	*/
 	break;
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
+	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_NOT_IN_CIRCLE:
+	_cairo_output_stream_printf (stream,
+		"uniform vec2 %s_stops[8];\n"
+		"uniform vec4 %s_colors[8];\n"
+		"uniform float %s_offsets[8];\n"
+		"uniform int %s_nstops;\n"
+		"uniform vec3 %s_circle_1;\n"
+		"uniform vec3 %s_circle_2;\n"
+		"uniform vec2 %s_scales;\n"
+		"uniform int %s_pad;\n"
+		"uniform vec2 %s_tangents[4];\n"
+		"uniform vec2 %s_endpoint[1];\n"
+		"uniform float %s_matrix1[3];\n"
+		"uniform float %s_matrix2[3];\n"
+		"int zone;\n"
+		"int check_zone(vec2 coord)\n"
+		"{\n"
+		"  // transform location\n"
+		"  float x = %s_matrix1[0] * coord.x + %s_matrix1[1] * coord.y + %s_matrix1[2];\n"
+		"  float y = %s_matrix1[3] * coord.x + %s_matrix1[4] * coord.y + %s_matrix1[5];\n"
+		"  if(x < 0)\n"
+		"    return -1; // out of cone\n"
+		"  if(x >= 0 && x < %s_tangents[0].x
     case CAIRO_GL_OPERAND_SPANS:
         _cairo_output_stream_printf (stream, 
             "varying float %s_coverage;\n"

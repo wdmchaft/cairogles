@@ -623,14 +623,14 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 				else
 					dispatch->Uniform1i(location, 1);
 			}
-			_cairo_gl_shader_bind_vec4v(ctx, "source_tangents",
-				2, operand->gradient.tangents);
+			_cairo_gl_shader_bind_vec2v(ctx, "source_tangents",
+				4, operand->gradient.tangents);
 			_cairo_gl_shader_bind_vec2v(ctx, "source_endpoint",
 				1, operand->gradient.endpoint);
-			_cairo_gl_shader_bind_vec3v(ctx, "source_matrix1",
-				2, operand->gradient.matrix1);
-			_cairo_gl_shader_bind_vec3v(ctx, "source_matrix2",
-				2, operand->gradient.matrix2);
+			_cairo_gl_shader_bind_floatv(ctx, "source_matrix1",
+				6, operand->gradient.matrix1);
+			_cairo_gl_shader_bind_floatv(ctx, "source_matrix2",
+				6, operand->gradient.matrix2);
 		}
 		else
 		{
@@ -660,14 +660,14 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 				else
 					dispatch->Uniform1i(location, 1);
 			}
-			_cairo_gl_shader_bind_vec4v(ctx, "source_tangents",
-				2, operand->gradient.tangents);
-			_cairo_gl_shader_bind_vec2v(ctx, "source_endpoint",
+			_cairo_gl_shader_bind_vec2v(ctx, "mask_tangents",
+				4, operand->gradient.tangents);
+			_cairo_gl_shader_bind_vec2v(ctx, "mask_endpoint",
 				1, operand->gradient.endpoint);
-			_cairo_gl_shader_bind_vec3v(ctx, "source_matrix1",
-				2, operand->gradient.matrix1);
-			_cairo_gl_shader_bind_vec3v(ctx, "source_matrix2",
-				2, operand->gradient.matrix2);
+			_cairo_gl_shader_bind_floatv(ctx, "mask_matrix1",
+				6, operand->gradient.matrix1);
+			_cairo_gl_shader_bind_floatv(ctx, "mask_matrix2",
+				6, operand->gradient.matrix2);
 		}
 		break;
 	/* fall through */
