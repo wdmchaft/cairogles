@@ -358,7 +358,7 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 {
 	cairo_status_t status;
 	double a, b, c, d;
-	double x, y, dx1, dy1, dx2, dy2;
+	double dx1, dy1, dx2, dy2;
   	cairo_matrix_t matrix;
 	double x1, x2, y1, y2;
 	double tangent_1_x, tangent_1_y;
@@ -405,10 +405,6 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	dy2 = 100.0;
 	cairo_matrix_transform_point(&matrix, &dx2, &dy2);
 	scales[1] = 100.0 / sqrt((dx1 - dx2)*(dx1 - dx2) + (dy1 - dy2)*(dy1 - dy2));
-	//printf("scale = (%0.2f, %0.2f)\n", scales[0], scales[1]);
-	x = radial->cd1.radius;
-	y = 0;
-	cairo_matrix_transform_distance(&matrix, &x, &y);
 	
 	if(radial->cd1.radius > radial->cd2.radius)
 	{
@@ -428,9 +424,6 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 		circle_1[2] = radial->cd1.radius;
 	}
 	
-	x = radial->cd2.radius;
-	y = 0;
-	cairo_matrix_transform_distance(&matrix, &x, &y);
 	if(reverse == TRUE)
 	{
 		circle_1[0] = c;
