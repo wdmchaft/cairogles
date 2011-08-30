@@ -194,15 +194,6 @@ typedef struct _cairo_gl_surface {
 	void *indices_buf;
 	cairo_bool_t stencil_changed;
 	cairo_bool_t external_tex;
-	cairo_bool_t needs_extend;
-	int extend_width;
-	int extend_height;
-	float extend_width_scale;
-	float extend_height_scale;
-	//float scale;
-	float scale;
-	int orig_width;
-	int orig_height;
 	cairo_surface_t *data_surface;
 	cairo_bool_t needs_new_data_surface;
 	//cairo_surface_t *super_sample_surface;
