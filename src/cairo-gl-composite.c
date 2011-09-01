@@ -251,7 +251,8 @@ _cairo_gl_gradient_operand_init (cairo_gl_operand_t *operand,
 			&operand->gradient.circle_in_circle,
 			&matrix1, &matrix2,
 			operand->gradient.tangents,
-			operand->gradient.endpoint);
+			operand->gradient.endpoint,
+			operand->gradient.tangents_end);
 		if(unlikely(status))
 			return CAIRO_INT_STATUS_UNSUPPORTED;
 		operand->gradient.matrix1[0] = matrix1.xx;
@@ -512,6 +513,7 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
     char *custom_part;
     static const char *names[] = { "source", "mask" };
     GLint location;
+	int padding = 1;
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
     strcpy (uniform_name, names[tex_unit]);
     custom_part = uniform_name + strlen (names[tex_unit]);
@@ -587,9 +589,8 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 			if(location != -1)
 			{
 				if(operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE)
-					dispatch->Uniform1i(location, 0);
-				else
-					dispatch->Uniform1i(location, 1);
+					padding = 0;
+				dispatch->Uniform1i(location, padding);
 			}
 		}
 		break;
@@ -619,18 +620,13 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 			if(location != -1)
 			{
 				if(operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE)
-					dispatch->Uniform1i(location, 0);
-				else
-					dispatch->Uniform1i(location, 1);
+					padding = 0;
+				dispatch->Uniform1i(location, padding);
 			}
-			_cairo_gl_shader_bind_vec2v(ctx, "source_tangents",
-				4, operand->gradient.tangents);
 			_cairo_gl_shader_bind_vec2v(ctx, "source_endpoint",
 				1, operand->gradient.endpoint);
-			_cairo_gl_shader_bind_floatv(ctx, "source_matrix1",
-				6, operand->gradient.matrix1);
-			_cairo_gl_shader_bind_floatv(ctx, "source_matrix2",
-				6, operand->gradient.matrix2);
+			_cairo_gl_shader_bind_vec2v(ctx, "source_tangents_end",
+				2, operand->gradient.tangents_end);
 		}
 		else
 		{
@@ -660,14 +656,10 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 				else
 					dispatch->Uniform1i(location, 1);
 			}
-			_cairo_gl_shader_bind_vec2v(ctx, "mask_tangents",
-				4, operand->gradient.tangents);
+			_cairo_gl_shader_bind_vec2v(ctx, "mask_tangents_end",
+				2, operand->gradient.tangents_end);
 			_cairo_gl_shader_bind_vec2v(ctx, "mask_endpoint",
 				1, operand->gradient.endpoint);
-			_cairo_gl_shader_bind_floatv(ctx, "mask_matrix1",
-				6, operand->gradient.matrix1);
-			_cairo_gl_shader_bind_floatv(ctx, "mask_matrix2",
-				6, operand->gradient.matrix2);
 		}
 		break;
 	/* fall through */

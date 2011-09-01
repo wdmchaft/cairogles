@@ -241,6 +241,7 @@ typedef struct cairo_gl_operand {
 		GLfloat matrix2[6];
 		GLfloat endpoint[2];
 		GLfloat tangents[8];
+		GLfloat tangents_end[4];
 
 	    cairo_matrix_t m;
 	    cairo_circle_double_t circle_d;
