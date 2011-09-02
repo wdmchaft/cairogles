@@ -59,16 +59,20 @@ static void compute_radius_difference(double r1, double r2, double *r)
 static void compute_A(double x, double y, double r, double x1, double x2, 
 	double y1, double y2, double *a)
 {
-	*a = x * x + y * y + (x2 * x2 - x1 * x1) + (y2 * y2 - y1 * y1);
+	//*a = x * x + y * y + (x2 * x2 - x1 * x1) + (y2 * y2 - y1 * y1);
+	*a = 2.0 * r * r - x * x - y * y - (x2 * x2 - x1 * x1) - (y2 * y2 - y1 * y1);
 }
 
 static void compute_abc (double A, double X, double Y, double R, double x2, double y2,
 	double *a, double *b, double *c)
 {
-	double m = A - 2 * X * x2;
+	//double m = A - 2 * X * x2;
+	//*a =  1 + Y * Y / (X * X);
+	//*b = -(2 * y2 + m * Y / (X * X));
+	//*c = m * m / (4 * X * X) - R * R + y2 * y2;
 	*a =  1 + Y * Y / (X * X);
-	*b = -(2 * y2 + m * Y / (X * X));
-	*c = m * m / (4 * X * X) - R * R + y2 * y2;
+	*b = -2.0 * y2 + 2.0 * Y / X * (A / (2.0 * X) + x2);
+	*c = y2 * y2 + (A / (2.0 * X) + x2) * (A / (2.0 * X) + x2) - R * R;
 }
 
 static void compute_y(double a, double b, double c, double *y1, double *y2)
@@ -82,8 +86,8 @@ static void compute_x(double X, double Y, double A, double cx1, double cy1,
 	double cx2, double cy2, double y1, double y2,
 	double *x1, double *x2)
 {
-	*x1 = (A - 2 * X * y1) / (2 * X);
-	*x2 = (A - 2 * X * y2) / (2 * X);
+	*x1 = (-A - 2 * Y * y1) / (2 * X);
+	*x2 = (-A - 2 * Y * y2) / (2 * X);
 }
 
 static void compute_xy (double cx1, double cy1, double cx2, double cy2, double r1,
@@ -336,6 +340,22 @@ static void compute_end_equal(double cx1, double cy1, double cx2, double cy2,
 	}
 }
 
+static void matrix_rotate(cairo_matrix_t *matrix, double radian)
+{
+	double s, c;
+	s = sin(radian);
+	c = cos(radian);
+	matrix->xx = c; matrix->yx = -s;
+	matrix->xy = s; matrix->yy = c;
+}
+
+static void matrix_transform_point(cairo_matrix_t *matrix, double *x, double *y)
+{
+	double new_x = *x + matrix->x0;
+	double new_y = *y + matrix->y0;
+	*x = matrix->xx * new_x + matrix->xy * new_y;
+	*y = matrix->yx * new_x + matrix->yy * new_y;
+}
 
 /*int main(int argc, char **argv)
 {
@@ -464,6 +484,8 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	double tangent_end_1_x, tangent_end_1_y;
 	double tangent_end_2_x, tangent_end_2_y;
 	int n;
+	cairo_matrix_t temp_matrix;
+	double mx1, my1, mx2, my2;
 
 	cairo_bool_t parallel = TRUE;
 	cairo_bool_t reverse = FALSE;
@@ -580,12 +602,36 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 		if(radial->cd1.radius >= c + radial->cd2.radius)
 		{
 			*circle_in_circle = TRUE;
+			if(radial->cd1.radius == c + radial->cd2.radius)
+			{
+				if(circle_2[0] > circle_1[0])
+					circle_1[0] += 0.1;
+				else
+					circle_1[0] -= 0.1;
+				if(circle_2[1] > circle_1[0])
+					circle_1[1] += 0.1;
+				else
+					circle_1[1] -= 0.1;
+			}
 		}
 	}
 	else
 	{
 		if(radial->cd2.radius >= c + radial->cd1.radius)
+		{
 			*circle_in_circle = TRUE;
+			if(radial->cd2.radius == c + radial->cd1.radius)
+			{
+				if(circle_2[0] > circle_1[0])
+					circle_1[0] += 0.1;
+				else
+					circle_1[0] -= 0.1;
+				if(circle_2[1] > circle_1[0])
+					circle_1[1] += 0.1;
+				else
+					circle_1[1] -= 0.1;
+			}
+		}
 	}
 	if(*circle_in_circle == TRUE)
 		return CAIRO_STATUS_SUCCESS;
@@ -596,28 +642,56 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	b = radial->cd1.center.y;
 	c = radial->cd2.center.x;
 	d = radial->cd2.center.y;
-	compute_xy(radial->cd1.center.x, radial->cd1.center.y, 
+	if(radial->cd2.radius != 0.0)
+	{
+		compute_xy(radial->cd1.center.x, radial->cd1.center.y, 
 			   radial->cd2.center.x, radial->cd2.center.y,
 			   radial->cd1.radius, radial->cd2.radius,
 			   &x1, &y1, &x2, &y2);
-	compute_tangent_2(radial->cd1.center.x, radial->cd1.center.y,
+		compute_tangent_2(radial->cd1.center.x, radial->cd1.center.y,
 					  radial->cd2.center.x, radial->cd2.center.y,
 					  radial->cd1.radius, radial->cd2.radius,
 					  x1, y1, x2, y2,
 					  &tangent_3_x, &tangent_3_y,
 					  &tangent_4_x, &tangent_4_y);
-	compute_tangent_1(radial->cd1.center.x, radial->cd1.center.y,
+		compute_tangent_1(radial->cd1.center.x, radial->cd1.center.y,
 					  radial->cd2.center.x, radial->cd2.center.y,
 					  radial->cd1.radius, radial->cd2.radius, 
 					  x1, y1,
 					  tangent_3_x, tangent_3_y,
 					  &tangent_1_x, &tangent_1_y);
-	compute_tangent_1(radial->cd1.center.x, radial->cd1.center.y,
+		compute_tangent_1(radial->cd1.center.x, radial->cd1.center.y,
 					  radial->cd2.center.x, radial->cd2.center.y,
 					  radial->cd1.radius, radial->cd2.radius,
 					  x2, y2,
 					  tangent_4_x, tangent_4_y,
 					  &tangent_2_x, &tangent_2_y);
+	}
+	else
+	{
+		compute_xy(radial->cd2.center.x, radial->cd2.center.y, 
+			   radial->cd1.center.x, radial->cd1.center.y,
+			   radial->cd2.radius, radial->cd1.radius,
+			   &x1, &y1, &x2, &y2);
+		compute_tangent_2(radial->cd2.center.x, radial->cd2.center.y,
+					  radial->cd1.center.x, radial->cd1.center.y,
+					  radial->cd2.radius, radial->cd1.radius,
+					  x1, y1, x2, y2,
+					  &tangent_3_x, &tangent_3_y,
+					  &tangent_4_x, &tangent_4_y);
+		compute_tangent_1(radial->cd2.center.x, radial->cd2.center.y,
+					  radial->cd1.center.x, radial->cd1.center.y,
+					  radial->cd2.radius, radial->cd1.radius, 
+					  x1, y1,
+					  tangent_3_x, tangent_3_y,
+					  &tangent_1_x, &tangent_1_y);
+		compute_tangent_1(radial->cd2.center.x, radial->cd2.center.y,
+					  radial->cd1.center.x, radial->cd1.center.y,
+					  radial->cd2.radius, radial->cd1.radius,
+					  x2, y2,
+					  tangent_4_x, tangent_4_y,
+					  &tangent_2_x, &tangent_2_y);
+	}
 	if(radial->cd1.radius != radial->cd2.radius)
 	{
 		compute_end(radial->cd1.center.x, radial->cd1.center.y,
@@ -654,141 +728,198 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	if(reverse == FALSE)
 	{
 		tangents[0] = tangent_1_x;
-		tangents[1] = tangent_1_y;
+		tangents[1] = surface_height - tangent_1_y;
 	}
 	else
 	{
 		tangents[4] = tangent_1_x;
-		tangents[5] = tangent_1_y;
+		tangents[5] = surface_height - tangent_1_y;
 	}
 	cairo_matrix_transform_point(&matrix, &tangent_2_x, &tangent_2_y);
 	if(reverse == FALSE)
 	{
 		tangents[2] = tangent_2_x;
-		tangents[3] = tangent_2_y;
+		tangents[3] = surface_height - tangent_2_y;
 	}
 	else
 	{
 		tangents[6] = tangent_2_x;
-		tangents[7] = tangent_2_y;
+		tangents[7] = surface_height - tangent_2_y;
 	}
 	cairo_matrix_transform_point(&matrix, &tangent_3_x, &tangent_3_y);
 	if(reverse == FALSE)
 	{
 		tangents[4] = tangent_3_x;
-		tangents[5] = tangent_3_y;
+		tangents[5] = surface_height - tangent_3_y;
 	}
 	else
 	{
 		tangents[0] = tangent_3_x;
-		tangents[1] = tangent_3_y;
+		tangents[1] = surface_height - tangent_3_y;
 	}
 	cairo_matrix_transform_point(&matrix, &tangent_4_x, &tangent_4_y);
 	if(reverse == FALSE)
 	{
 		tangents[6] = tangent_4_x;
-		tangents[7] = tangent_4_y;
+		tangents[7] = surface_height - tangent_4_y;
 	}
 	else
 	{
 		tangents[6] = tangent_4_x;
-		tangents[7] = tangent_4_y;
+		tangents[7] = surface_height - tangent_4_y;
 	}
 
 	// compute transformation 1
 	if(parallel == FALSE)
 	{
-		cairo_matrix_init_translate(matrix_1, -end_x, -end_y);
-		cairo_matrix_init_translate(matrix_2, -end_x, -end_y);
+		cairo_matrix_init_translate(matrix_1, -end_x, -(surface_height - end_y));
+		cairo_matrix_init_translate(matrix_2, -end_x, -(surface_height - end_y));
 	}
 	else
 	{
-		cairo_matrix_init_translate(matrix_1, -tangent_1_x, -tangent_1_y);
-		cairo_matrix_init_translate(matrix_2, -tangent_2_x, -tangent_2_y);
+		cairo_matrix_init_translate(matrix_1, -tangent_end_1_x, -(surface_height - tangent_end_1_y));
+		cairo_matrix_init_translate(matrix_2, -tangent_end_2_x, -(surface_height - tangent_end_2_y));
 	}		
+	//double nx1 = 200; 
+	//double ny1 = 600;
+	//double nx2 = 200;
+	//double ny2 = 600;
+	//cairo_matrix_transform_point(matrix_1, &nx1, &ny1);
+	//cairo_matrix_transform_point(matrix_2, &nx2, &ny2);
 	if(parallel == FALSE)
 	{
 		dx = tangent_3_x - end_x;
-		dy = tangent_3_y - end_x;
+		dy = -tangent_3_y + end_y;
+		if(dx == 0.0 && dy == 0.0)
+		{
+			dx = tangent_1_x - end_x;
+			dy = -tangent_1_y + end_y;
+		}
 	}
 	else
 	{
 		dx = tangent_3_x - tangent_1_x;
-		dy = tangent_3_y - tangent_1_x;
+		dy = -tangent_3_y + tangent_1_y;
 	}
 	if(dy >= 0)
 	{
 		// pi/2
 		if(dx == 0)
-			cairo_matrix_rotate(matrix_1, M_PI/2);
+		{
+			matrix_rotate(matrix_1, +M_PI /2.0);
+		}
 		else if(dx > 0)
 		{
 			angle = atan(dy/dx);
-			cairo_matrix_rotate(matrix_1, angle);
+			matrix_rotate(matrix_1, angle);
 		}
 		else
 		{
-			angle = atan(dy/dx) + M_PI;
-			cairo_matrix_rotate(matrix_1, angle);
+			angle = atan(dy/dx);
+			matrix_rotate(matrix_1, angle + M_PI);
 		}
 	}
 	else
 	{
 		if(dx == 0)
-			cairo_matrix_rotate(matrix_1, M_PI * 1.5);
+		{
+			matrix_rotate(matrix_1, -M_PI / 2.0);
+		}
 		else if(dx > 0)
 		{
 			angle = atan(dy/dx);
-			cairo_matrix_rotate(matrix_1, angle + 2 * M_PI);
+			matrix_rotate(matrix_1, angle);
 		}
 		else
 		{
 			angle = atan(dy/dx);
-			cairo_matrix_rotate(matrix_1, angle + M_PI);
+			matrix_rotate(matrix_1, angle - M_PI);
+			angle = angle - M_PI;
 		}
 	}
 	// compute matrix_2
 	if(parallel == FALSE)
 	{
 		dx = tangent_4_x - end_x;
-		dy = tangent_4_y - end_x;
+		dy = -tangent_4_y + end_y;
+		if(dy == 0.0 && dx == 0.0)
+		{
+			dx = tangent_2_x - end_x;
+			dy = -tangent_2_y + end_y;
+		}
 	}
 	else
 	{
 		dx = tangent_4_x - tangent_2_x;
-		dy = tangent_4_y - tangent_2_x;
+		dy = -tangent_4_y + tangent_2_y;
 	}
 	if(dy >= 0)
 	{
 		// pi/2
 		if(dx == 0)
-			cairo_matrix_rotate(matrix_2, M_PI/2);
+		{
+			matrix_rotate(matrix_2, M_PI / 2.0);
+		}
 		else if(dx > 0)
 		{
 			angle = atan(dy/dx);
-			cairo_matrix_rotate(matrix_2, angle);
+			matrix_rotate(matrix_2, angle);
 		}
 		else
 		{
-			angle = atan(dy/dx) + M_PI;
-			cairo_matrix_rotate(matrix_2, angle);
+			angle = atan(dy/dx);
+			matrix_rotate(matrix_2, angle + M_PI);
 		}
 	}
 	else
 	{
 		if(dx == 0)
-			cairo_matrix_rotate(matrix_2, M_PI * 1.5);
+		{
+			matrix_rotate(matrix_2, - M_PI / 2.0);
+		}
 		else if(dx > 0)
 		{
 			angle = atan(dy/dx);
-			cairo_matrix_rotate(matrix_2, angle + 2 * M_PI);
+			matrix_rotate(matrix_2, angle);
 		}
 		else
 		{
 			angle = atan(dy/dx);
-			cairo_matrix_rotate(matrix_2, angle + M_PI);
+			matrix_rotate(matrix_2, angle - M_PI);
 		}
 	}
+	//let's distinquish two matrix
+	if(radial->cd1.radius != 0.0)
+	{
+		mx1 =  radial->cd1.center.x;
+		my1 = radial->cd1.center.y;
+	}
+	else
+	{
+		mx1 =  radial->cd2.center.x;
+		my1 = radial->cd2.center.y;
+	}
+	cairo_matrix_transform_point(&matrix, &mx1, &my1);
+	my1 = surface_height - my1;
+	mx2 = mx1;
+	my2 = my1;
+	matrix_transform_point(matrix_1, &mx1, &my1);
+	matrix_transform_point(matrix_2, &mx2, &my2);
+	if(my1 < 0.0)
+	{
+		memcpy((void *)&temp_matrix, matrix_1, 6 * sizeof(double));
+		memcpy(matrix_1, matrix_2, 6 * sizeof(double));
+		memcpy(matrix_2, (void *)&temp_matrix, 6 * sizeof(double));
+	}
+
+	/*double mx1 = 200;
+	double my1 = 600;
+	matrix_transform_point(matrix_1, &mx1, &my1);
+	double mx2 = 200;
+	double my2 = 600;
+	matrix_transform_point(matrix_2, &mx2, &my2);
+	*/
+	
 
 	return CAIRO_STATUS_SUCCESS;
 }
