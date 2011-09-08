@@ -96,18 +96,26 @@ static void
 _egl_make_current (void *abstract_ctx,
 	           cairo_gl_surface_t *abstract_surface)
 {
+	EGLDisplay prev_su;
     cairo_egl_context_t *ctx = abstract_ctx;
     cairo_egl_surface_t *surface = (cairo_egl_surface_t *) abstract_surface;
 	
 	EGLSurface current_su = eglGetCurrentSurface(EGL_DRAW);
 	EGLDisplay current_di = eglGetCurrentDisplay();
 	EGLContext current_co = eglGetCurrentContext();
+	if(surface == NULL || _cairo_gl_surface_is_texture(ctx->base.current_target))
+	{
+		prev_su = ctx->dummy_surface;
+	}
+	else 
+		prev_su = surface->egl;
+
 	if(ctx->display != current_di  ||
-		surface->egl != current_su ||
+		prev_su != current_su ||
 		ctx->context != current_co)
 	{
             eglMakeCurrent (ctx->display,
-                            surface->egl, surface->egl, ctx->context);
+                            prev_su, prev_su, ctx->context);
 	}
 }
 

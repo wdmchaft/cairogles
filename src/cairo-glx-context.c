@@ -129,7 +129,7 @@ _glx_make_current (void *abstract_ctx, cairo_gl_surface_t *abstract_surface)
     cairo_glx_context_t *ctx = abstract_ctx;
     cairo_glx_surface_t *surface = (cairo_glx_surface_t *) abstract_surface;
 	
-	GLXDrawable current_dr;
+	GLXDrawable current_dr, prev_dr;
 	Display *current_di = NULL;
 	GLXContext current_co;
 
@@ -137,9 +137,17 @@ _glx_make_current (void *abstract_ctx, cairo_gl_surface_t *abstract_surface)
 	current_di = glXGetCurrentDisplay();
 	current_co = glXGetCurrentContext();
 
+	if(surface == NULL || _cairo_gl_surface_is_texture(ctx->base.current_target))
+	{
+		prev_dr = ctx->dummy_window;
+	}
+	else
+		prev_dr = surface->win;
+
+
     /* Set the window as the target of our context. */
 	if(ctx->display != current_di ||
-	   surface->win != current_dr ||
+	   prev_dr != current_dr ||
 	   ctx->context != current_co)
 	{
 	/*
@@ -150,7 +158,7 @@ _glx_make_current (void *abstract_ctx, cairo_gl_surface_t *abstract_surface)
 			ctx->target_window = ctx->dummy_window;
 	*/
     	//glXMakeCurrent (ctx->display, surface->win, ctx->context);
-    	glXMakeContextCurrent (ctx->display, surface->win, surface->win, ctx->context);
+    	glXMakeContextCurrent (ctx->display, prev_dr, prev_dr, ctx->context);
 	}
 }
 

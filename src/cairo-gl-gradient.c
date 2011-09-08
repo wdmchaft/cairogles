@@ -523,34 +523,34 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	cairo_matrix_transform_point(&matrix, &dx2, &dy2);
 	scales[1] = 100.0 / sqrt((dx1 - dx2)*(dx1 - dx2) + (dy1 - dy2)*(dy1 - dy2));
 	
-	if(radial->cd1.radius > radial->cd2.radius)
+/*	if(radial->cd1.radius > radial->cd2.radius)
 	{
 		reverse = TRUE;
 		circle_2[0] = a;
 		circle_2[1] = surface_height - b;
 		circle_2[2] = radial->cd1.radius;
 	}
-	else
+	else */
 	{
 		circle_1[0] = a;
 		circle_1[1] = surface_height - b;
 		circle_1[2] = radial->cd1.radius;
 	}
 	
-	if(reverse == TRUE)
+/*	if(reverse == TRUE)
 	{
 		circle_1[0] = c;
 		circle_1[1] = surface_height - d;
 		circle_1[2] = radial->cd2.radius;
 	}
-	else
+	else */
 	{
 		circle_2[0] = c;
 		circle_2[1] = surface_height - d;
 		circle_2[2] = radial->cd2.radius;
 	}
 		
-	if(reverse == FALSE)
+//	if(reverse == FALSE)
 	{
 		for(i = 0; i < pattern->n_stops; i++)
 		{
@@ -570,7 +570,7 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 			}
 		}
 	}
-	else
+/*	else
 	{
 		for(i = 0; i < pattern->n_stops; i++)
 		{
@@ -591,13 +591,45 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 			}
 		}
 	}
+	*/
 	*nstops = pattern->n_stops;
 
 	// compute whether circle in circle
 	a = radial->cd1.center.x - radial->cd2.center.x;
 	b = radial->cd1.center.y - radial->cd2.center.y;
 	c = sqrt(a * a + b * b);
-	if(reverse)
+	if(radial->cd1.radius >= c + radial->cd2.radius)
+	{
+		*circle_in_circle = TRUE;
+		if(radial->cd1.radius == c + radial->cd2.radius)
+		{
+			if(circle_1[0] > circle_2[0])
+				circle_2[0] += 0.01 / circle_1[2];
+			else
+				circle_2[0] -= 0.01 / circle_1[2];
+			
+			if(circle_1[1] > circle_2[1])
+				circle_2[1] += 0.01 / circle_1[2];
+			else
+				circle_2[1] -= 0.01 / circle_1[2];
+		}
+	}
+	else if(radial->cd2.radius >= c + radial->cd1.radius)
+	{
+		*circle_in_circle = TRUE;
+		if(radial->cd2.radius == c + radial->cd1.radius)
+		{
+			if(circle_2[0] > circle_1[0])
+				circle_1[0] += 0.01 / circle_2[2];
+			else
+				circle_1[0] -= 0.01 / circle_2[2];
+			if(circle_2[1] > circle_1[0])
+				circle_1[1] += 0.01 / circle_2[2];
+			else
+				circle_1[1] -= 0.01 / circle_2[2];
+		}
+	}
+	/*if(reverse)
 	{
 		if(radial->cd1.radius >= c + radial->cd2.radius)
 		{
@@ -605,13 +637,13 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 			if(radial->cd1.radius == c + radial->cd2.radius)
 			{
 				if(circle_2[0] > circle_1[0])
-					circle_1[0] += 0.1;
+					circle_1[0] += 0.01 / circle_1[2];
 				else
-					circle_1[0] -= 0.1;
+					circle_1[0] -= 0.01 / circle_1[2];
 				if(circle_2[1] > circle_1[0])
-					circle_1[1] += 0.1;
+					circle_1[1] += 0.01 / circle_2[2];
 				else
-					circle_1[1] -= 0.1;
+					circle_1[1] -= 0.01 / circle_2[2];
 			}
 		}
 	}
@@ -632,7 +664,7 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 					circle_1[1] -= 0.1;
 			}
 		}
-	}
+	}*/
 	if(*circle_in_circle == TRUE)
 		return CAIRO_STATUS_SUCCESS;
 
@@ -725,49 +757,49 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 		end_point[1] = surface_height - end_y;
 	}
 	cairo_matrix_transform_point(&matrix, &tangent_1_x, &tangent_1_y);
-	if(reverse == FALSE)
+	//if(reverse == FALSE)
 	{
 		tangents[0] = tangent_1_x;
 		tangents[1] = surface_height - tangent_1_y;
 	}
-	else
+	/*else
 	{
 		tangents[4] = tangent_1_x;
 		tangents[5] = surface_height - tangent_1_y;
-	}
+	}*/
 	cairo_matrix_transform_point(&matrix, &tangent_2_x, &tangent_2_y);
-	if(reverse == FALSE)
+	//if(reverse == FALSE)
 	{
 		tangents[2] = tangent_2_x;
 		tangents[3] = surface_height - tangent_2_y;
 	}
-	else
+	/*else
 	{
 		tangents[6] = tangent_2_x;
 		tangents[7] = surface_height - tangent_2_y;
-	}
+	}*/
 	cairo_matrix_transform_point(&matrix, &tangent_3_x, &tangent_3_y);
-	if(reverse == FALSE)
+	//if(reverse == FALSE)
 	{
 		tangents[4] = tangent_3_x;
 		tangents[5] = surface_height - tangent_3_y;
 	}
-	else
+	/*else
 	{
 		tangents[0] = tangent_3_x;
 		tangents[1] = surface_height - tangent_3_y;
-	}
+	}*/
 	cairo_matrix_transform_point(&matrix, &tangent_4_x, &tangent_4_y);
-	if(reverse == FALSE)
+	//if(reverse == FALSE)
 	{
 		tangents[6] = tangent_4_x;
 		tangents[7] = surface_height - tangent_4_y;
 	}
-	else
+	/*else
 	{
 		tangents[6] = tangent_4_x;
 		tangents[7] = surface_height - tangent_4_y;
-	}
+	}*/
 
 	// compute transformation 1
 	if(parallel == FALSE)

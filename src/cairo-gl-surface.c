@@ -2651,6 +2651,30 @@ _cairo_gl_surface_mask (void *abstract_surface,
 		free(setup);
 		return status;
 	}
+	extend = 0;
+	if(mask != NULL)
+	{
+		if(mask->extend == CAIRO_EXTEND_REPEAT ||	
+			mask->extend == CAIRO_EXTEND_REFLECT)
+			extend = 1;
+		if(mask->type == CAIRO_PATTERN_TYPE_SURFACE)
+		{
+			cairo_surface_t *msk = ((cairo_surface_pattern_t *)mask)->surface;
+			mask_clone = _cairo_gl_generate_clone(surface, msk, extend);
+			if(mask_clone == NULL)
+			{
+				if(clone != NULL)
+					cairo_surface_destroy(&clone->base);
+				_cairo_gl_composite_fini(setup);
+				free(setup);
+				glDisable(GL_STENCIL_TEST);
+				glDisable(GL_DEPTH_TEST);
+				glDepthMask(GL_FALSE);
+				status = _cairo_gl_context_release(ctx, status);
+				return UNSUPPORTED("generate_clone for mask failed");
+			}
+		}
+	}
 
 	setup->source = (cairo_pattern_t*)source;
 
@@ -2743,32 +2767,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 			return status;
 		}
 	}
-	extend = 0;
-	if(mask != NULL)
-	{
-		if(mask->extend == CAIRO_EXTEND_REPEAT ||	
-			mask->extend == CAIRO_EXTEND_REFLECT)
-			extend = 1;
-		if(mask->type == CAIRO_PATTERN_TYPE_SURFACE)
-		{
-			cairo_surface_t *msk = ((cairo_surface_pattern_t *)mask)->surface;
-			mask_clone = _cairo_gl_generate_clone(surface, msk, extend);
-			if(mask_clone == NULL)
-			{
-				if(clone != NULL)
-					cairo_surface_destroy(&clone->base);
-				_cairo_gl_composite_fini(setup);
-				free(setup);
-				glDisable(GL_STENCIL_TEST);
-				glDisable(GL_DEPTH_TEST);
-				glDepthMask(GL_FALSE);
-				status = _cairo_gl_context_release(ctx, status);
-				return UNSUPPORTED("generate_clone for mask failed");
-			}
-		}
-	}
 
-	_cairo_gl_context_set_destination(ctx, surface);
 	if(mask_clone != NULL)
 	{
             float temp_width = mask_clone->width;
