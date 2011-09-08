@@ -537,6 +537,7 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
 		if(tex_unit == 0)
 		{
 			_cairo_gl_shader_bind_vec4v(ctx, "source_colors",
@@ -697,8 +698,8 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 		break;
 	/* fall through */
 	
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
-	break;
+    //case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
+	//break;
    /*
 	strcpy (custom_part, "_circle_d");
 	_cairo_gl_shader_bind_vec3   (ctx,
