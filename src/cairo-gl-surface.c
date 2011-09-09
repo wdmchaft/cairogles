@@ -1806,7 +1806,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 			
 			return NULL;
 		}
-		status = _cairo_gl_surface_upload_image(clone, img_src, 0, 0, 
+		status = _cairo_gl_surface_draw_image(clone, img_src, 0, 0,
 			img_src->width, img_src->height, 0, 0);
 		if(cairo_surface_get_type(src) != CAIRO_SURFACE_TYPE_IMAGE)
 		{
@@ -2240,7 +2240,7 @@ _cairo_gl_surface_release_dest_image (void		      *abstract_surface,
 {
     cairo_status_t status;
 
-	status = _cairo_gl_surface_upload_image(abstract_surface, image, 
+	status = _cairo_gl_surface_draw_image(abstract_surface, image,
 					   0, 0,
 					   image->width, image->height,
 					   image_rect->x, image_rect->y);
@@ -3648,127 +3648,6 @@ const cairo_surface_backend_t _cairo_gl_surface_backend = {
     NULL  /* snapshot */
 };
 
-cairo_status_t
-_cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
-	cairo_image_surface_t *image_surface,
-	int src_x, int src_y,
-	int width, int height,
-	int dst_x, int dst_y)
-{
-    GLenum internal_format, format, type;
-    cairo_bool_t has_alpha, needs_swap;
-    cairo_gl_context_t *ctx;
-    int cpp;
-	cairo_image_surface_t *src;
-    cairo_status_t status = CAIRO_STATUS_SUCCESS;
-    cairo_image_surface_t *clone = NULL;
-    cairo_image_surface_t *shrink_image = NULL;
-
-	if(dst->tex == 0)
-		return CAIRO_INT_STATUS_UNSUPPORTED;
-
-	// lock gl context
-    status = _cairo_gl_context_acquire (dst->base.device, &ctx);
-    if (unlikely (status))
-	{
-		return status;
-	}
-
-	src = image_surface;
-    if (! _cairo_gl_get_image_format_and_type (ctx->gl_flavor,
-					       image_surface->pixman_format,
-					       &internal_format,
-					       &format,
-					       &type,
-					       &has_alpha,
-					       &needs_swap))
-    {
-		cairo_bool_t is_supported;
-
-		clone = _cairo_image_surface_coerce (src);
-		if (unlikely (status = clone->base.status))
-	    	goto FAIL;
-
-		is_supported =
-	    	_cairo_gl_get_image_format_and_type (ctx->gl_flavor,
-							 clone->pixman_format,
-		                     &internal_format,
-						 	&format,
-						 	&type,
-						 	&has_alpha,
-						 	&needs_swap);
-		if(is_supported == FALSE)
-			goto FAIL;
-		assert (is_supported);
-		assert (!needs_swap);
-		src = clone;
-   	}
-
-    cpp = PIXMAN_FORMAT_BPP (src->pixman_format) / 8;
-
-    status = _cairo_gl_surface_flush (&dst->base);
-    if (unlikely (status))
-		goto FAIL;
-	
-	if(ctx->gl_flavor == CAIRO_GL_FLAVOR_DESKTOP)
-		glPixelStorei(GL_UNPACK_ROW_LENGTH, image_surface->stride / cpp);
-	{
-		void *data_start = image_surface->data + src_y * image_surface->stride + src_x * cpp;
-		void *data_start_gles2 = NULL;
-
-	/*
-	 * Due to GL_UNPACK_ROW_LENGTH missing in GLES2 we have to extract the
-	 * image data ourselves in some cases. In particular, we must extract
-	 * the pixels if:
-	 * a. we don't want full-length lines or
-	 * b. the row stride cannot be handled by GL itself using a 4 byte alignment
-	 *    constraint
-	 */
-		if ((ctx->gl_flavor == CAIRO_GL_FLAVOR_ES) &&
-	   		((image_surface->width * cpp < src->stride - 3) ||
-			width != image_surface->width))
-		{
-    		glPixelStorei (GL_UNPACK_ALIGNMENT, 1);
-		   	 status = _cairo_gl_surface_extract_image_data (image_surface, 
-								src_x, src_y,
-							   width, height,
-							   &data_start_gles2);
-	  		if (unlikely (status))
-				goto FAIL;
-		}
-		else
-		{
-	    	glPixelStorei (GL_UNPACK_ALIGNMENT, 4);
-		}
-
-		_cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
-		glBindTexture (ctx->tex_target, dst->tex);
-		glTexParameteri (ctx->tex_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-		glTexSubImage2D (ctx->tex_target, 0,
-				 dst_x, dst_y, width, height,
-				 format, type,
-				 data_start_gles2 != NULL ? data_start_gles2 :
-						    data_start);
-		if (data_start_gles2)
-	    	free (data_start_gles2);
-	}
-
-FAIL:
-	if(ctx->gl_flavor == CAIRO_GL_FLAVOR_DESKTOP)
-		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-
-	if(clone)
-		cairo_surface_destroy(&clone->base);
-	
-	if(shrink_image)
-		cairo_surface_destroy(&shrink_image->base);
-
-	status = _cairo_gl_context_release(ctx, status);
-	return status;
-}
-
 static void
 _cairo_gl_surface_remove_from_cache(cairo_surface_t *abstract_surface)
 {
@@ -3804,7 +3683,7 @@ _cairo_gl_surface_mark_dirty_rectangle(cairo_surface_t *abstract_surface,
 		return status;
     _cairo_gl_composite_flush (ctx);
     _cairo_gl_context_set_destination (ctx, surface);
-	status = _cairo_gl_surface_upload_image(surface, (cairo_image_surface_t *)surface->data_surface,
+	status = _cairo_gl_surface_draw_image(surface, (cairo_image_surface_t *)surface->data_surface,
 		x, y, width, height, x, y);
 	if(_cairo_surface_has_snapshot(&surface->base, &_cairo_gl_surface_backend))
 		_cairo_surface_detach_snapshot(&surface->base);

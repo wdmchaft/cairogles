@@ -609,14 +609,6 @@ cairo_private void
 _cairo_gl_composite_fill_constant_color(cairo_gl_context_t *ctx,
 	unsigned int count, int *indices);
 
-// Henry Song
-cairo_private cairo_status_t
-_cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
-	cairo_image_surface_t *image_surface,
-	int src_x, int src_y,
-	int width, int height,
-	int dst_x, int dst_y);
-
 cairo_private cairo_status_t 
 _cairo_gl_add_triangle(void *closure,
 	const cairo_point_t triangle[3]);
