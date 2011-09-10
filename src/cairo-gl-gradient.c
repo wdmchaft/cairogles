@@ -489,10 +489,9 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	unsigned int i;
 
 	cairo_bool_t parallel = TRUE;
-	//cairo_bool_t reverse = FALSE;
+    cairo_radial_pattern_t *radial = NULL;
 	*moved_center = 0;
 
-        cairo_radial_pattern_t *radial = NULL;
 
 	if(pattern->n_stops > 8)
 		return CAIRO_INT_STATUS_UNSUPPORTED;
@@ -524,75 +523,31 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	cairo_matrix_transform_point(&matrix, &dx2, &dy2);
 	scales[1] = 100.0 / sqrt((dx1 - dx2)*(dx1 - dx2) + (dy1 - dy2)*(dy1 - dy2));
 	
-/*	if(radial->cd1.radius > radial->cd2.radius)
-	{
-		reverse = TRUE;
-		circle_2[0] = a;
-		circle_2[1] = surface_height - b;
-		circle_2[2] = radial->cd1.radius;
-	}
-	else */
-	{
-		circle_1[0] = a;
-		circle_1[1] = surface_height - b;
-		circle_1[2] = radial->cd1.radius;
-	}
+	circle_1[0] = a;
+	circle_1[1] = surface_height - b;
+	circle_1[2] = radial->cd1.radius;
 	
-/*	if(reverse == TRUE)
-	{
-		circle_1[0] = c;
-		circle_1[1] = surface_height - d;
-		circle_1[2] = radial->cd2.radius;
-	}
-	else */
-	{
-		circle_2[0] = c;
-		circle_2[1] = surface_height - d;
-		circle_2[2] = radial->cd2.radius;
-	}
+	circle_2[0] = c;
+	circle_2[1] = surface_height - d;
+	circle_2[2] = radial->cd2.radius;
 		
-//	if(reverse == FALSE)
+	for(i = 0; i < pattern->n_stops; i++)
 	{
-		for(i = 0; i < pattern->n_stops; i++)
+		colors[i*4] = pattern->stops[i].color.red;
+		colors[i*4+1] = pattern->stops[i].color.green;
+		colors[i*4+2] = pattern->stops[i].color.blue;
+		colors[i*4+3] = pattern->stops[i].color.alpha;
+		offsets[i] = pattern->stops[i].offset;
+		if(offsets[i] > 1.0)
+			offsets[i] = 1.0;
+		else if(offsets[i] < 0.0)
+			offsets[i] = 0.0;
+		if(i > 0)
 		{
-			colors[i*4] = pattern->stops[i].color.red;
-			colors[i*4+1] = pattern->stops[i].color.green;
-			colors[i*4+2] = pattern->stops[i].color.blue;
-			colors[i*4+3] = pattern->stops[i].color.alpha;
-			offsets[i] = pattern->stops[i].offset;
-			if(offsets[i] > 1.0)
-				offsets[i] = 1.0;
-			else if(offsets[i] < 0.0)
-				offsets[i] = 0.0;
-			if(i > 0)
-			{
-				if(offsets[i] < offsets[i-1])
-					offsets[i] = offsets[i-1];
-			}
+			if(offsets[i] < offsets[i-1])
+				offsets[i] = offsets[i-1];
 		}
 	}
-/*	else
-	{
-		for(i = 0; i < pattern->n_stops; i++)
-		{
-			n = pattern->n_stops-1-i;
-			colors[n*4] = pattern->stops[i].color.red;
-			colors[n*4+1] = pattern->stops[i].color.green;
-			colors[n*4+2] = pattern->stops[i].color.blue;
-			colors[n*4+3] = pattern->stops[i].color.alpha;
-			offsets[n] = 1.0 - pattern->stops[i].offset;
-			if(offsets[n] > 1.0)
-				offsets[n] = 1.0;
-			else if(offsets[n] < 0.0)
-				offsets[n] = 0.0;
-			if(n > 0)
-			{
-				if(offsets[n] < offsets[n-1])
-					offsets[n] = offsets[n-1];
-			}
-		}
-	}
-	*/
 	*nstops = pattern->n_stops;
 
 	// compute whether circle in circle
@@ -632,42 +587,6 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 				end_point[1] = circle_1[1] - 0.01 / circle_2[2];
 		}
 	}
-	/*if(reverse)
-	{
-		if(radial->cd1.radius >= c + radial->cd2.radius)
-		{
-			*circle_in_circle = TRUE;
-			if(radial->cd1.radius == c + radial->cd2.radius)
-			{
-				if(circle_2[0] > circle_1[0])
-					circle_1[0] += 0.01 / circle_1[2];
-				else
-					circle_1[0] -= 0.01 / circle_1[2];
-				if(circle_2[1] > circle_1[0])
-					circle_1[1] += 0.01 / circle_2[2];
-				else
-					circle_1[1] -= 0.01 / circle_2[2];
-			}
-		}
-	}
-	else
-	{
-		if(radial->cd2.radius >= c + radial->cd1.radius)
-		{
-			*circle_in_circle = TRUE;
-			if(radial->cd2.radius == c + radial->cd1.radius)
-			{
-				if(circle_2[0] > circle_1[0])
-					circle_1[0] += 0.1;
-				else
-					circle_1[0] -= 0.1;
-				if(circle_2[1] > circle_1[0])
-					circle_1[1] += 0.1;
-				else
-					circle_1[1] -= 0.1;
-			}
-		}
-	}*/
 	if(*circle_in_circle == TRUE)
 		return CAIRO_STATUS_SUCCESS;
 
@@ -760,49 +679,19 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 		end_point[1] = surface_height - end_y;
 	}
 	cairo_matrix_transform_point(&matrix, &tangent_1_x, &tangent_1_y);
-	//if(reverse == FALSE)
-	{
-		tangents[0] = tangent_1_x;
-		tangents[1] = surface_height - tangent_1_y;
-	}
-	/*else
-	{
-		tangents[4] = tangent_1_x;
-		tangents[5] = surface_height - tangent_1_y;
-	}*/
+	tangents[0] = tangent_1_x;
+	tangents[1] = surface_height - tangent_1_y;
+	
 	cairo_matrix_transform_point(&matrix, &tangent_2_x, &tangent_2_y);
-	//if(reverse == FALSE)
-	{
-		tangents[2] = tangent_2_x;
-		tangents[3] = surface_height - tangent_2_y;
-	}
-	/*else
-	{
-		tangents[6] = tangent_2_x;
-		tangents[7] = surface_height - tangent_2_y;
-	}*/
+	tangents[2] = tangent_2_x;
+	tangents[3] = surface_height - tangent_2_y;
 	cairo_matrix_transform_point(&matrix, &tangent_3_x, &tangent_3_y);
-	//if(reverse == FALSE)
-	{
-		tangents[4] = tangent_3_x;
-		tangents[5] = surface_height - tangent_3_y;
-	}
-	/*else
-	{
-		tangents[0] = tangent_3_x;
-		tangents[1] = surface_height - tangent_3_y;
-	}*/
+	tangents[4] = tangent_3_x;
+	tangents[5] = surface_height - tangent_3_y;
+	
 	cairo_matrix_transform_point(&matrix, &tangent_4_x, &tangent_4_y);
-	//if(reverse == FALSE)
-	{
-		tangents[6] = tangent_4_x;
-		tangents[7] = surface_height - tangent_4_y;
-	}
-	/*else
-	{
-		tangents[6] = tangent_4_x;
-		tangents[7] = surface_height - tangent_4_y;
-	}*/
+	tangents[6] = tangent_4_x;
+	tangents[7] = surface_height - tangent_4_y;
 
 	// compute transformation 1
 	if(parallel == FALSE)

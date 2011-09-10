@@ -703,6 +703,7 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 				1, operand->gradient.endpoint);
 			_cairo_gl_shader_bind_vec2v(ctx, "mask_matrix_1",
 				3, operand->gradient.matrix1);
+			
 			_cairo_gl_shader_bind_vec2v(ctx, "mask_matrix_2",
 				3, operand->gradient.matrix2);
 		}

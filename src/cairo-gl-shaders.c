@@ -1222,7 +1222,6 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"  //vec2 f2 = f * %s_scales;\n"
 		"  //float d = inversesqrt(dot(f2, f2));\n"
 		"  float d = inversesqrt(dot(f, f));\n"
-		"  //float d = sqrt((coord.x - %s_xy1.x) * (coord.x - %s_xy1.x) + (coord.y - %s_xy1.y) * (coord.y - %s_xy1.y));\n"
 		"  float x = %s_r1 * f.x * d / %s_scales[0] + center.x;\n"
 		"  float y = %s_r1 * f.y * d / %s_scales[1] + center.y;\n"
 		"  return vec2(x, y);\n"

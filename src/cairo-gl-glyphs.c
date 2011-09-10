@@ -106,15 +106,13 @@ _cairo_gl_glyph_cache_add_glyph (cairo_gl_context_t *ctx,
 
     /* XXX: Make sure we use the mask texture. This should work automagically somehow */
     glActiveTexture (GL_TEXTURE1);
-    //glActiveTexture (GL_TEXTURE2);
-	status = _cairo_gl_surface_upload_image(cache_surface, 
-		glyph_surface, 0, 0, 
-		//glyph_surface->width, glyph_surface->height,
-		width, height,
-		node->x, node->y);
-    
-	if (unlikely (status))
-		return status;
+    status = _cairo_gl_surface_draw_image (cache_surface,
+                                           glyph_surface,
+                                           0, 0,
+                                           width, height,
+                                           node->x, node->y);
+    if (unlikely (status))
+	return status;
 
     scaled_glyph->surface_private = node;
     node->owner = &scaled_glyph->surface_private;
@@ -390,7 +388,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		color.green = 0;
 		color.blue = 0;
 		color.alpha = 0;
-		status = _cairo_gl_surface_clear(dst->mask_surface, &color);
+		_cairo_gl_surface_clear(dst->mask_surface, &color);
 
 		
 		*mask = dst->mask_surface;
@@ -656,7 +654,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 	{
 		scaled_font->surface_private = ctx;
 		scaled_font->surface_backend = &_cairo_gl_surface_backend;
-		status = _cairo_array_append((cairo_array_t *)&(scaled_font->user_data), (void *)max_font);
+		_cairo_array_append((cairo_array_t *)&(scaled_font->user_data), (void *)max_font);
 		//cairo_scaled_font_reference(max_font);
 		cairo_list_add(&scaled_font->link, &ctx->fonts);
 	}
@@ -723,7 +721,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 				_cairo_scaled_font_thaw_cache(min_font);
 				cairo_scaled_font_destroy(min_font);
 			}
-			status = _cairo_gl_destroy_indices(&indices);
+			_cairo_gl_destroy_indices(&indices);
 			//glDisable(GL_STENCIL_TEST);
 			//glDisable(GL_DEPTH_TEST);
 			//glDepthMask(GL_FALSE);
@@ -758,7 +756,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 					_cairo_scaled_font_thaw_cache(min_font);
 					cairo_scaled_font_destroy(min_font);
 				}
-				status = _cairo_gl_destroy_indices(&indices);
+				_cairo_gl_destroy_indices(&indices);
 				//glDisable(GL_STENCIL_TEST);
 				//glDisable(GL_DEPTH_TEST);
 				//glDepthMask(GL_FALSE);
@@ -794,7 +792,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 							_cairo_scaled_font_thaw_cache(min_font);
 							cairo_scaled_font_destroy(min_font);
 						}
-						status =_cairo_gl_destroy_indices(&indices);
+						_cairo_gl_destroy_indices(&indices);
 				
 						//glDisable(GL_STENCIL_TEST);
 						//glDisable(GL_DEPTH_TEST);
@@ -834,7 +832,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 					_cairo_scaled_font_thaw_cache(min_font);
 					cairo_scaled_font_destroy(min_font);
 				}
-				status = _cairo_gl_destroy_indices(&indices);
+				_cairo_gl_destroy_indices(&indices);
 				//glDisable(GL_STENCIL_TEST);
 				//glDisable(GL_DEPTH_TEST);
 				//glDepthMask(GL_FALSE);
@@ -877,11 +875,11 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 			if(status == CAIRO_INT_STATUS_UNSUPPORTED)
 			{
 				// cache full in scratch texture
-				status = _cairo_gl_fill(indices.setup, indices.num_vertices,
+				_cairo_gl_fill(indices.setup, indices.num_vertices,
 					indices.vertices, indices.mask_vertices, indices.num_indices,
 					indices.indices, indices.setup->ctx);
-				status = _cairo_gl_destroy_indices(&indices);
-				status = _cairo_gl_create_indices(&indices);
+				_cairo_gl_destroy_indices(&indices);
+				_cairo_gl_create_indices(&indices);
 				indices.setup = &setup;
 			
 				_cairo_gl_glyph_cache_unlock(cache);
@@ -902,7 +900,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 					//glDisable(GL_STENCIL_TEST);
 					//glDisable(GL_DEPTH_TEST);
 					//glDepthMask(GL_FALSE);
-					status = _cairo_gl_destroy_indices(&indices);
+					_cairo_gl_destroy_indices(&indices);
 					status = _cairo_gl_context_release(ctx, status);
 					*remaining_glyphs = num_glyphs - i;
 
@@ -987,7 +985,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 				_cairo_scaled_font_thaw_cache(min_font);
 				cairo_scaled_font_destroy(min_font);
 			}
-			status = _cairo_gl_destroy_indices(&indices);
+			_cairo_gl_destroy_indices(&indices);
 			//glDisable(GL_STENCIL_TEST);
 			//glDisable(GL_DEPTH_TEST);
 			//glDepthMask(GL_FALSE);
@@ -1020,7 +1018,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		_cairo_scaled_font_thaw_cache(min_font);
 		cairo_scaled_font_destroy(min_font);
 	}
-	status = _cairo_gl_destroy_indices(&indices);
+	_cairo_gl_destroy_indices(&indices);
 	//glDisable(GL_STENCIL_TEST);
 	//glDisable(GL_DEPTH_TEST);
 	//glDepthMask(GL_FALSE);

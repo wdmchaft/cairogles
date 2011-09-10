@@ -236,13 +236,13 @@ typedef struct cairo_gl_operand {
 		GLfloat circle_2[3];
 		GLfloat start_offset;
 		cairo_bool_t circle_in_circle;
-		int moved_center;
 
 		GLfloat matrix1[6];
 		GLfloat matrix2[6];
 		GLfloat endpoint[2];
 		GLfloat tangents[8];
 		GLfloat tangents_end[4];
+		int moved_center;
 
 	    cairo_matrix_t m;
 	    cairo_circle_double_t circle_d;
@@ -609,14 +609,6 @@ _cairo_gl_composite_begin_constant_color(cairo_gl_composite_t *setup,
 cairo_private void
 _cairo_gl_composite_fill_constant_color(cairo_gl_context_t *ctx,
 	unsigned int count, int *indices);
-
-// Henry Song
-cairo_private cairo_status_t
-_cairo_gl_surface_upload_image(cairo_gl_surface_t *dst,
-	cairo_image_surface_t *image_surface,
-	int src_x, int src_y,
-	int width, int height,
-	int dst_x, int dst_y);
 
 cairo_private cairo_status_t 
 _cairo_gl_add_triangle(void *closure,
