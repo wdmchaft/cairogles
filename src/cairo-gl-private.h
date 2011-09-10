@@ -236,6 +236,7 @@ typedef struct cairo_gl_operand {
 		GLfloat circle_2[3];
 		GLfloat start_offset;
 		cairo_bool_t circle_in_circle;
+		int moved_center;
 
 		GLfloat matrix1[6];
 		GLfloat matrix2[6];

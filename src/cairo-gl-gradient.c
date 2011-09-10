@@ -467,7 +467,7 @@ _cairo_gl_gradient_digest_linear_gradient(const cairo_gradient_pattern_t *patter
 }
 // Henry Song
 cairo_status_t
-_cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *pattern, float surface_height, float *scales, float *colors, float *offsets, int *nstops, float *circle_1, float *circle_2, cairo_bool_t *circle_in_circle, cairo_matrix_t *matrix_1, cairo_matrix_t *matrix_2, float *tangents, float *end_point, float *tangents_end)
+_cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *pattern, float surface_height, float *scales, float *colors, float *offsets, int *nstops, float *circle_1, float *circle_2, cairo_bool_t *circle_in_circle, cairo_matrix_t *matrix_1, cairo_matrix_t *matrix_2, float *tangents, float *end_point, float *tangents_end, int *moved_center)
 {
 	cairo_status_t status;
 	double a, b, c, d;
@@ -483,15 +483,16 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	double angle;
 	double tangent_end_1_x, tangent_end_1_y;
 	double tangent_end_2_x, tangent_end_2_y;
-	int n;
+	//int n;
 	cairo_matrix_t temp_matrix;
 	double mx1, my1, mx2, my2;
+	unsigned int i;
 
 	cairo_bool_t parallel = TRUE;
-	cairo_bool_t reverse = FALSE;
+	//cairo_bool_t reverse = FALSE;
+	*moved_center = 0;
 
         cairo_radial_pattern_t *radial = NULL;
-	unsigned int i;
 
 	if(pattern->n_stops > 8)
 		return CAIRO_INT_STATUS_UNSUPPORTED;
@@ -603,15 +604,16 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 		*circle_in_circle = TRUE;
 		if(radial->cd1.radius == c + radial->cd2.radius)
 		{
+			*moved_center = 1;
 			if(circle_1[0] > circle_2[0])
-				circle_2[0] += 0.01 / circle_1[2];
+				end_point[0] = circle_2[0] + 0.01 / circle_1[2];
 			else
-				circle_2[0] -= 0.01 / circle_1[2];
+				end_point[0] = circle_2[0] - 0.01 / circle_1[2];
 			
 			if(circle_1[1] > circle_2[1])
-				circle_2[1] += 0.01 / circle_1[2];
+				end_point[1] = circle_2[1] + 0.01 / circle_1[2];
 			else
-				circle_2[1] -= 0.01 / circle_1[2];
+				end_point[1] = circle_2[1] - 0.01 / circle_1[2];
 		}
 	}
 	else if(radial->cd2.radius >= c + radial->cd1.radius)
@@ -619,14 +621,15 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 		*circle_in_circle = TRUE;
 		if(radial->cd2.radius == c + radial->cd1.radius)
 		{
+			*moved_center = 1;
 			if(circle_2[0] > circle_1[0])
-				circle_1[0] += 0.01 / circle_2[2];
+				end_point[0] = circle_1[0] + 0.01 / circle_2[2];
 			else
-				circle_1[0] -= 0.01 / circle_2[2];
+				end_point[0] = circle_1[0] - 0.01 / circle_2[2];
 			if(circle_2[1] > circle_1[0])
-				circle_1[1] += 0.01 / circle_2[2];
+				end_point[1] = circle_1[1] + 0.01 / circle_2[2];
 			else
-				circle_1[1] -= 0.01 / circle_2[2];
+				end_point[1] = circle_1[1] - 0.01 / circle_2[2];
 		}
 	}
 	/*if(reverse)

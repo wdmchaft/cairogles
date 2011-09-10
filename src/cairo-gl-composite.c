@@ -252,7 +252,8 @@ _cairo_gl_gradient_operand_init (cairo_gl_operand_t *operand,
 			&matrix1, &matrix2,
 			operand->gradient.tangents,
 			operand->gradient.endpoint,
-			operand->gradient.tangents_end);
+			operand->gradient.tangents_end,
+			&operand->gradient.moved_center);
 		if(unlikely(status))
 			return CAIRO_INT_STATUS_UNSUPPORTED;
 		operand->gradient.matrix1[0] = matrix1.xx;
@@ -571,6 +572,11 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 					padding = 3;
 				dispatch->Uniform1i(location, padding);
 			}
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "source_moved_center");
+			if(location != -1)
+				dispatch->Uniform1i(location, operand->gradient.moved_center);
+			_cairo_gl_shader_bind_vec2v(ctx, "source_endpoint",
+				1, operand->gradient.endpoint);
 		}
 		else
 		{
@@ -605,6 +611,11 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 					padding = 3;
 				dispatch->Uniform1i(location, padding);
 			}
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "mask_moved_center");
+			if(location != -1)
+				dispatch->Uniform1i(location, operand->gradient.moved_center);
+			_cairo_gl_shader_bind_vec2v(ctx, "mask_endpoint",
+				1, operand->gradient.endpoint);
 		}
 		break;
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:
