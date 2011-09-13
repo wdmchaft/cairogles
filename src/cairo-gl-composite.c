@@ -537,8 +537,6 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
         break;
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
-    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
 		if(tex_unit == 0)
 		{
 			_cairo_gl_shader_bind_vec4v(ctx, "source_colors",
@@ -577,6 +575,8 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 				dispatch->Uniform1i(location, operand->gradient.moved_center);
 			_cairo_gl_shader_bind_vec2v(ctx, "source_endpoint",
 				1, operand->gradient.endpoint);
+			_cairo_gl_shader_bind_vec2v(ctx, "source_matrix_1",
+				3, operand->gradient.matrix1);
 		}
 		else
 		{
@@ -616,6 +616,93 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 				dispatch->Uniform1i(location, operand->gradient.moved_center);
 			_cairo_gl_shader_bind_vec2v(ctx, "mask_endpoint",
 				1, operand->gradient.endpoint);
+			_cairo_gl_shader_bind_vec2v(ctx, "mask_matrix_1",
+				3, operand->gradient.matrix1);
+		}
+		break;
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
+		if(tex_unit == 0)
+		{
+			_cairo_gl_shader_bind_vec4v(ctx, "source_colors",
+				operand->gradient.nstops,
+				operand->gradient.colors);
+			_cairo_gl_shader_bind_floatv(ctx, "source_offsets",
+				operand->gradient.nstops,
+				operand->gradient.offsets);
+			_cairo_gl_shader_bind_vec3v(ctx, "source_circle_1", 
+				1,
+				operand->gradient.circle_1);
+			_cairo_gl_shader_bind_vec3v(ctx, "source_circle_2", 
+				1, 
+				operand->gradient.circle_2);
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "source_nstops");
+			if(location != -1)
+				dispatch->Uniform1i(location, operand->gradient.nstops);
+			_cairo_gl_shader_bind_vec2v(ctx, "source_scales",
+				1, 
+				operand->gradient.scales);
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "source_pad");
+			if(location != -1)
+			{
+				if(operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE)
+					padding = 0;
+				else if(operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE)
+					padding = 1;
+				else if(operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE)
+					padding = 2;
+				else
+					padding = 3;
+				dispatch->Uniform1i(location, padding);
+			}
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "source_moved_center");
+			if(location != -1)
+				dispatch->Uniform1i(location, operand->gradient.moved_center);
+			//_cairo_gl_shader_bind_vec2v(ctx, "source_endpoint",
+			//	1, operand->gradient.endpoint);
+			_cairo_gl_shader_bind_vec2v(ctx, "source_matrix_1",
+				3, operand->gradient.matrix1);
+		}
+		else
+		{
+			_cairo_gl_shader_bind_vec4v(ctx, "mask_colors",
+				operand->gradient.nstops,
+				operand->gradient.colors);
+			_cairo_gl_shader_bind_floatv(ctx, "mask_offsets",
+				operand->gradient.nstops,
+				operand->gradient.offsets);
+			_cairo_gl_shader_bind_vec3v(ctx, "mask_circle_1", 
+				1,
+				operand->gradient.circle_1);
+			_cairo_gl_shader_bind_vec3v(ctx, "mask_circle_2", 
+				1, 
+				operand->gradient.circle_2);
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "mask_nstops");
+			if(location != -1)
+				dispatch->Uniform1i(location, operand->gradient.nstops);
+			_cairo_gl_shader_bind_vec2v(ctx, "mask_scales",
+				1, 
+				operand->gradient.scales);
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "mask_pad");
+			if(location != -1)
+			{
+				if(operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE)
+					padding = 0;
+				else if(operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE)
+					padding = 1;
+				else if(operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE)
+					padding = 2;
+				else
+					padding = 3;
+				dispatch->Uniform1i(location, padding);
+			}
+			location = dispatch->GetUniformLocation(ctx->current_shader->program, "mask_moved_center");
+			if(location != -1)
+				dispatch->Uniform1i(location, operand->gradient.moved_center);
+			//_cairo_gl_shader_bind_vec2v(ctx, "mask_endpoint",
+			//	1, operand->gradient.endpoint);
+			_cairo_gl_shader_bind_vec2v(ctx, "mask_matrix_1",
+				3, operand->gradient.matrix1);
 		}
 		break;
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_NOT_IN_CIRCLE:

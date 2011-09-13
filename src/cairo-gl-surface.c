@@ -719,6 +719,7 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 		}
 		surface->indices_buf = NULL;
 	}
+	//fill_rule = CAIRO_FILL_RULE_WINDING; 
 	if(clip->path != NULL)
 	{
 		fill_rule = clip->path->fill_rule;

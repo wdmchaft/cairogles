@@ -587,8 +587,82 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 				end_point[1] = circle_1[1] - 0.01 / circle_2[2];
 		}
 	}
-	if(*circle_in_circle == TRUE)
+	if(*circle_in_circle == TRUE && *moved_center == 1)
+	{
+		if(radial->cd2.radius >= radial->cd1.radius)
+		{
+			dx = circle_2[0] - circle_1[0];
+			dy = circle_2[1] - circle_1[1];
+		}
+		else
+		{
+			dx = circle_1[0] - circle_2[0];
+			dy = circle_1[1] - circle_2[1];
+		}
+		if(dx == 0.0)
+		{
+			if(dy > 0.0)
+				cairo_matrix_init_translate(matrix_1, -circle_2[0], -(circle_2[1] - radial->cd2.radius / scales[1]));
+			else
+				cairo_matrix_init_translate(matrix_1, -circle_2[0], -(circle_2[1] + radial->cd2.radius / scales[1]));
+		}
+		else if(dy == 0.0)
+		{
+			if(dx > 0.0)
+				cairo_matrix_init_translate(matrix_1, -(circle_2[0] - radial->cd2.radius / scales[0]), -circle_2[1]);
+			else
+				cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / scales[0]), -circle_2[1]);
+		}
+		else
+		{
+			if(dx > 0.0 && dy > 0.0)
+				cairo_matrix_init_translate(matrix_1, -(circle_2[0] - radial->cd2.radius / scales[0]), -(circle_2[1] + radial->cd2.radius / scales[1]));
+			else if(dx > 0.0 && dy < 0.0)
+				cairo_matrix_init_translate(matrix_1, -(circle_2[0] - radial->cd2.radius / scales[0]), -(circle_2[1] - radial->cd2.radius / scales[1]));
+			else if(dx < 0.0 && dy > 0.0)
+				cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / scales[0]), -(surface_height - (circle_2[1] + radial->cd2.radius / scales[1])));
+			else
+				cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / scales[0]), -(circle_2[1] + radial->cd2.radius / scales[1]));
+		}
+
+		if(dy >= 0)
+		{
+			// pi/2
+			if(dx == 0)
+			{
+				matrix_rotate(matrix_1, +M_PI /2.0);
+			}
+			else if(dx > 0)
+			{
+				angle = atan(dy/dx);
+				matrix_rotate(matrix_1, angle);
+			}
+			else
+			{
+				angle = atan(dy/dx);
+				matrix_rotate(matrix_1, angle + M_PI);
+			}
+		}
+		else
+		{
+			if(dx == 0)
+			{
+				matrix_rotate(matrix_1, -M_PI / 2.0);
+			}
+			else if(dx > 0)
+			{
+				angle = atan(dy/dx);
+				matrix_rotate(matrix_1, angle);
+			}
+			else
+			{
+				angle = atan(dy/dx);
+				matrix_rotate(matrix_1, angle - M_PI);
+				angle = angle - M_PI;
+			}
+		}
 		return CAIRO_STATUS_SUCCESS;
+	}
 
 
 	// compute tangent points for 2nd circle
