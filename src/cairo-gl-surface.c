@@ -2419,14 +2419,25 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
     cairo_status_t status;
     cairo_gl_composite_t setup;
     int i;
+	cairo_point_t points[4];
+	_cairo_gl_index_t indices;
+	double x, y;
+
+	status = _cairo_gl_context_acquire(dst->base.device, &ctx);
+	if(unlikely(status))
+		goto CLEANUP;
 
     status = _cairo_gl_composite_init (&setup, op, dst,
                                        FALSE,
                                        /* XXX */ NULL);
     if (unlikely (status))
         goto CLEANUP;
+	setup.ctx = ctx;
+
+	setup.src.type = CAIRO_GL_OPERAND_CONSTANT;
 
     _cairo_pattern_init_solid (&solid, color);
+	setup.source = &(solid.base);
     status = _cairo_gl_composite_set_source (&setup, &solid.base,
                                              0, 0,
                                              0, 0,
@@ -2443,22 +2454,37 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
     if (unlikely (status))
         goto CLEANUP;
 
-    status = _cairo_gl_composite_begin (&setup, &ctx);
-    if (unlikely (status))
-        goto CLEANUP;
+	status = _cairo_gl_create_indices(&indices);
+	indices.setup = &setup;
 
-    for (i = 0; i < num_rects; i++) {
-        _cairo_gl_composite_emit_rect (ctx,
-                                       rects[i].x,
-                                       rects[i].y,
-                                       rects[i].x + rects[i].width,
-                                       rects[i].y + rects[i].height,
-                                       0);
+    for (i = 0; i < num_rects; i++) 
+	{
+		x = rects[i].x;
+		y = rects[i].y;
+		points[0].x = _cairo_fixed_from_double(x);
+		points[0].y = _cairo_fixed_from_double(y);
+		points[1].x = _cairo_fixed_from_double(x);
+		points[1].y = _cairo_fixed_from_double(y + rects[i].height);
+		points[2].x = _cairo_fixed_from_double(x + rects[i].width);
+		points[2].y = _cairo_fixed_from_double(y + rects[i].height);
+		points[3].x = _cairo_fixed_from_double(x + rects[i].width);
+		points[3].y = _cairo_fixed_from_double(y);
+		status = _cairo_gl_add_convex_quad(&indices, points);
+		if(unlikely(status))
+		{
+			status = _cairo_gl_destroy_indices(&indices);
+			goto CLEANUP;
+		}
     }
+	status = _cairo_gl_fill(&setup, indices.num_vertices,
+		indices.vertices, NULL, indices.num_indices,
+		indices.indices, setup.ctx);
 
-    status = _cairo_gl_context_release (ctx, status);
+	status = _cairo_gl_destroy_indices(&indices);
 
+	dst->needs_new_data_surface = TRUE;
   CLEANUP:
+    status = _cairo_gl_context_release (ctx, status);
     _cairo_gl_composite_fini (&setup);
 
     return status;
@@ -3627,7 +3653,7 @@ const cairo_surface_backend_t _cairo_gl_surface_backend = {
 
     _cairo_gl_surface_clone_similar,
     NULL, /*_cairo_gl_surface_composite,*/
-    NULL, /*_cairo_gl_surface_fill_rectangles,*/
+    _cairo_gl_surface_fill_rectangles,
     NULL, /*_cairo_gl_surface_composite_trapezoids,*/
     NULL, /*_cairo_gl_surface_create_span_renderer,*/
     NULL, /*_cairo_gl_surface_check_span_renderer,*/
