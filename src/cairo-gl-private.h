@@ -187,12 +187,8 @@ typedef struct _cairo_gl_surface {
 
 	// Henry Song
 	GLuint rb; /* GL render buffer for depth and stencil buffer */
-	cairo_clip_t *clip;
-	cairo_bool_t needs_stencil;
 	GLint tex_img;
-	//cairo_surface_clipper_t clipper;
 	void *indices_buf;
-	cairo_bool_t stencil_changed;
 	cairo_bool_t external_tex;
 	cairo_surface_t *data_surface;
 	cairo_bool_t needs_new_data_surface;

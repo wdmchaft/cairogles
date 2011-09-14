@@ -646,92 +646,28 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 }
 
 cairo_status_t
-_cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup, 
-	cairo_gl_context_t *ctx,
-	cairo_gl_surface_t *surface)
+_cairo_gl_clip (cairo_clip_t		*clip,
+		cairo_gl_composite_t	*setup, 
+		cairo_gl_context_t	*ctx,
+		cairo_gl_surface_t	*surface)
 {
-	cairo_fill_rule_t fill_rule;
-	double tolerance = 0.1;
-	cairo_status_t status;
-	cairo_clip_path_t *clip_path = NULL;
-	_cairo_gl_index_t indices;
-	cairo_traps_t traps;
+    cairo_fill_rule_t fill_rule;
+    double tolerance = 0.1;
+    cairo_status_t status;
+    cairo_clip_path_t *clip_path = NULL;
+    _cairo_gl_index_t indices;
+    cairo_traps_t traps;
     _cairo_gl_index_buf_t *current, *temp = NULL;
     cairo_point_t points[4];
     int got_traps = 0;
     int remaining_boxes = clip->num_boxes;
 
-	
-	// enable depth mask
-	glDepthMask(GL_TRUE);
-	
-	// nothing is changed, we use existing cache
-	if(surface->stencil_changed == FALSE)
-	{
-		_cairo_gl_index_buf_t *exist_buf = (_cairo_gl_index_buf_t *)surface->indices_buf;
-		if(exist_buf == NULL || exist_buf->indices->num_indices == 0)
-		{
-			glDisable(GL_STENCIL_TEST);
-			glDisable(GL_DEPTH_TEST);
-		
-			glColorMask(1, 1, 1, 1);
-			return CAIRO_STATUS_SUCCESS;
-		}
-		glEnable(GL_STENCIL_TEST);
-		glClear(GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glDisable(GL_DEPTH_TEST);
-		glStencilOp(GL_REPLACE,  GL_REPLACE, GL_REPLACE);
-		glStencilFunc(GL_ALWAYS, 1, 0xffffffff);
-		glColorMask(0, 0, 0, 0);
-		while(exist_buf != NULL)
-		{
-			_cairo_gl_index_t *exist_indices = NULL; 
-            exist_indices = exist_buf->indices;
-			status = _cairo_gl_fill(setup, exist_indices->num_vertices, 
-				exist_indices->vertices, NULL, exist_indices->num_indices, 
-				exist_indices->indices, setup->ctx);
-			if(unlikely(status))
-			{
-				glColorMask(1, 1, 1, 1);
-				return status;
-			}
-			exist_buf = exist_buf->next;
-		}
-		glEnable(GL_DEPTH_TEST);
-		glColorMask(1, 1, 1, 1);
-		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-		glStencilFunc(GL_EQUAL, 1, 1);
-		return CAIRO_STATUS_SUCCESS;
-	}
-
-	// clean up clip cache
-	if(surface->indices_buf != NULL)
-	{	
-		current = (_cairo_gl_index_buf_t *)surface->indices_buf;
-		while(current != NULL)
-		{
-			free(current->indices->vertices);
-			free(current->indices->indices);
-			temp = current;
-			current = temp->next;
-			free(temp->indices);
-			free(temp);
-		}
-		surface->indices_buf = NULL;
-	}
-	//fill_rule = CAIRO_FILL_RULE_WINDING; 
-	if(clip->path != NULL)
-	{
-		fill_rule = clip->path->fill_rule;
-		clip_path = clip->path;
-	}
-	
-	glEnable(GL_STENCIL_TEST);
-	glClear(GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glDisable(GL_DEPTH_TEST);
-	glStencilOp(GL_REPLACE,  GL_REPLACE, GL_REPLACE);
-	glStencilFunc(GL_ALWAYS, 1, 0xffffffff);
-	glColorMask(0, 0, 0, 0);
+    glEnable(GL_STENCIL_TEST);
+    glClear(GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+    glStencilOp(GL_REPLACE,  GL_REPLACE, GL_REPLACE);
+    glStencilFunc(GL_ALWAYS, 1, 0xffffffff);
+    glColorMask(0, 0, 0, 0);
 
 	while(clip_path != NULL || remaining_boxes != 0)
 	{
@@ -778,7 +714,7 @@ _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 		{
 			int m;
 			_cairo_traps_init(&traps);
-			status = _cairo_path_fixed_fill_to_traps(&(clip_path->path), fill_rule, tolerance, &traps);
+			status = _cairo_path_fixed_fill_to_traps(&(clip_path->path), clip_path->fill_rule, tolerance, &traps);
 			if(traps.num_traps != 0)
 			{
 				got_traps = 1;
@@ -1193,11 +1129,8 @@ _cairo_gl_surface_init (cairo_device_t *device,
 			 content);
 
     surface->needs_update = FALSE;
-	surface->clip = NULL;
-	surface->needs_stencil = FALSE;
 	surface->tex_img = 0;
 	surface->indices_buf = NULL;
-	surface->stencil_changed = FALSE;
 	surface->external_tex = FALSE;
 	surface->width = width;
 	surface->height = height;
@@ -2159,12 +2092,6 @@ _cairo_gl_surface_finish (void *abstract_surface)
 	if(surface->tex_img != 0)
 		glDeleteTextures(1, (GLuint*)&surface->tex_img);
 
-	// release clip
-	if(surface->clip != NULL)
-	{
-		_cairo_clip_destroy(surface->clip);
-		surface->clip = NULL;
-	}
 	if(surface->indices_buf != NULL)
 	{	
 		current = (_cairo_gl_index_buf_t *)surface->indices_buf;
@@ -2179,7 +2106,6 @@ _cairo_gl_surface_finish (void *abstract_surface)
 		}
 		surface->indices_buf = NULL;
 	}
-	surface->stencil_changed = FALSE;
 	surface->external_tex = FALSE;
 
 	if(surface->data_surface != NULL)
@@ -2743,57 +2669,22 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	}
 	setup->ctx = ctx;
 	_cairo_gl_context_set_destination(ctx, surface);
-	if(clip != NULL)
-	{
-		if(surface->clip != NULL)
-		{
-			if(!_cairo_clip_equal(clip, surface->clip))
-			{
-				_cairo_clip_destroy(surface->clip);
-				surface->clip = _cairo_clip_copy(clip);
-				surface->needs_stencil = TRUE;
-				surface->stencil_changed = TRUE;
-			}
-			else
-			{
-				surface->needs_stencil = TRUE;
-				surface->stencil_changed = FALSE;
-			}
-		}
-		else
-		{
-			surface->clip = _cairo_clip_copy(clip);
-			surface->needs_stencil = TRUE;
-			surface->stencil_changed = TRUE;
-		}
+
+    if (clip != NULL) {
+	status = _cairo_gl_clip(clip, setup, ctx, surface);
+	if (unlikely(status)) {
+	    if (clone != NULL)
+		cairo_surface_destroy(&clone->base);
+
+	    _cairo_gl_composite_fini(setup);
+	    free(setup);
+	    glDisable(GL_STENCIL_TEST);
+	    glDisable(GL_DEPTH_TEST);
+	    glDepthMask(GL_FALSE);
+	    status = _cairo_gl_context_release(ctx, status);
+	    return status;
 	}
-	else
-	{
-		if(surface->clip != NULL)
-		{
-			_cairo_clip_destroy(surface->clip);
-			surface->clip = NULL;
-			surface->needs_stencil = FALSE;
-			surface->stencil_changed = TRUE;
-		}
-	}
-	
-	if(surface->needs_stencil == TRUE)
-	{
-		status = _cairo_gl_clip(clip, setup, ctx, surface);
-		if(unlikely(status))
-		{
-			if(clone != NULL)
-				cairo_surface_destroy(&clone->base);
-			_cairo_gl_composite_fini(setup);
-			free(setup);
-			glDisable(GL_STENCIL_TEST);
-			glDisable(GL_DEPTH_TEST);
-			glDepthMask(GL_FALSE);
-			status = _cairo_gl_context_release(ctx, status);
-			return status;
-		}
-	}
+    }
 
 	if(mask_clone != NULL)
 	{
@@ -3228,56 +3119,22 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	setup->ctx = ctx;
 	_cairo_gl_context_set_destination(ctx, surface);
 
-	if(clip != NULL)
-	{
-		if(surface->clip != NULL)
-		{
-			if(!_cairo_clip_equal(clip, surface->clip))
-			{
-				_cairo_clip_destroy(surface->clip);
-				surface->clip = _cairo_clip_copy(clip);
-				surface->needs_stencil = TRUE;
-				surface->stencil_changed = TRUE;
-			}
-			else
-			{
-				surface->needs_stencil = TRUE;
-				surface->stencil_changed = FALSE;
-			}
-		}
-		else
-		{
-			surface->clip = _cairo_clip_copy(clip);
-			surface->needs_stencil = TRUE;
-			surface->stencil_changed = TRUE;
-		}
+    if (clip != NULL) {
+	status = _cairo_gl_clip(clip, setup, ctx, surface);
+	if (unlikely(status)) {
+	    if (clone != NULL)
+		cairo_surface_destroy(&clone->base);
+
+	    _cairo_gl_composite_fini(setup);
+	    free(setup);
+	    glDisable(GL_STENCIL_TEST);
+	    glDisable(GL_DEPTH_TEST);
+	    glDepthMask(GL_FALSE);
+	    status = _cairo_gl_context_release(ctx, status);
+	    return status;
 	}
-	else
-	{
-		if(surface->clip != NULL)
-		{
-			_cairo_clip_destroy(surface->clip);
-			surface->clip = NULL;
-			surface->needs_stencil = FALSE;
-			surface->stencil_changed = TRUE;
-		}
-	}
-	if(surface->needs_stencil == TRUE)
-	{
-		status = _cairo_gl_clip(clip, setup, ctx, surface);
-		if(unlikely(status))
-		{
-			if(clone != NULL)
-				cairo_surface_destroy(&clone->base);
-			_cairo_gl_composite_fini(setup);
-			free(setup);
-			glDisable(GL_STENCIL_TEST);
-			glDisable(GL_DEPTH_TEST);
-			glDepthMask(GL_FALSE);
-			status = _cairo_gl_context_release(ctx, status);
-			return status;
-		}
-	}
+    }
+
 	status = _cairo_gl_create_indices(&indices);
 	indices.setup = setup;
 
@@ -3490,57 +3347,22 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	// remember, we have set the current context, we need to release it
 	// when done
 
-	if(clip != NULL)
-	{
-		if(surface->clip != NULL)
-		{
-			if(!_cairo_clip_equal(clip, surface->clip))
-			{
-				_cairo_clip_destroy(surface->clip);
-				surface->clip = _cairo_clip_copy(clip);
-				surface->needs_stencil = TRUE;
-				surface->stencil_changed = TRUE;
-			}
-			else
-			{
-				surface->needs_stencil = TRUE;
-				surface->stencil_changed = FALSE;
-			}
-		}
-		else
-		{
-			surface->clip = _cairo_clip_copy(clip);
-			surface->needs_stencil = TRUE;
-			surface->stencil_changed = TRUE;
-		}
+    if (clip != NULL) {
+	status = _cairo_gl_clip(clip, setup, ctx, surface);
+	if (unlikely(status)) {
+	    if (clone != NULL)
+		cairo_surface_destroy(&clone->base);
+
+	    _cairo_gl_composite_fini(setup);
+	    free(setup);
+	    glDisable(GL_STENCIL_TEST);
+	    glDisable(GL_DEPTH_TEST);
+	    glDepthMask(GL_FALSE);
+	    status = _cairo_gl_context_release(ctx, status);
+	    return status;
 	}
-	else
-	{
-		if(surface->clip != NULL)
-		{
-			_cairo_clip_destroy(surface->clip);
-			surface->clip = NULL;
-			surface->needs_stencil = FALSE;
-			surface->stencil_changed = TRUE;
-		}
-	}
-	
-	if(surface->needs_stencil == TRUE)
-	{
-		status = _cairo_gl_clip(clip, setup, ctx, surface);
-		if(unlikely(status))
-		{
-			if(clone != NULL)
-				cairo_surface_destroy(&clone->base);
-			_cairo_gl_composite_fini(setup);
-			free(setup);
-			glDisable(GL_STENCIL_TEST);
-			glDisable(GL_DEPTH_TEST);
-			glDepthMask(GL_FALSE);
-			status = _cairo_gl_context_release(ctx, status);
-			return status;
-		}
-	}
+    }
+
 	
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
 		setup->src.type = CAIRO_GL_OPERAND_TEXTURE;
