@@ -125,17 +125,14 @@ _cairo_gl_increase_indices(_cairo_gl_index_t *index)
 	return CAIRO_STATUS_SUCCESS;
 }
 
-cairo_status_t
+void
 _cairo_gl_destroy_indices(_cairo_gl_index_t *index)
 {
-	free(index->vertices);
-	free(index->mask_vertices);
-	free(index->indices);
-	index->has_mask_vertices = FALSE;
-	return CAIRO_STATUS_SUCCESS;
+    free(index->vertices);
+    free(index->mask_vertices);
+    free(index->indices);
+    index->has_mask_vertices = FALSE;
 }
-
-
 
 cairo_status_t
 _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vertices, int npoints, int *indices, cairo_gl_context_t *ctx)
@@ -240,7 +237,7 @@ cairo_status_t _cairo_gl_add_triangle(void *closure,
 				indices->vertices, NULL, indices->num_indices, 
 				indices->indices, indices->setup->ctx);
 		// cleanup
-		status = _cairo_gl_destroy_indices(indices);
+		_cairo_gl_destroy_indices(indices);
 		status = _cairo_gl_create_indices(indices);
 		indices->setup = setup;
 	}
@@ -300,7 +297,7 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 				indices->vertices, NULL, indices->num_indices, 
 				indices->indices, indices->setup->ctx);
 		// cleanup
-		status = _cairo_gl_destroy_indices(indices);
+		_cairo_gl_destroy_indices(indices);
 		status = _cairo_gl_create_indices(indices);
 		indices->setup = setup;
 	}
@@ -415,7 +412,7 @@ cairo_status_t _cairo_gl_add_convex_quad_for_clip(void *closure,
 				indices->vertices, NULL, indices->num_indices, 
 				indices->indices, indices->setup->ctx);
 			// cleanup
-			status = _cairo_gl_destroy_indices(indices);
+			_cairo_gl_destroy_indices(indices);
 			status = _cairo_gl_create_indices(indices);
 			indices->setup = setup;
 		}
@@ -491,7 +488,7 @@ cairo_status_t _cairo_gl_add_convex_quad(void *closure,
 				indices->num_indices, 
 				indices->indices, indices->setup->ctx);
 			// cleanup
-			status = _cairo_gl_destroy_indices(indices);
+			_cairo_gl_destroy_indices(indices);
 			status = _cairo_gl_create_indices(indices);
 			indices->setup = setup;
 		}
@@ -574,7 +571,7 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 					indices->num_indices, 
 					indices->indices, indices->setup->ctx);
 			// cleanup
-			status = _cairo_gl_destroy_indices(indices);
+			_cairo_gl_destroy_indices(indices);
 			status = _cairo_gl_create_indices(indices);
 			indices->setup = setup;
 		}
@@ -2401,7 +2398,7 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
 		status = _cairo_gl_add_convex_quad(&indices, points);
 		if(unlikely(status))
 		{
-			status = _cairo_gl_destroy_indices(&indices);
+			_cairo_gl_destroy_indices(&indices);
 			goto CLEANUP;
 		}
     }
@@ -2409,7 +2406,7 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
 		indices.vertices, NULL, indices.num_indices,
 		indices.indices, setup.ctx);
 
-	status = _cairo_gl_destroy_indices(&indices);
+	_cairo_gl_destroy_indices(&indices);
 
 	dst->needs_new_data_surface = TRUE;
   CLEANUP:
@@ -3160,7 +3157,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	
 	if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
-	status = _cairo_gl_destroy_indices(&indices);
+	_cairo_gl_destroy_indices(&indices);
 	_cairo_gl_composite_fini(setup);
 	free(setup);
 	glDisable(GL_STENCIL_TEST);
@@ -3442,7 +3439,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 			glDisable(GL_STENCIL_TEST);
 			glDisable(GL_DEPTH_TEST);
 			glDepthMask(GL_FALSE);
-			status = _cairo_gl_destroy_indices(&indices);
+			_cairo_gl_destroy_indices(&indices);
 			_cairo_gl_composite_fini(setup);
 			free(setup);
 		}
@@ -3453,7 +3450,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	_cairo_traps_fini(&traps);
 	if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
-	status = _cairo_gl_destroy_indices(&indices);
+	_cairo_gl_destroy_indices(&indices);
 	_cairo_gl_composite_fini(setup);
 	free(setup);
 	glDisable(GL_STENCIL_TEST);
