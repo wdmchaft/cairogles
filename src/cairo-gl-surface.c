@@ -364,108 +364,6 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 	return CAIRO_STATUS_SUCCESS;
 }
 
-cairo_status_t _cairo_gl_add_convex_quad_for_clip(void *closure,
-	const cairo_point_t quad[4])
-{
-        int last_index = 0;
-        int start_index = 0;
-        int i;
-        int num_indices, num_vertices;
-		cairo_status_t status;
-
-	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
-	cairo_gl_composite_t *setup = indices->setup;
-
-	// first off, we need to flush if max
-	if(indices->num_indices > MAX_INDEX)
-	{
-		if(indices->setup != NULL)
-		{
-	                _cairo_gl_index_buf_t *buf = NULL;
-        	        _cairo_gl_index_buf_t *new_buf = NULL;
-
-			// let's create surface->indices_buf
-			buf = (_cairo_gl_index_buf_t *)(indices->setup->dst->indices_buf);
-			if(buf != NULL)
-			{
-				while(buf->next != NULL)
-					buf = buf->next;
-			}
-			new_buf = (_cairo_gl_index_buf_t *)malloc(sizeof(_cairo_gl_index_buf_t));
-			new_buf->next = NULL;
-			if(buf != NULL)
-				buf->next = new_buf;
-			else
-				indices->setup->dst->indices_buf = new_buf;
-			new_buf->indices = (_cairo_gl_index_t *)malloc(sizeof(_cairo_gl_index_t));
-
-			new_buf->indices->vertices = (float *)malloc(sizeof(float)*indices->num_vertices * 2);
-			memcpy(new_buf->indices->vertices, indices->vertices, sizeof(float)*2*indices->num_vertices);
-			new_buf->indices->indices = (int *)malloc(sizeof(int)*indices->num_indices);
-			memcpy(new_buf->indices->indices, indices->indices, sizeof(int)*indices->num_indices);
-			new_buf->indices->capacity = indices->capacity;
-			new_buf->indices->num_indices = indices->num_indices;
-			new_buf->indices->num_vertices = indices->num_vertices;
-			new_buf->indices->setup = indices->setup;
-
-			status = _cairo_gl_fill(indices->setup, indices->num_vertices,
-				indices->vertices, NULL, indices->num_indices, 
-				indices->indices, indices->setup->ctx);
-			// cleanup
-			_cairo_gl_destroy_indices(indices);
-			status = _cairo_gl_create_indices(indices);
-			indices->setup = setup;
-		}
-	}
-	// we add a triangle to strip, we add 4 vertices and 6 indices;
-	while(indices->num_indices + 5 >= indices->capacity ||
-		indices->num_vertices + 4 >= indices->capacity)
-	{
-		// we need to increase
-		status = _cairo_gl_increase_indices(indices);
-	}
-    num_indices = indices->num_indices;
-    num_vertices = indices->num_vertices;
-	
-	if(num_indices != 0)
-	{
-		// we are not the first
-		last_index = indices->indices[num_indices-1];
-		start_index = last_index + 1;
-		indices->indices[num_indices] = last_index;
-		indices->indices[num_indices+1] = start_index;
-		indices->num_indices += 2;
-	}
-	num_indices = indices->num_indices;
-	for(i = 0; i < 2; i++)
-	{
-		indices->indices[num_indices+i] = start_index + i;
-		indices->vertices[num_vertices*2+i*2] = 
-			_cairo_fixed_to_double(quad[i].x);
-		indices->vertices[num_vertices*2+i*2+1] = 
-			_cairo_fixed_to_double(quad[i].y);
-	}
-	indices->num_indices += 2;
-	indices->num_vertices += 2;
-	num_indices = indices->num_indices;
-	num_vertices = indices->num_vertices;
-	// we reverse order of point 3 and point 4
-	start_index = indices->indices[num_indices-1];
-	indices->indices[num_indices] = start_index + 1;
-	indices->indices[num_indices+1] = start_index + 2;
-	indices->vertices[num_vertices*2] = 
-			_cairo_fixed_to_double(quad[3].x);
-		indices->vertices[num_vertices*2+1] = 
-			_cairo_fixed_to_double(quad[3].y);
-	indices->vertices[num_vertices*2+2] = 
-			_cairo_fixed_to_double(quad[2].x);
-		indices->vertices[num_vertices*2+3] = 
-			_cairo_fixed_to_double(quad[2].y);
-	indices->num_indices += 2;
-	indices->num_vertices += 2;
-	return CAIRO_STATUS_SUCCESS;
-}
-
 cairo_status_t _cairo_gl_add_convex_quad(void *closure,
 	const cairo_point_t quad[4])
 {
@@ -693,8 +591,8 @@ _convert_path_to_triangle_strip_indices (_cairo_gl_index_t	*indices,
 	quad_vertices[2].y = current_trap->bottom;
 	quad_vertices[3].x = x_top_right;
 	quad_vertices[3].y = current_trap->top;
-	if (unlikely ((status = _cairo_gl_add_convex_quad_for_clip (&indices,
-								    quad_vertices))))
+	if (unlikely ((status = _cairo_gl_add_convex_quad (&indices,
+							   quad_vertices))))
 	    goto CLEANUP;
     }
 
@@ -721,7 +619,7 @@ _convert_boxes_to_triangle_strip_indices (_cairo_gl_index_t *indices,
 	quad_vertices[2].y = boxes[i].p2.y;
 	quad_vertices[3].x = boxes[i].p2.x;
 	quad_vertices[3].y = boxes[i].p1.y;
-	if (unlikely ((status = _cairo_gl_add_convex_quad_for_clip (indices,quad_vertices))))
+	if (unlikely ((status = _cairo_gl_add_convex_quad (indices, quad_vertices))))
 	    return status;
     }
     return CAIRO_STATUS_SUCCESS;
@@ -735,8 +633,6 @@ _cairo_gl_clip (cairo_clip_t		*clip,
 {
     cairo_status_t status = CAIRO_STATUS_SUCCESS;
     _cairo_gl_index_t indices;
-    _cairo_gl_index_buf_t *buf = NULL;
-    _cairo_gl_index_buf_t *new_buf= NULL;
 
     cairo_clip_path_t *clip_path = clip->path;
     int num_clip_boxes = clip->num_boxes;
@@ -768,31 +664,6 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     }
     if (unlikely (status))
 	goto FAIL;
-
-    // first off, we need to flush if max
-    // let's create surface->indices_buf
-    buf = (_cairo_gl_index_buf_t *)(indices.setup->dst->indices_buf);
-    if (buf != NULL) {
-	while(buf->next != NULL)
-	    buf = buf->next;
-    }
-    new_buf = (_cairo_gl_index_buf_t *)malloc(sizeof(_cairo_gl_index_buf_t));
-    new_buf->next = NULL;
-    if(buf != NULL)
-	buf->next = new_buf;
-    else
-	setup->dst->indices_buf = new_buf;
-
-    new_buf->indices = (_cairo_gl_index_t *)malloc(sizeof(_cairo_gl_index_t));
-
-    new_buf->indices->vertices = (float *)malloc(sizeof(float)*indices.num_vertices * 2);
-    memcpy(new_buf->indices->vertices, indices.vertices, sizeof(float)*2*indices.num_vertices);
-    new_buf->indices->indices = (int *)malloc(sizeof(int)*indices.num_indices);
-    memcpy(new_buf->indices->indices, indices.indices, sizeof(int)*indices.num_indices);
-    new_buf->indices->capacity = indices.capacity;
-    new_buf->indices->num_indices = indices.num_indices;
-    new_buf->indices->num_vertices = indices.num_vertices;
-    new_buf->indices->setup = indices.setup;
 
     if (unlikely ((status = _cairo_gl_fill (setup,
 					    indices.num_vertices, 
@@ -1130,7 +1001,6 @@ _cairo_gl_surface_init (cairo_device_t *device,
 
     surface->needs_update = FALSE;
 	surface->tex_img = 0;
-	surface->indices_buf = NULL;
 	surface->external_tex = FALSE;
 	surface->width = width;
 	surface->height = height;
@@ -2057,7 +1927,6 @@ _cairo_gl_surface_finish (void *abstract_surface)
     cairo_gl_surface_t *surface = abstract_surface;
     cairo_status_t status;
     cairo_gl_context_t *ctx = NULL;
-    _cairo_gl_index_buf_t *current, *temp = NULL;
 
     status = _cairo_gl_context_acquire (surface->base.device, &ctx);
     if (unlikely (status))
@@ -2092,20 +1961,6 @@ _cairo_gl_surface_finish (void *abstract_surface)
 	if(surface->tex_img != 0)
 		glDeleteTextures(1, (GLuint*)&surface->tex_img);
 
-	if(surface->indices_buf != NULL)
-	{	
-		current = (_cairo_gl_index_buf_t *)surface->indices_buf;
-		while(current != NULL)
-		{
-			free(current->indices->vertices);
-			free(current->indices->indices);
-			temp = current;
-			current = temp->next;
-			free(temp->indices);
-			free(temp);
-		}
-		surface->indices_buf = NULL;
-	}
 	surface->external_tex = FALSE;
 
 	if(surface->data_surface != NULL)
