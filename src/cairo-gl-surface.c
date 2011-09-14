@@ -662,6 +662,9 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     int got_traps = 0;
     int remaining_boxes = clip->num_boxes;
 
+	// enable depth mask
+	glDepthMask(GL_TRUE);
+
     glEnable(GL_STENCIL_TEST);
     glClear(GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
