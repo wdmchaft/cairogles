@@ -752,9 +752,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
         break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
 	_cairo_output_stream_printf (stream,
-		"uniform vec2 %s_stops[8];\n"
-		"uniform vec4 %s_colors[8];\n"
-		"uniform float %s_offsets[8];\n"
+		"uniform vec2 %s_stops[20];\n"
+		"uniform vec4 %s_colors[20];\n"
+		"uniform float %s_offsets[20];\n"
 		"uniform float %s_total_dist;\n"
 		"uniform int %s_nstops;\n"
 		"uniform vec2 %s_delta;\n"
@@ -823,9 +823,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
 	_cairo_output_stream_printf (stream,
-		"uniform vec2 %s_stops[8];\n"
-		"uniform vec4 %s_colors[8];\n"
-		"uniform float %s_offsets[8];\n"
+		"uniform vec2 %s_stops[20];\n"
+		"uniform vec4 %s_colors[20];\n"
+		"uniform float %s_offsets[20];\n"
 		"uniform float %s_total_dist;\n"
 		"uniform int %s_nstops;\n"
 		"uniform vec2 %s_delta;\n"
@@ -847,7 +847,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"  if(%s_dis >= %s_offsets[%s_nstops-1])\n"
 		"    return %s_colors[%s_nstops-1];\n"
 		"  else if(%s_dis <= %s_offsets[0])\n"
-		"    return %s_colors[0];\n"
+		"    return %s_colors[1];\n"
 		"  if(%s_nstops == 2)\n"
 		"  {\n"
 		"    if(%s_offsets[0] == 0.0 && %s_offsets[1] == 1.0)\n"
@@ -891,9 +891,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
 	_cairo_output_stream_printf (stream,
-		"uniform vec2 %s_stops[8];\n"
-		"uniform vec4 %s_colors[8];\n"
-		"uniform float %s_offsets[8];\n"
+		"uniform vec2 %s_stops[20];\n"
+		"uniform vec4 %s_colors[20];\n"
+		"uniform float %s_offsets[20];\n"
 		"uniform float %s_total_dist;\n"
 		"uniform int %s_nstops;\n"
 		"uniform vec2 %s_delta;\n"
@@ -974,9 +974,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
 	_cairo_output_stream_printf (stream,
-		"uniform vec2 %s_stops[8];\n"
-		"uniform vec4 %s_colors[8];\n"
-		"uniform float %s_offsets[8];\n"
+		"uniform vec2 %s_stops[20];\n"
+		"uniform vec4 %s_colors[20];\n"
+		"uniform float %s_offsets[20];\n"
 		"uniform float %s_total_dist;\n"
 		"uniform int %s_nstops;\n"
 		"uniform vec2 %s_delta;\n"
@@ -1193,9 +1193,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE:
 	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_PAD_CIRCLE_IN_CIRCLE:
 	_cairo_output_stream_printf (stream,
-		"uniform vec2 %s_stops[8];\n"
-		"uniform vec4 %s_colors[8];\n"
-		"uniform float %s_offsets[8];\n"
+		"uniform vec2 %s_stops[20];\n"
+		"uniform vec4 %s_colors[20];\n"
+		"uniform float %s_offsets[20];\n"
 		"uniform int %s_nstops;\n"
 		"uniform vec3 %s_circle_1;\n"
 		"uniform vec3 %s_circle_2;\n"
@@ -1373,9 +1373,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
 	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
 	_cairo_output_stream_printf (stream,
-		"uniform vec2 %s_stops[8];\n"
-		"uniform vec4 %s_colors[8];\n"
-		"uniform float %s_offsets[8];\n"
+		"uniform vec2 %s_stops[20];\n"
+		"uniform vec4 %s_colors[20];\n"
+		"uniform float %s_offsets[20];\n"
 		"uniform int %s_nstops;\n"
 		"uniform vec3 %s_circle_1;\n"
 		"uniform vec3 %s_circle_2;\n"
@@ -1669,9 +1669,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
 	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
 	_cairo_output_stream_printf (stream,
-		"uniform vec2 %s_stops[8];\n"
-		"uniform vec4 %s_colors[8];\n"
-		"uniform float %s_offsets[8];\n"
+		"uniform vec2 %s_stops[20];\n"
+		"uniform vec4 %s_colors[20];\n"
+		"uniform float %s_offsets[20];\n"
 		"uniform int %s_nstops;\n"
 		"uniform vec3 %s_circle_1;\n"
 		"uniform vec3 %s_circle_2;\n"

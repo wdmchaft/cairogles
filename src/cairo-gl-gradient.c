@@ -418,7 +418,7 @@ _cairo_gl_gradient_digest_linear_gradient(const cairo_gradient_pattern_t *patter
 	cairo_status_t status;
         cairo_matrix_t matrix;
         cairo_linear_pattern_t *linear = NULL;
-	if(pattern->n_stops > 8)
+	if(pattern->n_stops > CAIRO_GL_MAX_STOPS_SIZE)
 		return CAIRO_INT_STATUS_UNSUPPORTED;
 
 	// TODO: we take care of CAIRO_EXTEND_NONE later
@@ -493,7 +493,7 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	*moved_center = 0;
 
 
-	if(pattern->n_stops > 8)
+	if(pattern->n_stops > CAIRO_GL_MAX_STOPS_SIZE)
 		return CAIRO_INT_STATUS_UNSUPPORTED;
 
 	// TODO: we take care of CAIRO_EXTEND_NONE later

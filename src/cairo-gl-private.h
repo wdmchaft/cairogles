@@ -226,10 +226,10 @@ typedef struct cairo_gl_operand {
 		// for linear gradient
 		cairo_gradient_pattern_t *pattern;
 		GLfloat stops[4];
-		GLfloat colors[32];
+		GLfloat colors[CAIRO_GL_MAX_STOPS_SIZE*4];
 		GLfloat total_dist;
 		int nstops;
-		GLfloat offsets[8];
+		GLfloat offsets[CAIRO_GL_MAX_STOPS_SIZE];
 		GLfloat delta[2];
 		GLfloat scales[2];
 		GLfloat circle_1[3];
