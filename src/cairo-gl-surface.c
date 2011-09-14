@@ -3292,7 +3292,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
 		if(clone == NULL)
 		{
-			status = _cairo_gl_context_release(ctx, status);
 			return UNSUPPORTED("create_clone failed");
 		}
 	}
