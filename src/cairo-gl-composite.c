@@ -217,14 +217,24 @@ _cairo_gl_gradient_operand_init (cairo_gl_operand_t *operand,
 				   &operand->gradient.m);
 	
 	}*/
-		status = _cairo_gl_gradient_digest_linear_gradient(gradient,
-			dst->height,
-			operand->gradient.stops, 
-			operand->gradient.colors,
-			operand->gradient.offsets, 
-			&(operand->gradient.total_dist),
-			&(operand->gradient.nstops),
-			operand->gradient.delta);
+    	if (_cairo_gl_surface_is_texture (dst))
+			status = _cairo_gl_gradient_digest_linear_gradient(gradient,
+				dst->height,
+				operand->gradient.stops, 
+				operand->gradient.colors,
+				operand->gradient.offsets, 
+				&(operand->gradient.total_dist),
+				&(operand->gradient.nstops),
+				operand->gradient.delta, FALSE);
+		else
+			status = _cairo_gl_gradient_digest_linear_gradient(gradient,
+				dst->height,
+				operand->gradient.stops, 
+				operand->gradient.colors,
+				operand->gradient.offsets, 
+				&(operand->gradient.total_dist),
+				&(operand->gradient.nstops),
+				operand->gradient.delta, TRUE);
 		if(unlikely(status))
 			return CAIRO_INT_STATUS_UNSUPPORTED;
 		if (pattern->extend == CAIRO_EXTEND_NONE)
@@ -240,20 +250,39 @@ _cairo_gl_gradient_operand_init (cairo_gl_operand_t *operand,
     } 
 	else 
 	{
-		status = _cairo_gl_gradient_digest_radial_gradient(gradient,
-			dst->height,
-			operand->gradient.scales,
-			operand->gradient.colors,
-			operand->gradient.offsets,
-			&(operand->gradient.nstops),
-			operand->gradient.circle_1,
-			operand->gradient.circle_2,
-			&operand->gradient.circle_in_circle,
-			&matrix1, &matrix2,
-			operand->gradient.tangents,
-			operand->gradient.endpoint,
-			operand->gradient.tangents_end,
-			&operand->gradient.moved_center);
+		
+    	if (_cairo_gl_surface_is_texture (dst))
+			status = _cairo_gl_gradient_digest_radial_gradient(gradient,
+				dst->height,
+				operand->gradient.scales,
+				operand->gradient.colors,
+				operand->gradient.offsets,
+				&(operand->gradient.nstops),
+				operand->gradient.circle_1,
+				operand->gradient.circle_2,
+				&operand->gradient.circle_in_circle,
+				&matrix1, &matrix2,
+				operand->gradient.tangents,
+				operand->gradient.endpoint,
+				operand->gradient.tangents_end,
+				&operand->gradient.moved_center,
+				FALSE);
+		else
+			status = _cairo_gl_gradient_digest_radial_gradient(gradient,
+				dst->height,
+				operand->gradient.scales,
+				operand->gradient.colors,
+				operand->gradient.offsets,
+				&(operand->gradient.nstops),
+				operand->gradient.circle_1,
+				operand->gradient.circle_2,
+				&operand->gradient.circle_in_circle,
+				&matrix1, &matrix2,
+				operand->gradient.tangents,
+				operand->gradient.endpoint,
+				operand->gradient.tangents_end,
+				&operand->gradient.moved_center,
+				TRUE);
 		if(unlikely(status))
 			return CAIRO_INT_STATUS_UNSUPPORTED;
 		operand->gradient.matrix1[0] = matrix1.xx;

@@ -497,15 +497,16 @@ _cairo_gl_context_set_destination (cairo_gl_context_t *ctx,
 
 	// Henry 
 	// take care of external tex case
-	if(surface->external_tex == TRUE)
+/*	if(surface->external_tex == TRUE)
 		_gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, 0, surface->height);
-
-    else if (_cairo_gl_surface_is_texture (surface))
+//				0, surface->width, surface->height, 0);
+*/
+    if (_cairo_gl_surface_is_texture (surface))
 	_gl_identity_ortho (ctx->modelviewprojection_matrix,
 	// Henry Song
-			    0, surface->width, 0, surface->height);
-	//			0, surface->width, surface->height, 0);
+		    0, surface->width, 0, surface->height);
+//				0, surface->width, surface->height, 0);
     else
 	_gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, surface->height, 0);
