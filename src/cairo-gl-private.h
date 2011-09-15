@@ -643,8 +643,8 @@ _cairo_gl_create_indices(_cairo_gl_index_t *index);
 cairo_private cairo_status_t 
 _cairo_gl_increase_indices(_cairo_gl_index_t *index);
 
-cairo_private cairo_status_t
-_cairo_gl_destroy_indices(_cairo_gl_index_t *index);
+cairo_private void
+_cairo_gl_destroy_indices (_cairo_gl_index_t *index);
 
 cairo_private cairo_status_t
 _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, 
