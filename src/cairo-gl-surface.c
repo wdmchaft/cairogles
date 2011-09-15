@@ -547,6 +547,12 @@ _convert_path_to_triangle_strip_indices (_cairo_gl_index_t	*indices,
     int i;
     cairo_traps_t traps;
     cairo_status_t status = CAIRO_STATUS_SUCCESS;
+    cairo_fixed_t x_top_left, x_bottom_left;
+    cairo_fixed_t x_top_right, x_bottom_right;
+    double x1, x2;
+    double y1, y2;
+    double dx, dy;
+    double top, bottom;
 
     _cairo_traps_init (&traps);
     status = _cairo_path_fixed_fill_to_traps (&(clip_path->path),
@@ -562,18 +568,17 @@ _convert_path_to_triangle_strip_indices (_cairo_gl_index_t	*indices,
     for (i = 0; i < traps.num_traps; i++) {
 	cairo_point_t quad_vertices[4];
 	cairo_trapezoid_t *current_trap = traps.traps + i;
-	int x_top_right, x_bottom_right;
 
-	int top = _cairo_fixed_to_double (current_trap->top);
-	int bottom = _cairo_fixed_to_double (current_trap->bottom);
-	int x1 = _cairo_fixed_to_double (current_trap->left.p1.x);
-	int x2 = _cairo_fixed_to_double (current_trap->left.p2.x);
-	int y1 = _cairo_fixed_to_double (current_trap->left.p1.y);
-	int y2 = _cairo_fixed_to_double (current_trap->left.p2.y);
-	int dx = x1 - x2;
-	int dy = y1 - y2;
-	int x_top_left = _cairo_fixed_from_double (x1 - dx * (y1 - top) / dy);
-	int x_bottom_left = _cairo_fixed_from_double (x1  - dx * (y1 - bottom) / dy);
+	top = _cairo_fixed_to_double (current_trap->top);
+	bottom = _cairo_fixed_to_double (current_trap->bottom);
+	x1 = _cairo_fixed_to_double (current_trap->left.p1.x);
+	x2 = _cairo_fixed_to_double (current_trap->left.p2.x);
+	y1 = _cairo_fixed_to_double (current_trap->left.p1.y);
+	y2 = _cairo_fixed_to_double (current_trap->left.p2.y);
+	dx = x1 - x2;
+	dy = y1 - y2;
+	x_top_left = _cairo_fixed_from_double (x1 - dx * (y1 - top) / dy);
+	x_bottom_left = _cairo_fixed_from_double (x1  - dx * (y1 - bottom) / dy);
 
 	x1 = _cairo_fixed_to_double (current_trap->right.p1.x);
 	x2 = _cairo_fixed_to_double (current_trap->right.p2.x);
