@@ -192,6 +192,9 @@ typedef struct _cairo_gl_surface {
 	cairo_bool_t external_tex;
 	cairo_surface_t *data_surface;
 	cairo_bool_t needs_new_data_surface;
+	int orig_width;
+	int orig_height;
+	float scales;
 	//cairo_surface_t *super_sample_surface;
 	//cairo_surface_t *offscreen_surface;
 	//cairo_bool_t needs_super_sampling;

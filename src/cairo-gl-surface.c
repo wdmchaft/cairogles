@@ -89,6 +89,13 @@ _cairo_gl_surface_flush (void *abstract_surface);
 static void
 _cairo_gl_surface_remove_from_cache(cairo_surface_t *abstract_surface);
 
+static int
+_cairo_gl_surface_max_size(cairo_gl_surface_t *surface)
+{
+	cairo_gl_context_t *ctx = (cairo_gl_context_t *)surface->base.device;
+	return ctx->max_texture_size;
+}
+
 cairo_status_t
 _cairo_gl_create_indices(_cairo_gl_index_t *index)
 {
