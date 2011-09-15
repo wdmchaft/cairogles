@@ -591,7 +591,7 @@ _convert_path_to_triangle_strip_indices (_cairo_gl_index_t	*indices,
 	quad_vertices[2].y = current_trap->bottom;
 	quad_vertices[3].x = x_top_right;
 	quad_vertices[3].y = current_trap->top;
-	if (unlikely ((status = _cairo_gl_add_convex_quad (&indices,
+	if (unlikely ((status = _cairo_gl_add_convex_quad (indices,
 							   quad_vertices))))
 	    goto CLEANUP;
     }
