@@ -3335,7 +3335,7 @@ const cairo_surface_backend_t _cairo_gl_surface_backend = {
 
     _cairo_gl_surface_clone_similar,
     NULL, /*_cairo_gl_surface_composite,*/
-    _cairo_gl_surface_fill_rectangles,
+    NULL, /*_cairo_gl_surface_fill_rectangles,*/
     NULL, /*_cairo_gl_surface_composite_trapezoids,*/
     NULL, /*_cairo_gl_surface_create_span_renderer,*/
     NULL, /*_cairo_gl_surface_check_span_renderer,*/
