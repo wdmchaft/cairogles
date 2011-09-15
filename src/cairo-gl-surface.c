@@ -2219,6 +2219,7 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
     if (unlikely (status))
         goto CLEANUP;
 	setup.ctx = ctx;
+	_cairo_gl_context_set_destination(ctx, dst);
 
 	setup.src.type = CAIRO_GL_OPERAND_CONSTANT;
 
