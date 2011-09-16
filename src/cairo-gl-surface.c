@@ -2864,6 +2864,62 @@ _cairo_gl_surface_mask (void *abstract_surface,
 }
 
 static cairo_int_status_t
+_cairo_gl_surface_prepare_mask_surface (cairo_gl_surface_t *surface)
+{
+    cairo_surface_t *mask_surface;
+
+    if (surface->mask_surface != NULL &&
+	surface->mask_surface->width == surface->width &&
+	surface->mask_surface->height == surface->height) {
+	return _cairo_gl_surface_clear (surface->mask_surface, CAIRO_COLOR_TRANSPARENT);
+    }
+
+    if (surface->mask_surface != NULL) {
+	cairo_surface_destroy (&surface->mask_surface->base);
+	surface->mask_surface = NULL;
+    }
+
+    mask_surface = cairo_surface_create_similar (&surface->base,
+						 CAIRO_CONTENT_COLOR_ALPHA,
+						 surface->width,
+						 surface->height);
+    if (mask_surface == NULL)
+        return CAIRO_INT_STATUS_UNSUPPORTED;
+    if (cairo_surface_get_type (mask_surface) != CAIRO_SURFACE_TYPE_GL ||
+        unlikely (mask_surface->status)) {
+        cairo_surface_destroy (mask_surface);
+        return CAIRO_INT_STATUS_UNSUPPORTED;
+    }
+
+    surface->mask_surface = (cairo_gl_surface_t *) mask_surface;
+    surface->mask_surface->parent_surface = surface;
+    surface->mask_surface->bound_fbo = TRUE;
+    return _cairo_gl_surface_clear (surface->mask_surface, CAIRO_COLOR_TRANSPARENT);
+}
+
+static cairo_int_status_t
+_cairo_gl_surface_paint_back_mask_surface (cairo_gl_surface_t	*surface,
+					   cairo_operator_t	op,
+					   cairo_clip_t		*clip)
+{
+    cairo_status_t status = CAIRO_STATUS_SUCCESS;
+    cairo_surface_pattern_t mask_pattern;
+
+    surface->mask_surface->bound_fbo = TRUE;
+    surface->mask_surface->base.is_clear = FALSE;
+    _cairo_pattern_init_for_surface (&mask_pattern,
+				     (cairo_surface_t*) surface->mask_surface);
+    mask_pattern.base.has_component_alpha = FALSE;
+
+    status = _cairo_surface_paint (&surface->base, op, &(mask_pattern.base), clip);
+    surface->mask_surface->bound_fbo = FALSE;
+
+    _cairo_pattern_fini (&mask_pattern.base);
+    return status;
+}
+
+
+static cairo_int_status_t
 _cairo_gl_surface_stroke (void			        *abstract_surface,
                           cairo_operator_t		 op,
                           const cairo_pattern_t	        *source,
@@ -2887,7 +2943,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     // Henry Song
     cairo_gl_composite_t *setup = NULL;
     cairo_gl_context_t *ctx = NULL;
-    cairo_color_t color;
     cairo_gl_surface_t *clone = NULL;
     //cairo_surface_t *snapshot = NULL;
     int extend = 0;
@@ -2909,64 +2964,25 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 							  clip);
     if (unlikely (status))
 		return status;
-	
-	if(extents.is_bounded == 0)
-	{
-		cairo_surface_pattern_t mask_pattern;
 
-		// it is unbounded operator
-		// get this surface's mask
-		if(surface->mask_surface != NULL && 
-		   (surface->mask_surface->width != surface->width ||
-		    surface->mask_surface->height != surface->height))
-		{
-			cairo_surface_destroy(&(surface->mask_surface->base));
-			surface->mask_surface = NULL;
-		}
-		if(surface->mask_surface == NULL)
-		{
-			cairo_surface_t *mask_surface = cairo_surface_create_similar(&surface->base, CAIRO_CONTENT_COLOR_ALPHA, surface->width, surface->height);
-			if(mask_surface == NULL || cairo_surface_get_type(mask_surface) != CAIRO_SURFACE_TYPE_GL || unlikely(mask_surface->status))
-			{
-				cairo_surface_destroy(mask_surface);
-				surface->mask_surface = NULL;
-			}
-			else
-			{
-				surface->mask_surface = (cairo_gl_surface_t *)mask_surface;
-				surface->mask_surface->parent_surface = surface;
-				surface->mask_surface->mask_surface = NULL;
-			}
-		}
-		if(surface->mask_surface == NULL)
-		{
-			return CAIRO_INT_STATUS_UNSUPPORTED;
-		}
-		
-		color.red = 0;
-		color.green = 0;
-		color.blue = 0;
-		color.alpha = 0;
-		status = _cairo_gl_surface_clear(surface->mask_surface, &color);
-		surface->mask_surface->bound_fbo = TRUE;
-		
-		status = _cairo_gl_surface_stroke(surface->mask_surface, 
-			CAIRO_OPERATOR_OVER, source, path, style, ctm, ctm_inverse,
-				tolerance, antialias, NULL);
-		if(unlikely(status))
-		{
-			return status;
-		}
-		surface->mask_surface->bound_fbo = TRUE;
-		surface->mask_surface->base.is_clear = FALSE;
-		_cairo_pattern_init_for_surface(&mask_pattern, &surface->mask_surface->base);
-		mask_pattern.base.has_component_alpha = FALSE;
-		status = _cairo_surface_paint(&surface->base, op, &(mask_pattern.base), clip);
-		_cairo_pattern_fini(&mask_pattern.base);
-		surface->mask_surface->bound_fbo = FALSE;
-		return status;
-	}
+    if (extents.is_bounded == 0) {
+	if (unlikely ((status = _cairo_gl_surface_prepare_mask_surface (surface))))
+	    return status;
 
+	status = _cairo_gl_surface_stroke (surface->mask_surface,
+					   CAIRO_OPERATOR_OVER,
+					   source,
+					   path,
+					   style,
+					   ctm,
+					   ctm_inverse,
+					   tolerance,
+					   antialias,
+					   NULL);
+	if (unlikely (status))
+	    return status;
+	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
+    }
 
 	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 	if(unlikely(status))
@@ -3098,8 +3114,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
     cairo_composite_rectangles_t extents;
     cairo_status_t status;
-    cairo_color_t color;
-    cairo_surface_pattern_t mask_pattern;
     cairo_gl_surface_t *clone = NULL;
     cairo_gl_context_t *ctx = NULL;
     cairo_traps_t traps;
@@ -3116,58 +3130,22 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     if (unlikely (status))
 	return status;
 
-	if(extents.is_bounded == 0)
-	{
-		// it is unbounded operator
-		// get this surface's mask
-		if(surface->mask_surface != NULL && 
-		   (surface->mask_surface->width != surface->width ||
-		    surface->mask_surface->height != surface->height))
-		{
-			cairo_surface_destroy(&(surface->mask_surface->base));
-			surface->mask_surface = NULL;
-		}
-		if(surface->mask_surface == NULL)
-		{
-			cairo_surface_t *mask_surface = cairo_surface_create_similar(&surface->base, CAIRO_CONTENT_COLOR_ALPHA, surface->width, surface->height);
-			if(mask_surface == NULL || cairo_surface_get_type(mask_surface) != CAIRO_SURFACE_TYPE_GL || unlikely(mask_surface->status))
-			{
-				cairo_surface_destroy(mask_surface);
-				surface->mask_surface = NULL;
-			}
-			else
-			{
-				surface->mask_surface = (cairo_gl_surface_t *)mask_surface;
-				surface->mask_surface->parent_surface = surface;
-				surface->mask_surface->mask_surface = NULL;
-			}
-		}
-		if(surface->mask_surface == NULL)
-		{
-			return CAIRO_INT_STATUS_UNSUPPORTED;
-		}
-		
-		color.red = 0;
-		color.green = 0;
-		color.blue = 0;
-		color.alpha = 0;
-		status = _cairo_gl_surface_clear(surface->mask_surface, &color);
-		surface->mask_surface->bound_fbo = TRUE;
-		
-		status = _cairo_gl_surface_fill(surface->mask_surface, 
-			CAIRO_OPERATOR_OVER, source, path, fill_rule,
-				tolerance, antialias, NULL);
-		if (unlikely(status))
-			return status;
-		surface->mask_surface->bound_fbo = TRUE;
-		surface->mask_surface->base.is_clear = FALSE;
-		_cairo_pattern_init_for_surface(&mask_pattern, (cairo_surface_t*)surface->mask_surface);
-		mask_pattern.base.has_component_alpha = FALSE;
-		status = _cairo_surface_paint(&surface->base, op, &(mask_pattern.base), clip);
-		_cairo_pattern_fini(&mask_pattern.base);
-		surface->mask_surface->bound_fbo = FALSE;
-		return status;
-	}
+    if (extents.is_bounded == 0) {
+	if (unlikely ((status = _cairo_gl_surface_prepare_mask_surface (surface))))
+	    return status;
+
+	status = _cairo_gl_surface_fill (surface->mask_surface,
+					 CAIRO_OPERATOR_OVER,
+					 source,
+					 path,
+					 fill_rule,
+					 tolerance,
+					 antialias,
+					 NULL);
+	if (unlikely (status))
+	    return status;
+	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
+    }
 
 	// upload image
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
