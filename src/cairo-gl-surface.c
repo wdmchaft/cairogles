@@ -541,44 +541,27 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 }
 
 static cairo_status_t
-_convert_path_to_triangle_strip_indices (_cairo_gl_index_t	*indices,
-					 cairo_clip_path_t	*clip_path)
+_add_trapezoids_to_triangle_strip_indices (_cairo_gl_index_t	*indices,
+					   cairo_traps_t	*traps)
 {
+    cairo_status_t status;
     int i;
-    cairo_traps_t traps;
-    cairo_status_t status = CAIRO_STATUS_SUCCESS;
-    cairo_fixed_t x_top_left, x_bottom_left;
-    cairo_fixed_t x_top_right, x_bottom_right;
-    double x1, x2;
-    double y1, y2;
-    double dx, dy;
-    double top, bottom;
 
-    _cairo_traps_init (&traps);
-    status = _cairo_path_fixed_fill_to_traps (&(clip_path->path),
-					      clip_path->fill_rule,
-					      0.1,
-					      &traps);
-    if (unlikely (status))
-	goto CLEANUP;
-    if (traps.num_traps == 0) {
-	status = CAIRO_STATUS_CLIP_NOT_REPRESENTABLE;
-    }
-
-    for (i = 0; i < traps.num_traps; i++) {
+    for (i = 0; i < traps->num_traps; i++) {
 	cairo_point_t quad_vertices[4];
-	cairo_trapezoid_t *current_trap = traps.traps + i;
+	cairo_trapezoid_t *current_trap = traps->traps + i;
 
-	top = _cairo_fixed_to_double (current_trap->top);
-	bottom = _cairo_fixed_to_double (current_trap->bottom);
-	x1 = _cairo_fixed_to_double (current_trap->left.p1.x);
-	x2 = _cairo_fixed_to_double (current_trap->left.p2.x);
-	y1 = _cairo_fixed_to_double (current_trap->left.p1.y);
-	y2 = _cairo_fixed_to_double (current_trap->left.p2.y);
-	dx = x1 - x2;
-	dy = y1 - y2;
-	x_top_left = _cairo_fixed_from_double (x1 - dx * (y1 - top) / dy);
-	x_bottom_left = _cairo_fixed_from_double (x1  - dx * (y1 - bottom) / dy);
+	double top = _cairo_fixed_to_double (current_trap->top);
+	double bottom = _cairo_fixed_to_double (current_trap->bottom);
+	double x1 = _cairo_fixed_to_double (current_trap->left.p1.x);
+	double x2 = _cairo_fixed_to_double (current_trap->left.p2.x);
+	double y1 = _cairo_fixed_to_double (current_trap->left.p1.y);
+	double y2 = _cairo_fixed_to_double (current_trap->left.p2.y);
+	double dx = x1 - x2;
+	double dy = y1 - y2;
+	cairo_fixed_t x_top_left = _cairo_fixed_from_double (x1 - dx * (y1 - top) / dy);
+	cairo_fixed_t x_bottom_left = _cairo_fixed_from_double (x1  - dx * (y1 - bottom) / dy);
+	cairo_fixed_t x_top_right, x_bottom_right;
 
 	x1 = _cairo_fixed_to_double (current_trap->right.p1.x);
 	x2 = _cairo_fixed_to_double (current_trap->right.p2.x);
@@ -598,8 +581,30 @@ _convert_path_to_triangle_strip_indices (_cairo_gl_index_t	*indices,
 	quad_vertices[3].y = current_trap->top;
 	if (unlikely ((status = _cairo_gl_add_convex_quad (indices,
 							   quad_vertices))))
-	    goto CLEANUP;
+	    return status;
     }
+    return CAIRO_STATUS_SUCCESS;
+}
+
+static cairo_status_t
+_convert_path_to_triangle_strip_indices (_cairo_gl_index_t	*indices,
+					 cairo_clip_path_t	*clip_path)
+{
+    cairo_traps_t traps;
+    cairo_status_t status = CAIRO_STATUS_SUCCESS;
+
+    _cairo_traps_init (&traps);
+    status = _cairo_path_fixed_fill_to_traps (&(clip_path->path),
+					      clip_path->fill_rule,
+					      0.1,
+					      &traps);
+    if (unlikely (status))
+	goto CLEANUP;
+    if (traps.num_traps == 0) {
+	status = CAIRO_STATUS_CLIP_NOT_REPRESENTABLE;
+    }
+
+    status = _add_trapezoids_to_triangle_strip_indices (indices, &traps);
 
 CLEANUP:
     _cairo_traps_fini (&traps);
@@ -3057,13 +3062,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     //cairo_polygon_t polygons
     _cairo_gl_index_t indices;
     cairo_point_t points[4];
-    int m;
-    cairo_fixed_t x_top_left, x_bottom_left;
-    cairo_fixed_t x_top_right, x_bottom_right;
-    double x1, x2;
-    double y1, y2;
-    double dx, dy;
-    double top, bottom;
     int extend = 0;
 
 	cairo_gl_composite_t *setup;
@@ -3261,49 +3259,20 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	indices.setup = setup;
 
 	status = _cairo_path_fixed_fill_to_traps(path, fill_rule, tolerance, &traps);
-	for(m = 0; m < traps.num_traps; m++)
-	{
-		top = _cairo_fixed_to_double(traps.traps[m].top);
-		bottom = _cairo_fixed_to_double(traps.traps[m].bottom);
-		x1 = _cairo_fixed_to_double(traps.traps[m].left.p1.x);
-		x2 = _cairo_fixed_to_double(traps.traps[m].left.p2.x);
-		y1 = _cairo_fixed_to_double(traps.traps[m].left.p1.y);
-		y2 = _cairo_fixed_to_double(traps.traps[m].left.p2.y);
-		dx = x1 - x2;
-		dy = y1 - y2;
-		x_top_left = _cairo_fixed_from_double(x1 - dx * (y1 - top) / dy);
-		x_bottom_left = _cairo_fixed_from_double(x1  - dx * (y1 - bottom) /dy);
-		
-		x1 = _cairo_fixed_to_double(traps.traps[m].right.p1.x);
-		x2 = _cairo_fixed_to_double(traps.traps[m].right.p2.x);
-		y1 = _cairo_fixed_to_double(traps.traps[m].right.p1.y);
-		y2 = _cairo_fixed_to_double(traps.traps[m].right.p2.y);
-		dx = x1 - x2;
-		dy = y1 - y2;
-		x_top_right = _cairo_fixed_from_double(x1 - dx * (y1 - top) /dy);
-		x_bottom_right = _cairo_fixed_from_double(x1  - dx * (y1 - bottom) /dy);
-		points[0].x = x_top_left;
-		points[0].y = traps.traps[m].top;
-		points[1].x = x_bottom_left;
-		points[1].y = traps.traps[m].bottom;
-		points[2].x = x_bottom_right;
-		points[2].y = traps.traps[m].bottom;
-		points[3].x = x_top_right;
-		points[3].y = traps.traps[m].top;
-		status = _cairo_gl_add_convex_quad(&indices, points);
-		if(unlikely(status))
-		{
-			if(clone != NULL)
-				cairo_surface_destroy(&clone->base);
-			_cairo_traps_fini(&traps);
-			glDisable(GL_STENCIL_TEST);
-			glDisable(GL_DEPTH_TEST);
-			glDepthMask(GL_FALSE);
-			_cairo_gl_destroy_indices(&indices);
-			_cairo_gl_composite_fini(setup);
-			free(setup);
-		}
-	}
+
+    if (unlikely ((status = _add_trapezoids_to_triangle_strip_indices (&indices,
+								       &traps)))) {
+	if(clone != NULL)
+	    cairo_surface_destroy(&clone->base);
+	_cairo_traps_fini(&traps);
+	glDisable(GL_STENCIL_TEST);
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	_cairo_gl_destroy_indices(&indices);
+	_cairo_gl_composite_fini(setup);
+	free(setup);
+    }
+
 	status = _cairo_gl_fill(setup, indices.num_vertices, 
 		indices.vertices, NULL, indices.num_indices, indices.indices,
 		setup->ctx);
