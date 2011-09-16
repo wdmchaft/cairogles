@@ -194,7 +194,8 @@ typedef struct _cairo_gl_surface {
 	cairo_bool_t needs_new_data_surface;
 	int orig_width;
 	int orig_height;
-	float scale;
+	float scale_width;
+	float scale_height;
 	//cairo_surface_t *super_sample_surface;
 	//cairo_surface_t *offscreen_surface;
 	//cairo_bool_t needs_super_sampling;
@@ -345,6 +346,7 @@ struct _cairo_gl_context {
     GLint max_texture_size;
     GLint max_textures;
     GLenum tex_target;
+	cairo_bool_t standard_npot;
 
     const cairo_gl_shader_impl_t *shader_impl;
 

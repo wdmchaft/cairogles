@@ -110,7 +110,7 @@ _cairo_gl_glyph_cache_add_glyph (cairo_gl_context_t *ctx,
                                            glyph_surface,
                                            0, 0,
                                            width, height,
-                                           node->x, node->y);
+                                           node->x, node->y, TRUE);
     if (unlikely (status))
 	return status;
 
