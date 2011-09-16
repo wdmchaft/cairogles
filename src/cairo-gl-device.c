@@ -191,7 +191,10 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     /* Check for required extensions */
     if (gl_flavor == CAIRO_GL_FLAVOR_DESKTOP) {
 	if (_cairo_gl_has_extension ("GL_ARB_texture_non_power_of_two"))
+	{
 	    ctx->tex_target = GL_TEXTURE_2D;
+		ctx->standard_npot = TRUE;
+	}
 	else if (_cairo_gl_has_extension ("GL_ARB_texture_rectangle"))
 	    ctx->tex_target = GL_TEXTURE_RECTANGLE;
 	else
@@ -200,8 +203,13 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     else {
 	// Henry Song
 	//if (_cairo_gl_has_extension ("GL_OES_texture_npot"))
-	if (_cairo_gl_has_extension ("GL_OES_texture_npot") || _cairo_gl_has_extension ("GL_IMG_texture_npot"))
+	if (_cairo_gl_has_extension ("GL_OES_texture_npot") || _cairo_gl_has_extension ("GL_IMG_texture_npot")) {
 	    ctx->tex_target = GL_TEXTURE_2D;
+		if(_cairo_gl_has_extension("GL_OES_texture_npot"))
+			ctx->standard_npot = TRUE;
+		else
+			ctx->standard_npot = FALSE;
+	}
 	else
 	    return _cairo_error (CAIRO_STATUS_DEVICE_ERROR);
 	if(!_cairo_gl_has_extension("GL_OES_packed_depth_stencil"))
