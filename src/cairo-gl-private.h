@@ -194,7 +194,7 @@ typedef struct _cairo_gl_surface {
 	cairo_bool_t needs_new_data_surface;
 	int orig_width;
 	int orig_height;
-	float scales;
+	float scale;
 	//cairo_surface_t *super_sample_surface;
 	//cairo_surface_t *offscreen_surface;
 	//cairo_bool_t needs_super_sampling;
@@ -496,7 +496,8 @@ _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
 			      cairo_image_surface_t *src,
 			      int src_x, int src_y,
 			      int width, int height,
-			      int dst_x, int dst_y);
+			      int dst_x, int dst_y,
+				  cairo_bool_t keep_size);
 
 static cairo_always_inline cairo_bool_t
 _cairo_gl_device_has_glsl (cairo_device_t *device)
