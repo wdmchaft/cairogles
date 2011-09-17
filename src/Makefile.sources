@@ -319,7 +319,8 @@ cairo_gl_headers = cairo-gl.h
 cairo_gl_private = cairo-gl-private.h \
 		   cairo-gl-dispatch-private.h \
 		   cairo-gl-ext-def-private.h \
-		   cairo-gl-gradient-private.h
+		   cairo-gl-gradient-private.h \
+		   cairo-gl-tristrip-indices-private.h
 
 cairo_gl_sources = cairo-gl-composite.c \
 		   cairo-gl-device.c \
@@ -327,6 +328,7 @@ cairo_gl_sources = cairo-gl-composite.c \
 		   cairo-gl-glyphs.c \
 		   cairo-gl-gradient.c \
 		   cairo-gl-info.c \
+		   cairo-gl-tristrip-indices.c \
 		   cairo-gl-shaders.c \
 		   cairo-gl-surface.c
 

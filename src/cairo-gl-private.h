@@ -433,29 +433,6 @@ typedef struct _cairo_gl_composite {
 	cairo_gl_context_t *ctx;
 } cairo_gl_composite_t;
 
-// Henry Song
-#define INDEX_CAPACITY 64
-#define MAX_INDEX 10000
-typedef struct _cairo_gl_index
-{
-	float *vertices;
-	float *mask_vertices;
-	int *indices;
-	int capacity;
-	int num_indices;
-	int num_vertices;
-	cairo_gl_composite_t *setup;
-	cairo_bool_t has_mask_vertices;
-} _cairo_gl_index_t;
-
-typedef struct _cairo_gl_index_buf
-{
-	_cairo_gl_index_t *indices;
-	struct _cairo_gl_index_buf *next;
-} _cairo_gl_index_buf_t;
-
-
-
 cairo_private extern const cairo_surface_backend_t _cairo_gl_surface_backend;
 
 static cairo_always_inline GLenum
@@ -623,10 +600,6 @@ _cairo_gl_add_triangle_fan(void *closure,
 	int npoints);
 
 cairo_private cairo_status_t 
-_cairo_gl_add_convex_quad(void *closure,
-	const cairo_point_t quad[4]);
-
-cairo_private cairo_status_t 
 _cairo_gl_add_convex_quad_for_clip(void *closure,
 	const cairo_point_t quad[4]);
 
@@ -642,15 +615,6 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
 cairo_private cairo_status_t
 _cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
 	cairo_gl_context_t *ctx, cairo_gl_surface_t *surface);
-
-cairo_private cairo_status_t
-_cairo_gl_create_indices(_cairo_gl_index_t *index);
-
-cairo_private cairo_status_t 
-_cairo_gl_increase_indices(_cairo_gl_index_t *index);
-
-cairo_private void
-_cairo_gl_destroy_indices (_cairo_gl_index_t *index);
 
 cairo_private cairo_status_t
 _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, 

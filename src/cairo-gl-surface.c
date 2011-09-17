@@ -45,6 +45,7 @@
 #include "cairo-recording-surface-private.h"
 #include "cairo-error-private.h"
 #include "cairo-gl-private.h"
+#include "cairo-gl-tristrip-indices-private.h"
 
 #include <sys/time.h>
 #include "cairo-surface-clipper-private.h"
@@ -103,51 +104,6 @@ _cairo_gl_support_standard_npot(cairo_gl_surface_t *surface)
 	return ctx->standard_npot;
 }
 
-
-cairo_status_t
-_cairo_gl_create_indices(_cairo_gl_index_t *index)
-{
-	index->vertices = (float *)malloc(sizeof(float) * INDEX_CAPACITY * 2);
-	index->mask_vertices = (float *)malloc(sizeof(float) * INDEX_CAPACITY * 2);
-	index->indices = (int *)malloc(sizeof(int) * INDEX_CAPACITY);
-	//index->indices = (int *)malloc(sizeof(int) * INDEX_CAPACITY);
-	index->capacity = INDEX_CAPACITY;
-	index->num_indices = 0;
-	index->num_vertices = 0;
-	index->setup = NULL;
-	index->has_mask_vertices = FALSE;
-	return CAIRO_STATUS_SUCCESS;
-}
-
-cairo_status_t
-_cairo_gl_increase_indices(_cairo_gl_index_t *index)
-{
-	int new_capacity = index->capacity * 2;
-	float *new_vertices = (float *)malloc(sizeof(float) * new_capacity * 2);
-	float *new_mask_vertices = (float *)malloc(sizeof(float) * new_capacity * 2);
-	int *new_indices = (int *)malloc(sizeof(int) * new_capacity);
-
-	memcpy(new_vertices, index->vertices, sizeof(float) * index->num_vertices * 2);
-	memcpy(new_mask_vertices, index->mask_vertices, sizeof(float) * index->num_vertices * 2);
-	memcpy(new_indices, index->indices, sizeof(int) * index->num_indices);
-	free(index->vertices);
-	free(index->indices);
-	free(index->mask_vertices);
-	index->vertices = new_vertices;
-	index->mask_vertices = new_mask_vertices;
-	index->indices = new_indices;
-	index->capacity = new_capacity;
-	return CAIRO_STATUS_SUCCESS;
-}
-
-void
-_cairo_gl_destroy_indices(_cairo_gl_index_t *index)
-{
-    free(index->vertices);
-    free(index->mask_vertices);
-    free(index->indices);
-    index->has_mask_vertices = FALSE;
-}
 
 cairo_status_t
 _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vertices, int npoints, int *indices, cairo_gl_context_t *ctx)
@@ -242,7 +198,7 @@ cairo_status_t _cairo_gl_add_triangle(void *closure,
         int num_indices, num_vertices;
 		cairo_status_t status;
 
-	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
+	cairo_gl_tristrip_indices_t *indices = (cairo_gl_tristrip_indices_t *)closure;
         cairo_gl_composite_t *setup = indices->setup;
 	// first off, we need to flush if max
 	if(indices->num_indices > MAX_INDEX)
@@ -252,8 +208,8 @@ cairo_status_t _cairo_gl_add_triangle(void *closure,
 				indices->vertices, NULL, indices->num_indices, 
 				indices->indices, indices->setup->ctx);
 		// cleanup
-		_cairo_gl_destroy_indices(indices);
-		status = _cairo_gl_create_indices(indices);
+		_cairo_gl_tristrip_indices_destroy (indices);
+		status = _cairo_gl_tristrip_indices_init (indices);
 		indices->setup = setup;
 	}
 	// we add a triangle to strip, we add 3 vertices and 5 indices;
@@ -261,7 +217,7 @@ cairo_status_t _cairo_gl_add_triangle(void *closure,
 		indices->num_vertices + 3 >= indices->capacity)
 	{
 		// we need to increase
-		status = _cairo_gl_increase_indices(indices);
+		status = _cairo_gl_tristrip_indices_increase_capacity (indices);
 	}
     num_indices = indices->num_indices;
     num_vertices = indices->num_vertices;
@@ -301,7 +257,7 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 	    int mid_index;
 		cairo_status_t status;
 
-	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
+	cairo_gl_tristrip_indices_t *indices = (cairo_gl_tristrip_indices_t *)closure;
         cairo_gl_composite_t *setup = indices->setup;
 	//printf("before add triangle fan indices = %d\n", indices->num_indices);
 	// first off, we need to flush if max
@@ -312,8 +268,8 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 				indices->vertices, NULL, indices->num_indices, 
 				indices->indices, indices->setup->ctx);
 		// cleanup
-		_cairo_gl_destroy_indices(indices);
-		status = _cairo_gl_create_indices(indices);
+		_cairo_gl_tristrip_indices_destroy (indices);
+		status = _cairo_gl_tristrip_indices_init (indices);
 		indices->setup = setup;
 	}
 	// we add a triangle fan to strip, we add npoints+1 vertices and (npoints-2)*2 indices;
@@ -321,7 +277,7 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 		indices->num_vertices + npoints + 1 >= indices->capacity)
 	{
 		// we need to increase
-		status = _cairo_gl_increase_indices(indices);
+		status = _cairo_gl_tristrip_indices_increase_capacity (indices);
 	}
     num_vertices = indices->num_vertices;
 	num_indices = indices->num_indices;
@@ -379,84 +335,6 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 	return CAIRO_STATUS_SUCCESS;
 }
 
-cairo_status_t _cairo_gl_add_convex_quad(void *closure,
-	const cairo_point_t quad[4])
-{
-     int last_index = 0;
-     int start_index = 0;
-     int i;
-     int num_indices,num_vertices;
-	 cairo_status_t status;
-
-	 _cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
-	 cairo_gl_composite_t *setup = indices->setup;
-
-	// first off, we need to flush if max
-	if(indices->num_indices > MAX_INDEX)
-	{
-		if(indices->setup != NULL)
-		{
-			status = _cairo_gl_fill(indices->setup, indices->num_vertices,
-				indices->vertices, NULL, 
-				indices->num_indices, 
-				indices->indices, indices->setup->ctx);
-			// cleanup
-			_cairo_gl_destroy_indices(indices);
-			status = _cairo_gl_create_indices(indices);
-			indices->setup = setup;
-		}
-	}
-	// we add a triangle to strip, we add 4 vertices and 6 indices;
-	while(indices->num_indices + 5 >= indices->capacity ||
-		indices->num_vertices + 4 >= indices->capacity)
-	{
-		// we need to increase
-		status = _cairo_gl_increase_indices(indices);
-	}
-     num_indices = indices->num_indices;
-     num_vertices = indices->num_vertices;
-
-	if(num_indices != 0)
-	{
-		// we are not the first
-		last_index = indices->indices[num_indices-1];
-		start_index = last_index + 1;
-		indices->indices[num_indices] = last_index;
-		indices->indices[num_indices+1] = start_index;
-		indices->num_indices += 2;
-	}
-	num_indices = indices->num_indices;
-	indices->has_mask_vertices = FALSE;
-	for(i = 0; i < 2; i++)
-	{
-		indices->indices[num_indices+i] = start_index + i;
-		indices->vertices[num_vertices*2+i*2] = 
-			_cairo_fixed_to_double(quad[i].x);
-		indices->vertices[num_vertices*2+i*2+1] = 
-			_cairo_fixed_to_double(quad[i].y);
-	}
-	indices->num_indices += 2;
-	indices->num_vertices += 2;
-	num_indices = indices->num_indices;
-	num_vertices = indices->num_vertices;
-	// we reverse order of point 3 and point 4
-	start_index = indices->indices[num_indices-1];
-	indices->indices[num_indices] = start_index + 1;
-	indices->indices[num_indices+1] = start_index + 2;
-	indices->vertices[num_vertices*2] = 
-			_cairo_fixed_to_double(quad[3].x);
-		indices->vertices[num_vertices*2+1] = 
-			_cairo_fixed_to_double(quad[3].y);
-	indices->vertices[num_vertices*2+2] = 
-			_cairo_fixed_to_double(quad[2].x);
-		indices->vertices[num_vertices*2+3] = 
-			_cairo_fixed_to_double(quad[2].y);
-	indices->num_indices += 2;
-	indices->num_vertices += 2;
-
-	return CAIRO_STATUS_SUCCESS;
-}
-
 cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 	const cairo_point_t quad[4], const float *mask_quad)
 {
@@ -465,7 +343,7 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
         int i;
         int num_indices, num_vertices;
 		cairo_status_t status;
-	_cairo_gl_index_t *indices = (_cairo_gl_index_t *)closure;
+	cairo_gl_tristrip_indices_t *indices = (cairo_gl_tristrip_indices_t *)closure;
 	cairo_gl_composite_t *setup = indices->setup;
 
 	// first off, we need to flush if max
@@ -484,8 +362,8 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 					indices->num_indices, 
 					indices->indices, indices->setup->ctx);
 			// cleanup
-			_cairo_gl_destroy_indices(indices);
-			status = _cairo_gl_create_indices(indices);
+			_cairo_gl_tristrip_indices_destroy (indices);
+			status = _cairo_gl_tristrip_indices_init (indices);
 			indices->setup = setup;
 		}
 	}
@@ -494,7 +372,7 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 		indices->num_vertices + 4 >= indices->capacity)
 	{
 		// we need to increase
-		status = _cairo_gl_increase_indices(indices);
+		status = _cairo_gl_tristrip_indices_increase_capacity (indices);
 	}
     num_indices = indices->num_indices;
     num_vertices = indices->num_vertices;
@@ -553,101 +431,6 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 	indices->num_vertices += 2;
 
 	return CAIRO_STATUS_SUCCESS;
-}
-
-static cairo_status_t
-_add_trapezoids_to_triangle_strip_indices (_cairo_gl_index_t	*indices,
-					   cairo_traps_t	*traps)
-{
-    cairo_status_t status;
-    int i;
-
-    for (i = 0; i < traps->num_traps; i++) {
-	cairo_point_t quad_vertices[4];
-	cairo_trapezoid_t *current_trap = traps->traps + i;
-
-	double top = _cairo_fixed_to_double (current_trap->top);
-	double bottom = _cairo_fixed_to_double (current_trap->bottom);
-	double x1 = _cairo_fixed_to_double (current_trap->left.p1.x);
-	double x2 = _cairo_fixed_to_double (current_trap->left.p2.x);
-	double y1 = _cairo_fixed_to_double (current_trap->left.p1.y);
-	double y2 = _cairo_fixed_to_double (current_trap->left.p2.y);
-	double dx = x1 - x2;
-	double dy = y1 - y2;
-	cairo_fixed_t x_top_left = _cairo_fixed_from_double (x1 - dx * (y1 - top) / dy);
-	cairo_fixed_t x_bottom_left = _cairo_fixed_from_double (x1  - dx * (y1 - bottom) / dy);
-	cairo_fixed_t x_top_right, x_bottom_right;
-
-	x1 = _cairo_fixed_to_double (current_trap->right.p1.x);
-	x2 = _cairo_fixed_to_double (current_trap->right.p2.x);
-	y1 = _cairo_fixed_to_double (current_trap->right.p1.y);
-	y2 = _cairo_fixed_to_double (current_trap->right.p2.y);
-	dx = x1 - x2;
-	dy = y1 - y2;
-	x_top_right = _cairo_fixed_from_double (x1 - dx * (y1 - top) / dy);
-	x_bottom_right = _cairo_fixed_from_double (x1  - dx * (y1 - bottom) / dy);
-	quad_vertices[0].x = x_top_left;
-	quad_vertices[0].y = current_trap->top;
-	quad_vertices[1].x = x_bottom_left;
-	quad_vertices[1].y = current_trap->bottom;
-	quad_vertices[2].x = x_bottom_right;
-	quad_vertices[2].y = current_trap->bottom;
-	quad_vertices[3].x = x_top_right;
-	quad_vertices[3].y = current_trap->top;
-	if (unlikely ((status = _cairo_gl_add_convex_quad (indices,
-							   quad_vertices))))
-	    return status;
-    }
-    return CAIRO_STATUS_SUCCESS;
-}
-
-static cairo_status_t
-_convert_path_to_triangle_strip_indices (_cairo_gl_index_t	*indices,
-					 cairo_clip_path_t	*clip_path)
-{
-    cairo_traps_t traps;
-    cairo_status_t status = CAIRO_STATUS_SUCCESS;
-
-    _cairo_traps_init (&traps);
-    status = _cairo_path_fixed_fill_to_traps (&(clip_path->path),
-					      clip_path->fill_rule,
-					      0.1,
-					      &traps);
-    if (unlikely (status))
-	goto CLEANUP;
-    if (traps.num_traps == 0) {
-	status = CAIRO_STATUS_CLIP_NOT_REPRESENTABLE;
-    }
-
-    status = _add_trapezoids_to_triangle_strip_indices (indices, &traps);
-
-CLEANUP:
-    _cairo_traps_fini (&traps);
-    return status;
-}
-
-static cairo_status_t
-_convert_boxes_to_triangle_strip_indices (_cairo_gl_index_t *indices,
-					  int		    num_boxes,
-					  cairo_box_t	    *boxes)
-{
-    int i;
-    cairo_status_t status;
-
-    for (i = num_boxes - 1; i >= 0; i--) {
-	cairo_point_t quad_vertices[4];
-	quad_vertices[0].x = boxes[i].p1.x;
-	quad_vertices[0].y = boxes[i].p1.y;
-	quad_vertices[1].x = boxes[i].p1.x;
-	quad_vertices[1].y = boxes[i].p2.y;
-	quad_vertices[2].x = boxes[i].p2.x;
-	quad_vertices[2].y = boxes[i].p2.y;
-	quad_vertices[3].x = boxes[i].p2.x;
-	quad_vertices[3].y = boxes[i].p1.y;
-	if (unlikely ((status = _cairo_gl_add_convex_quad (indices, quad_vertices))))
-	    return status;
-    }
-    return CAIRO_STATUS_SUCCESS;
 }
 
 static cairo_bool_t
@@ -738,7 +521,7 @@ _cairo_gl_clip (cairo_clip_t		*clip,
 		cairo_gl_surface_t	*surface)
 {
     cairo_status_t status = CAIRO_STATUS_SUCCESS;
-    _cairo_gl_index_t indices;
+    cairo_gl_tristrip_indices_t indices;
 
     cairo_clip_path_t *clip_path = clip->path;
     int num_clip_boxes = clip->num_boxes;
@@ -746,10 +529,10 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     if (clip_path == NULL && num_clip_boxes == 0)
 	return CAIRO_STATUS_SUCCESS;
 
-    if (unlikely ((status = _cairo_gl_create_indices (&indices))))
+    if (unlikely ((status = _cairo_gl_tristrip_indices_init  (&indices))))
 	return status;
 
-    /* _convert_*_to_triangle_strip_indices may end up flushing the surface
+    /* Operations on_triangle strip indices may end up flushing the surface
        triangle strip cache and doing the fill. In case that happens we prepare
        to update the stencil buffer now. */
     glDepthMask (GL_TRUE);
@@ -762,11 +545,11 @@ _cairo_gl_clip (cairo_clip_t		*clip,
 
     indices.setup = setup;
     if (clip_path != NULL) {
-	status = _convert_path_to_triangle_strip_indices (&indices, clip_path);
+	status = _cairo_gl_tristrip_indices_add_path (&indices, clip_path);
     } else {
-	status = _convert_boxes_to_triangle_strip_indices (&indices,
-							   num_clip_boxes,
-							   clip->boxes);
+	status = _cairo_gl_tristrip_indices_add_boxes (&indices,
+							     num_clip_boxes,
+							     clip->boxes);
     }
     if (unlikely (status))
 	goto FAIL;
@@ -785,7 +568,7 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     glColorMask (1, 1, 1, 1);
     glStencilOp (GL_KEEP, GL_KEEP, GL_KEEP);
     glStencilFunc (GL_EQUAL, 1, 1);
-    _cairo_gl_destroy_indices (&indices);
+    _cairo_gl_tristrip_indices_destroy  (&indices);
     return CAIRO_STATUS_SUCCESS;
 
 FAIL:
@@ -2260,7 +2043,7 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
     cairo_gl_composite_t setup;
     int i;
 	cairo_point_t points[4];
-	_cairo_gl_index_t indices;
+	cairo_gl_tristrip_indices_t indices;
 	double x, y;
 
 	status = _cairo_gl_context_acquire(dst->base.device, &ctx);
@@ -2295,7 +2078,7 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
     if (unlikely (status))
         goto CLEANUP;
 
-	status = _cairo_gl_create_indices(&indices);
+	status = _cairo_gl_tristrip_indices_init (&indices);
 	indices.setup = &setup;
 
     for (i = 0; i < num_rects; i++) 
@@ -2310,10 +2093,10 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
 		points[2].y = _cairo_fixed_from_double(y + rects[i].height);
 		points[3].x = _cairo_fixed_from_double(x + rects[i].width);
 		points[3].y = _cairo_fixed_from_double(y);
-		status = _cairo_gl_add_convex_quad(&indices, points);
+		status = _cairo_gl_tristrip_indices_add_quad (&indices, points);
 		if(unlikely(status))
 		{
-			_cairo_gl_destroy_indices(&indices);
+			_cairo_gl_tristrip_indices_destroy (&indices);
 			goto CLEANUP;
 		}
     }
@@ -2321,7 +2104,7 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
 		indices.vertices, NULL, indices.num_indices,
 		indices.indices, setup.ctx);
 
-	_cairo_gl_destroy_indices(&indices);
+	_cairo_gl_tristrip_indices_destroy (&indices);
 
 	dst->needs_new_data_surface = TRUE;
   CLEANUP:
@@ -2918,6 +2701,12 @@ _cairo_gl_surface_paint_back_mask_surface (cairo_gl_surface_t	*surface,
     return status;
 }
 
+static cairo_status_t
+_cairo_path_fixed_stroke_to_shaper_add_quad (void		 *closure,
+					     const cairo_point_t quad[4])
+{
+    return _cairo_gl_tristrip_indices_add_quad (closure, quad);
+}
 
 static cairo_int_status_t
 _cairo_gl_surface_stroke (void			        *abstract_surface,
@@ -2939,7 +2728,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     //cairo_bool_t have_clip = FALSE;
     //cairo_polygon_t polygon;
     cairo_status_t status;
-    _cairo_gl_index_t indices;
+    cairo_gl_tristrip_indices_t indices;
     // Henry Song
     cairo_gl_composite_t *setup = NULL;
     cairo_gl_context_t *ctx = NULL;
@@ -3066,18 +2855,18 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	}
     }
 
-	status = _cairo_gl_create_indices(&indices);
+	status = _cairo_gl_tristrip_indices_init (&indices);
 	indices.setup = setup;
 
-	status = _cairo_path_fixed_stroke_to_shaper(path,
-												style,
-												ctm,
-												ctm_inverse,
-												tolerance,
-												_cairo_gl_add_triangle,
-												_cairo_gl_add_triangle_fan,
-												_cairo_gl_add_convex_quad,
-												&indices);
+	status = _cairo_path_fixed_stroke_to_shaper (path,
+						    style,
+						    ctm,
+						    ctm_inverse,
+						    tolerance,
+						    _cairo_gl_add_triangle,
+						    _cairo_gl_add_triangle_fan,
+						    _cairo_path_fixed_stroke_to_shaper_add_quad,
+						    &indices);
 
 
 	glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &v);
@@ -3088,7 +2877,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	
 	if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
-	_cairo_gl_destroy_indices(&indices);
+	_cairo_gl_tristrip_indices_destroy (&indices);
 	_cairo_gl_composite_fini(setup);
 	free(setup);
 	glDisable(GL_STENCIL_TEST);
@@ -3117,7 +2906,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     cairo_gl_surface_t *clone = NULL;
     cairo_gl_context_t *ctx = NULL;
     cairo_traps_t traps;
-    _cairo_gl_index_t indices;
+    cairo_gl_tristrip_indices_t indices;
     int extend = 0;
 
 
@@ -3230,14 +3019,14 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
 	// setup indices
 	_cairo_traps_init(&traps);
-	status = _cairo_gl_create_indices(&indices);
+	status = _cairo_gl_tristrip_indices_init (&indices);
 	indices.setup = setup;
 
     status = _cairo_path_fixed_fill_to_traps(path, fill_rule, tolerance, &traps);
     if (unlikely (status))
 	goto CLEANUP_TRAPS_AND_GL;
 
-    status = _add_trapezoids_to_triangle_strip_indices (&indices, &traps);
+    status = _cairo_gl_tristrip_indices_add_traps (&indices, &traps);
     if (unlikely (status))
 	goto CLEANUP_TRAPS_AND_GL;
 
@@ -3252,7 +3041,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
 CLEANUP_TRAPS_AND_GL:
     _cairo_traps_fini(&traps);
-    _cairo_gl_destroy_indices(&indices);
+    _cairo_gl_tristrip_indices_destroy (&indices);
 
 CLEANUP_STENCIL_AND_DEPTH_TESTING:
     glDisable(GL_STENCIL_TEST);
