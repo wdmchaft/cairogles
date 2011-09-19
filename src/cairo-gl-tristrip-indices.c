@@ -136,10 +136,8 @@ _cairo_gl_tristrip_indices_add_quad (cairo_gl_tristrip_indices_t *indices,
     indices->has_mask_vertices = FALSE;
     for(i = 0; i < 2; i++) {
 	indices->indices[num_indices+i] = start_index + i;
-	indices->vertices[num_vertices*2+i*2] = 
-		_cairo_fixed_to_double(quad[i].x);
-	indices->vertices[num_vertices*2+i*2+1] = 
-		_cairo_fixed_to_double(quad[i].y);
+	indices->vertices[num_vertices*2+i*2] = _cairo_fixed_to_double(quad[i].x);
+	indices->vertices[num_vertices*2+i*2+1] = _cairo_fixed_to_double(quad[i].y);
     }
 
     indices->num_indices += 2;
@@ -147,7 +145,9 @@ _cairo_gl_tristrip_indices_add_quad (cairo_gl_tristrip_indices_t *indices,
     num_indices = indices->num_indices;
     num_vertices = indices->num_vertices;
 
-    // we reverse order of point 3 and point 4
+    // Cairo stores quad vertices in counter-clockwise, but we need to emit them
+    // from top to bottom in the triangle strip, so we need to reverse the order
+    // of the last two vertices.
     start_index = indices->indices[num_indices-1];
     indices->indices[num_indices] = start_index + 1;
     indices->indices[num_indices+1] = start_index + 2;
@@ -161,7 +161,6 @@ _cairo_gl_tristrip_indices_add_quad (cairo_gl_tristrip_indices_t *indices,
     return CAIRO_STATUS_SUCCESS;
 }
 
-
 cairo_status_t
 _cairo_gl_tristrip_indices_add_traps (cairo_gl_tristrip_indices_t *indices,
 				      cairo_traps_t		  *traps)
@@ -170,38 +169,19 @@ _cairo_gl_tristrip_indices_add_traps (cairo_gl_tristrip_indices_t *indices,
     int i;
 
     for (i = 0; i < traps->num_traps; i++) {
-	cairo_point_t quad_vertices[4];
-	cairo_trapezoid_t *current_trap = traps->traps + i;
+	cairo_point_t quad[4];
+	cairo_trapezoid_t *trap = traps->traps + i;
 
-	double top = _cairo_fixed_to_double (current_trap->top);
-	double bottom = _cairo_fixed_to_double (current_trap->bottom);
-	double x1 = _cairo_fixed_to_double (current_trap->left.p1.x);
-	double x2 = _cairo_fixed_to_double (current_trap->left.p2.x);
-	double y1 = _cairo_fixed_to_double (current_trap->left.p1.y);
-	double y2 = _cairo_fixed_to_double (current_trap->left.p2.y);
-	double dx = x1 - x2;
-	double dy = y1 - y2;
-	cairo_fixed_t x_top_left = _cairo_fixed_from_double (x1 - dx * (y1 - top) / dy);
-	cairo_fixed_t x_bottom_left = _cairo_fixed_from_double (x1  - dx * (y1 - bottom) / dy);
-	cairo_fixed_t x_top_right, x_bottom_right;
+	quad[0].x = _cairo_edge_compute_intersection_x_for_y (&trap->left.p1, &trap->left.p2, trap->top);
+	quad[0].y = trap->top;
+	quad[1].x = _cairo_edge_compute_intersection_x_for_y (&trap->left.p1, &trap->left.p2, trap->bottom);
+	quad[1].y = trap->bottom;
+	quad[2].x = _cairo_edge_compute_intersection_x_for_y (&trap->right.p1, &trap->right.p2, trap->bottom);
+	quad[2].y = trap->bottom;
+	quad[3].x = _cairo_edge_compute_intersection_x_for_y (&trap->right.p1, &trap->right.p2, trap->top);
+	quad[3].y = trap->top;
 
-	x1 = _cairo_fixed_to_double (current_trap->right.p1.x);
-	x2 = _cairo_fixed_to_double (current_trap->right.p2.x);
-	y1 = _cairo_fixed_to_double (current_trap->right.p1.y);
-	y2 = _cairo_fixed_to_double (current_trap->right.p2.y);
-	dx = x1 - x2;
-	dy = y1 - y2;
-	x_top_right = _cairo_fixed_from_double (x1 - dx * (y1 - top) / dy);
-	x_bottom_right = _cairo_fixed_from_double (x1  - dx * (y1 - bottom) / dy);
-	quad_vertices[0].x = x_top_left;
-	quad_vertices[0].y = current_trap->top;
-	quad_vertices[1].x = x_bottom_left;
-	quad_vertices[1].y = current_trap->bottom;
-	quad_vertices[2].x = x_bottom_right;
-	quad_vertices[2].y = current_trap->bottom;
-	quad_vertices[3].x = x_top_right;
-	quad_vertices[3].y = current_trap->top;
-	status = _cairo_gl_tristrip_indices_add_quad (indices, quad_vertices);
+	status = _cairo_gl_tristrip_indices_add_quad (indices, quad);
 	if (unlikely (status))
 	    return status;
     }
