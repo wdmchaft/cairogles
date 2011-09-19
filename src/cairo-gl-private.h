@@ -188,6 +188,13 @@ typedef struct _cairo_gl_surface {
 
 	// Henry Song
 	GLuint rb; /* GL render buffer for depth and stencil buffer */
+	GLuint ms_rb;
+	GLuint ms_fb;
+	GLuint ms_stencil_rb;
+	GLint internal_format;
+	cairo_bool_t require_aa;
+	//int msaa_extension; // 0 no msaa, 1 - GL_ARB_framebuffer_object, 2 IMG_multisample_render_to_texture
+
 	GLint tex_img;
 	void *indices_buf;
 	cairo_bool_t external_tex;
@@ -201,6 +208,7 @@ typedef struct _cairo_gl_surface {
 	//cairo_surface_t *offscreen_surface;
 	//cairo_bool_t needs_super_sampling;
 	//cairo_bool_t paint_to_self;
+    cairo_bool_t multisample_resolved;
 
 	// mask surface
 	struct _cairo_gl_surface *mask_surface;
@@ -352,6 +360,8 @@ struct _cairo_gl_context {
     GLint max_textures;
     GLenum tex_target;
 	cairo_bool_t standard_npot;
+
+	GLint max_sample_size;
 
     const cairo_gl_shader_impl_t *shader_impl;
 
@@ -530,6 +540,7 @@ _cairo_gl_context_release (cairo_gl_context_t *ctx, cairo_status_t status)
     if (unlikely (err)) {
         cairo_status_t new_status;
 	new_status = _cairo_error (CAIRO_STATUS_DEVICE_ERROR);
+    //printf("gl error %x\n", err);
         if (status == CAIRO_STATUS_SUCCESS)
             status = new_status;
     }
@@ -541,6 +552,10 @@ _cairo_gl_context_release (cairo_gl_context_t *ctx, cairo_status_t status)
 
 cairo_private void
 _cairo_gl_context_set_destination (cairo_gl_context_t *ctx, cairo_gl_surface_t *surface);
+
+
+cairo_private void 
+_cairo_gl_context_blit_destination (cairo_gl_context_t *ctx, cairo_gl_surface_t *surface);
 
 cairo_private void
 _cairo_gl_context_activate (cairo_gl_context_t *ctx,
@@ -782,5 +797,7 @@ _cairo_gl_operand_get_extend (cairo_gl_operand_t *operand);
 
 slim_hidden_proto (cairo_gl_surface_create);
 slim_hidden_proto (cairo_gl_surface_create_for_texture);
+slim_hidden_proto (cairo_gl_surface_create_for_texture_with_internal_format);
+slim_hidden_proto (cairo_gl_surface_resolve);
 
 #endif /* CAIRO_GL_PRIVATE_H */

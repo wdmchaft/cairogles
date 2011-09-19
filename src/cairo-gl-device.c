@@ -45,6 +45,15 @@
 #include "cairo-error-private.h"
 #include "cairo-gl-private.h"
 
+#define SAMPLE_SIZE 4
+#include <sys/time.h>
+static long _get_tick()
+{
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    return now.tv_sec * 1000000 + now.tv_usec;
+}
+	
 static void
 _gl_lock (void *device)
 {
@@ -163,6 +172,7 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     cairo_gl_flavor_t gl_flavor = _cairo_gl_get_flavor ();
     int n;
 
+    ctx->bound_fb = 0;
     _cairo_device_init (&ctx->base, &_cairo_gl_device_backend);
 
     memset (ctx->glyph_cache, 0, sizeof (ctx->glyph_cache));
@@ -171,6 +181,29 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     /* Support only GL version >= 1.3 */
     if (gl_version < CAIRO_GL_VERSION_ENCODE (1, 3))
 	return _cairo_error (CAIRO_STATUS_DEVICE_ERROR);
+
+	/* check for multisampling */
+	if (gl_flavor == CAIRO_GL_FLAVOR_DESKTOP) {
+#if CAIRO_HAS_GL_SURFACE
+	if(_cairo_gl_has_extension ("GL_ARB_framebuffer_object")) {
+	    glGetIntegerv(GL_MAX_SAMPLES_EXT, &ctx->max_sample_size);
+	    //ctx->msaa_extension = 1;
+	}
+#endif
+	}
+	else if(gl_flavor == CAIRO_GL_FLAVOR_ES) {
+#if CAIRO_HAS_GLESV2_SURFACE
+	if(_cairo_gl_has_extension ("GL_IMG_multisampled_render_to_texture")) {
+	    glGetIntegerv(GL_MAX_SAMPLES_IMG, &ctx->max_sample_size);
+		//ctx->msaa-extension = 2;
+        //ctx->max_sample_size = 1;
+	}
+#endif
+	}
+	else {
+	    ctx->max_sample_size = 0;
+		//ctx->msaa_extension = 0;
+	}
 
     /* Check for required extensions */
     if (gl_flavor == CAIRO_GL_FLAVOR_DESKTOP) {
@@ -253,6 +286,7 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     for (n = 0; n < ARRAY_LENGTH (ctx->glyph_cache); n++)
 	_cairo_gl_glyph_cache_init (&ctx->glyph_cache[n]);
 
+    ctx->force_non_msaa = FALSE;
     return CAIRO_STATUS_SUCCESS;
 }
 
@@ -271,71 +305,12 @@ _cairo_gl_context_activate (cairo_gl_context_t *ctx,
     }
 }
 
-static void
-_cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
-                              cairo_gl_surface_t *surface)
+static cairo_status_t _cairo_gl_check_framebuffer_status(cairo_gl_dispatch_t *dispatch)
 {
-    GLenum status;
-    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-
-	if(surface->parent_surface != NULL)
-	{
-		if(likely(surface->parent_surface->fb))
-			return;
-	}
-	else if(likely(surface->fb))
-		return;
-
-    /* Create a framebuffer object wrapping the texture so that we can render
-     * to it.
-     */
-	//GLenum err;
-	if(surface->parent_surface != NULL)
-	{
-   	    dispatch->GenFramebuffers (1, &(surface->parent_surface->fb));
-	    dispatch->BindFramebuffer (GL_FRAMEBUFFER, surface->parent_surface->fb);
-	    dispatch->FramebufferTexture2D (GL_FRAMEBUFFER,
-				    GL_COLOR_ATTACHMENT0,
-				    ctx->tex_target,
-				    surface->tex,
-				    0);
-	}
-	else
-	{
-   		dispatch->GenFramebuffers (1, &(surface->fb));
-	    dispatch->BindFramebuffer (GL_FRAMEBUFFER, surface->fb);
-	    dispatch->FramebufferTexture2D (GL_FRAMEBUFFER,
-				    GL_COLOR_ATTACHMENT0,
-				    ctx->tex_target,
-				    surface->tex,
-				    0);
-	}
-#if CAIRO_HAS_GL_SURFACE
-    glDrawBuffer (GL_COLOR_ATTACHMENT0);
-    glReadBuffer (GL_COLOR_ATTACHMENT0);
-#endif
-
-	// Henry Song
-	// We need support of packed depth_stencil
-	dispatch->GenRenderbuffers(1, &surface->rb);
-	dispatch->BindRenderbuffer(GL_RENDERBUFFER, surface->rb);
-#if CAIRO_HAS_GL_SURFACE
-	//if(ctx->gl_flavor == CAIRO_GL_FLAVOR_DESKTOP)
-		dispatch->RenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_STENCIL,
-			surface->width, surface->height);
-#elif CAIRO_HAS_GLESV2_SURFACE
-	//else
-		dispatch->RenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES,
-			surface->width, surface->height);
-#endif
-	dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
-		GL_RENDERBUFFER, surface->rb);
-
-	dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-		GL_RENDERBUFFER, surface->rb);
-
-    status = dispatch->CheckFramebufferStatus (GL_FRAMEBUFFER);
-    if (status != GL_FRAMEBUFFER_COMPLETE) {
+	GLenum status;
+    cairo_status_t state = CAIRO_STATUS_SUCCESS;
+	status = dispatch->CheckFramebufferStatus (GL_FRAMEBUFFER);
+ 	if (status != GL_FRAMEBUFFER_COMPLETE) {
 	const char *str;
 	switch (status) {
 	//case GL_FRAMEBUFFER_UNDEFINED: str= "undefined"; break;
@@ -351,7 +326,193 @@ _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
 	fprintf (stderr,
 		 "destination is framebuffer incomplete: %s [%#x]\n",
 		 str, status);
+    return CAIRO_STATUS_NO_MEMORY;
+	}
+    return state;
+}
+
+#if CAIRO_HAS_GL_SURFACE
+static cairo_status_t
+_cairo_gl_ensure_framebuffer_for_gl (cairo_gl_context_t *ctx,
+                              cairo_gl_surface_t *surface)
+{
+    cairo_status_t status = CAIRO_STATUS_SUCCESS;
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+	int sample_size = ctx->max_sample_size > SAMPLE_SIZE ? SAMPLE_SIZE : ctx->max_sample_size;
+	
+    if(likely(surface->fb))
+		return status;
+
+    /* Create a framebuffer object wrapping the texture so that we can render
+     * to it.
+     */
+	//GLenum err;
+
+	// first create color renderbuffer
+    if(sample_size > 1) {
+        glEnable(GL_MULTISAMPLE);
+
+	    dispatch->GenFramebuffers (1, &(surface->ms_fb));
+	    dispatch->BindFramebuffer (GL_FRAMEBUFFER, surface->ms_fb);
+        dispatch->GenRenderbuffers(1, &(surface->ms_rb));
+	    dispatch->BindRenderbuffer(GL_RENDERBUFFER, surface->ms_rb);
+	    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 
+		                                 sample_size, 
+                                         surface->internal_format,
+		                                 surface->width, 
+                                         surface->height);
+	    dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+		                                  GL_COLOR_ATTACHMENT0, 
+                                          GL_RENDERBUFFER, 
+		                                  surface->ms_rb);
+	    // create stencil buffer
+        dispatch->GenRenderbuffers(1, &(surface->ms_stencil_rb));
+	    dispatch->BindRenderbuffer(GL_RENDERBUFFER, surface->ms_stencil_rb);
+	
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER,
+		                                 sample_size, 
+                                         GL_DEPTH24_STENCIL8,
+		                                 surface->width, 
+                                         surface->height);
+
+	    dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+		                                  GL_DEPTH_STENCIL_ATTACHMENT, 
+                                          GL_RENDERBUFFER, 
+                                          surface->ms_stencil_rb);
+	// check status
+	    status = _cairo_gl_check_framebuffer_status(dispatch);
+        if (unlikely (status))
+        return status;
     }
+	// create single sample buffer
+	dispatch->GenFramebuffers (1, &(surface->fb));
+    dispatch->BindFramebuffer(GL_FRAMEBUFFER, surface->fb);
+	
+    dispatch->FramebufferTexture2D (GL_FRAMEBUFFER,
+	                                GL_COLOR_ATTACHMENT0,
+	                                ctx->tex_target,
+	                                surface->tex,
+	                                0);
+    dispatch->GenRenderbuffers(1, &(surface->rb));
+	dispatch->BindRenderbuffer(GL_RENDERBUFFER, surface->rb);
+	glRenderbufferStorage(GL_RENDERBUFFER,
+		                  GL_DEPTH24_STENCIL8,
+		                  surface->width, 
+                          surface->height);
+	dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+		                              GL_DEPTH_ATTACHMENT, 
+                                      GL_RENDERBUFFER, 
+                                      surface->rb);
+	dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+		                              GL_STENCIL_ATTACHMENT, 
+                                      GL_RENDERBUFFER, surface->rb);
+	// check status
+	status = _cairo_gl_check_framebuffer_status(dispatch);
+    return status;
+}
+#endif
+
+#if CAIRO_HAS_GLESV2_SURFACE
+static cairo_status_t
+_cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
+                              cairo_gl_surface_t *surface)
+{
+    cairo_status_t status = CAIROSTATUS_SUCCESS;
+/*    PFNGLRENDERBUFFERSTORAGEMULTISAMPLEIMGPROC
+        pglRenderbufferStorageMultisampleIMG;
+    PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEIMGPROC 
+        pglFramebufferTexture2DMultisampleIMG;
+*/    
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+	int sample_size = ctx->max_sample_size > SAMPLE_SIZE ? SAMPLE_SIZE : ctx->max_sample_size;
+	
+    if(likely(surface->fb))
+		return status;
+
+    /* Create a framebuffer object wrapping the texture so that we can render
+     * to it.
+     */
+	//GLenum err;
+
+	// first create color renderbuffer
+/*    if(sample_size > 1) {
+	    dispatch->GenFramebuffers (1, &(surface->fb));
+	    dispatch->BindFramebuffer (GL_FRAMEBUFFER, surface->fb);
+        pglFramebufferTexture2DMultisampleIMG = 
+            (PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEIMGPROC)
+            eglGetProcAddress("glFramebufferTexture2DMultisampleIMG");
+        if (!pglFramebufferTexture2DMultisampleIMG)
+            ctx->force_non_msaa = TRUE;
+        else
+	        pglFramebufferTexture2DMultisampleIMG(GL_FRAMEBUFFER,
+		                                          GL_COLOR_ATTACHMENT0, 
+                                                  ctx->tex_target, 
+		                                          surface->tex, 
+                                                  0, 
+                                                  sample_size);
+        pglRenderbufferStorageMultisampleIMG =
+            (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEIMGPROC)
+            eglGetProcAddress("glRenderbufferStorageMultisampleIMG");
+        if(!pglRenderbufferStorageMultisampleIMG)
+            ctx->force_non_msaa = TRUE;
+        else {
+            dispatch->GenRenderbuffers(1, &(surface->rb));
+	        dispatch->BindRenderbuffer(GL_RENDERBUFFER, 
+                                       surface->rb);
+	        pglRenderbufferStorageMultisampleIMG(GL_RENDERBUFFER,
+		                                         sample_size,
+		                                         GL_DEPTH24_STENCIL8_OES, 
+		                                         surface->width, 
+                                                 surface->height);
+	        dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+		                                      GL_DEPTH_ATTACHMENT, 
+                                              GL_RENDERBUFFER, 
+                                              surface->rb);
+	        dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+		                                      GL_STENCIL_ATTACHMENT, 
+                                              GL_RENDERBUFFER, 
+                                              surface->rb);
+        }
+    }
+    else */ {
+	// create single sample buffer
+	    dispatch->GenFramebuffers (1, &(surface->fb));
+        dispatch->BindFramebuffer(GL_FRAMEBUFFER, surface->fb);
+	
+        dispatch->FramebufferTexture2D (GL_FRAMEBUFFER,
+	                                    GL_COLOR_ATTACHMENT0,
+	                                    ctx->tex_target,
+	                                    surface->tex,
+	                                    0);
+        dispatch->GenRenderbuffers(1, &(surface->rb));
+	    dispatch->BindRenderbuffer(GL_RENDERBUFFER, surface->rb);
+	    glRenderbufferStorage(GL_RENDERBUFFER,
+		                      GL_DEPTH24_STENCIL8_OES,
+		                      surface->width, 
+                           surface->height);
+	    dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+		                                  GL_DEPTH_ATTACHMENT, 
+                                          GL_RENDERBUFFER, 
+                                          surface->rb);
+	    dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+		                                  GL_STENCIL_ATTACHMENT, 
+                                          GL_RENDERBUFFER, surface->rb);
+    }
+	// check status
+	status = _cairo_gl_check_framebuffer_status(dispatch);
+    return status;
+}
+#endif
+
+cairo_status_t
+_cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
+                              cairo_gl_surface_t *surface)
+{
+#if CAIRO_HAS_GLESV2_SURFACE
+    return _cairo_gl_ensure_framebuffer_for_gles (ctx, surface);
+#elif CAIRO_HAS_GL_SURFACE
+    return _cairo_gl_ensure_framebuffer_for_gl (ctx, surface);
+#endif
 }
 
 /*
@@ -394,58 +555,93 @@ _gl_identity_ortho (GLfloat *m,
 #undef M
 }
 
+#if CAIRO_HAS_GL_SURFACE
 void
-_cairo_gl_context_set_destination (cairo_gl_context_t *ctx,
+_cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
                                    cairo_gl_surface_t *surface)
 {
-    //if (ctx->current_target == surface && ! surface->needs_update)
-    //    return;
-
-    //_cairo_gl_composite_flush (ctx);
+    int sample_size = ctx->max_sample_size > SAMPLE_SIZE ? SAMPLE_SIZE : ctx->max_sample_size;
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-
     ctx->current_target = surface;
     surface->needs_update = FALSE;
 
-    if (_cairo_gl_surface_is_texture (surface)) 
-	{
-        _cairo_gl_ensure_framebuffer (ctx, surface);
-		if(surface->parent_surface != NULL)
-		{
-			if(surface->bound_fbo == FALSE)
-			{
-        		ctx->dispatch.BindFramebuffer (GL_FRAMEBUFFER, surface->parent_surface->fb);
-			}
-		}
-		else
-		{
-			if(surface->mask_surface == NULL || surface->mask_surface->bound_fbo == FALSE)
-        		ctx->dispatch.BindFramebuffer (GL_FRAMEBUFFER, surface->fb);
-		}
-    	dispatch->FramebufferTexture2D (GL_FRAMEBUFFER,
-				    GL_COLOR_ATTACHMENT0,
-				    ctx->tex_target,
-				    surface->tex,
-				    0);
+    cairo_bool_t bounded = FALSE;
+    //surface->require_aa = FALSE;
+    if (ctx->force_non_msaa == TRUE)
+        sample_size = 1;
 
-#if CAIRO_HAS_GL_SURFACE
-    	glDrawBuffer (GL_COLOR_ATTACHMENT0);
-    	glReadBuffer (GL_COLOR_ATTACHMENT0);
-#endif
-		ctx->dispatch.BindRenderbuffer (GL_RENDERBUFFER, surface->rb);
-		ctx->dispatch.FramebufferRenderbuffer(GL_FRAMEBUFFER, 
-			GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, surface->rb);
-		ctx->dispatch.FramebufferRenderbuffer(GL_FRAMEBUFFER, 
-			GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, surface->rb);
+    if (_cairo_gl_surface_is_texture (surface)) {
+        // we ensure framebuffer and renderbuffer are created
+        _cairo_gl_ensure_framebuffer (ctx, surface);
+        if(surface->require_aa == TRUE && sample_size > 1)
+            glEnable(GL_MULTISAMPLE);
+        else
+            glDisable(GL_MULTISAMPLE);
+        
+        if(surface->require_aa && sample_size > 1) {
+            // set up draw buffer
+            if(surface->multisample_resolved == TRUE) {
+			    dispatch->BindFramebuffer (GL_READ_FRAMEBUFFER, 
+                                       surface->fb);
+			    dispatch->BindFramebuffer (GL_DRAW_FRAMEBUFFER, 
+                                           surface->ms_fb);
+			    glBlitFramebuffer(0, 0, surface->width, surface->height,
+				                  0, 0, surface->width, surface->height, 
+                                  GL_COLOR_BUFFER_BIT, GL_NEAREST);
+         
+                surface->multisample_resolved = FALSE;
+                ctx->bound_fb = surface->ms_fb;
+            }
+            else {
+                if(ctx->bound_fb != surface->ms_fb)
+                {
+                    //printf("rebind multisample framebuffer 1\n");
+			        dispatch->BindFramebuffer (GL_FRAMEBUFFER, 
+                                               surface->ms_fb);
+                }
+                else {
+                    bounded = TRUE;
+                    //printf("bound multisample framebuffer 1\n");
+                }
+                surface->multisample_resolved = FALSE;
+                ctx->bound_fb = surface->ms_fb;
+            
+            }
+		}
+		else {
+            if(surface->multisample_resolved == FALSE)
+                // we need to blit multisample renderbuffer to texture
+                if(sample_size > 1)
+                    _cairo_gl_context_blit_destination(ctx, surface);
+			// we are using either non AA or multisampling is not there
+            if(ctx->bound_fb != surface->fb)
+                dispatch->BindFramebuffer(GL_FRAMEBUFFER, surface->fb);
+            else
+                bounded = TRUE;
+            surface->multisample_resolved = TRUE;
+            ctx->bound_fb = surface->fb;
+		}
+        if(bounded == FALSE) {
+		    glDrawBuffer (GL_COLOR_ATTACHMENT0);
+		    glReadBuffer (GL_COLOR_ATTACHMENT0);
+        }
     } else {
-		//printf("*********** set destination make current\n");
         ctx->make_current (ctx, surface);
-        ctx->dispatch.BindFramebuffer (GL_FRAMEBUFFER, 0);
-		ctx->dispatch.BindRenderbuffer (GL_RENDERBUFFER, 0);
-#if CAIRO_HAS_GL_SURFACE
-        glDrawBuffer (GL_BACK_LEFT);
-        glReadBuffer (GL_BACK_LEFT);
-#endif
+        surface->multisample_resolved = TRUE;
+		if(surface->require_aa)
+			glEnable(GL_MULTISAMPLE);
+		else
+			glDisable(GL_MULTISAMPLE);
+        
+        if(ctx->bound_fb != 0)
+            ctx->dispatch.BindFramebuffer (GL_FRAMEBUFFER, 0);
+        else
+            bounded = TRUE;
+        ctx->bound_fb = 0;
+        if(bounded == FALSE) {
+            glDrawBuffer (GL_BACK_LEFT);
+            glReadBuffer (GL_BACK_LEFT);
+        }
     }
 
     glViewport (0, 0, surface->width, surface->height);
@@ -457,3 +653,90 @@ _cairo_gl_context_set_destination (cairo_gl_context_t *ctx,
 	_gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, surface->height, 0);
 }
+#endif
+
+#if CAIRO_HAS_GLESV2_SURFACE
+void
+_cairo_gl_context_set_destination_for_gles (cairo_gl_context_t *ctx,
+                                   cairo_gl_surface_t *surface)
+{
+    int sample_size = ctx->max_sample_size > SAMPLE_SIZE ? SAMPLE_SIZE : ctx->max_sample_size;
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    ctx->current_target = surface;
+    surface->needs_update = FALSE;
+    cairo_bool_t bounded = FALSE;
+
+    if (_cairo_gl_surface_is_texture (surface)) {
+        // we ensure framebuffer and renderbuffer are created
+        _cairo_gl_ensure_framebuffer (ctx, surface);
+        surface->multisample_resolved = TRUE;
+        if(ctx->bound_fb != surface->fb)
+            dispatch->BindFramebuffer (GL_FRAMEBUFFER,
+                                       surface->fb);
+           
+        ctx->bound_fb = surface->fb;
+	}
+    else {
+        ctx->make_current (ctx, surface);
+        surface->multisample_resolved = TRUE;
+        
+        if(ctx->bound_fb != 0)
+            ctx->dispatch.BindFramebuffer (GL_FRAMEBUFFER, 0);
+        else
+            bounded = TRUE;
+        ctx->bound_fb = 0;
+    }
+
+    glViewport (0, 0, surface->width, surface->height);
+
+    if (_cairo_gl_surface_is_texture (surface))
+	_gl_identity_ortho (ctx->modelviewprojection_matrix,
+			    0, surface->width, 0, surface->height);
+    else
+	_gl_identity_ortho (ctx->modelviewprojection_matrix,
+			    0, surface->width, surface->height, 0);
+}
+#endif
+
+void
+_cairo_gl_context_set_destination (cairo_gl_context_t *ctx,
+                                   cairo_gl_surface_t *surface)
+{
+#if CAIRO_HAS_GL_SURFACE
+    _cairo_gl_context_set_destination_for_gl (ctx, surface);
+#elif CAIRO_HAS_GLESV2_SURFACE
+    _cairo_gl_context_set_destination_for_gles (ctx, surface);
+#endif
+}
+
+
+void 
+_cairo_gl_context_blit_destination (cairo_gl_context_t *ctx,
+                                   cairo_gl_surface_t *surface)
+{
+#if CAIRO_HAS_GL_SURFACE
+   	cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+	int sample_size = ctx->max_sample_size > SAMPLE_SIZE ? 
+                                             SAMPLE_SIZE : 
+                                             ctx->max_sample_size;
+    
+    if (_cairo_gl_surface_is_texture (surface)) {
+		if(sample_size > 1) {
+		    // we ensure framebuffer and renderbuffer are created
+	       	_cairo_gl_ensure_framebuffer (ctx, surface);
+				dispatch->BindFramebuffer (GL_DRAW_FRAMEBUFFER, 
+                                           surface->fb);
+			dispatch->BindFramebuffer (GL_READ_FRAMEBUFFER, surface->ms_fb);
+			glBlitFramebuffer(0, 0, surface->width, surface->height,
+				              0, 0, surface->width, surface->height, 
+                              GL_COLOR_BUFFER_BIT, GL_NEAREST);
+            glBindFramebuffer (GL_FRAMEBUFFER, surface->fb);
+            ctx->bound_fb = surface->fb;
+		}
+	}
+#endif
+    surface->multisample_resolved = TRUE;
+	surface->require_aa = 0;
+}
+	
+

@@ -394,7 +394,6 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		
 		*mask = dst->mask_surface;
 		dst = dst->mask_surface;
-		dst->bound_fbo = TRUE;
 	}
 
 	
@@ -430,7 +429,10 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		_cairo_gl_composite_fini(&setup);
 		return status;
 	}
-	
+
+    // we alway paint to texture, so force blit to texture
+    if(dst->multisample_resolved == FALSE)
+        _cairo_gl_context_blit_destination(ctx, dst);	
 	_cairo_gl_context_set_destination(ctx, dst);
 	setup.ctx = ctx;
 	// clip
@@ -768,6 +770,8 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 			}
 			*has_component_alpha |= cache->pattern.base.has_component_alpha;
 			// we need to set destination back
+            if(dst->multisample_resolved == FALSE)
+                _cairo_gl_context_blit_destination(ctx, dst);
 			_cairo_gl_context_set_destination(ctx, dst);
 
 			last_format = max_glyph->surface->format;
@@ -1094,7 +1098,6 @@ _cairo_gl_surface_show_glyphs_via_mask (cairo_gl_surface_t	*dst,
 	status = _cairo_surface_paint (&dst->base, op,
 		                      &(mask_pattern.base), clip);
 	_cairo_pattern_fini (&mask_pattern.base);
-	mask->bound_fbo = FALSE;
 	//long then = _get_tick();
 	//printf("via mask takes %ld usec\n", then - now);
     } else {
@@ -1138,6 +1141,8 @@ _cairo_gl_surface_show_glyphs (void			*abstract_dst,
 
     if (! _cairo_gl_operator_is_supported (op))
 	return UNSUPPORTED ("unsupported operator");
+
+	dst->require_aa = 0;
     
 	/* XXX we don't need ownership of the font as we use a global
      * glyph cache -- but we do need scaled_glyph eviction notification. :-(

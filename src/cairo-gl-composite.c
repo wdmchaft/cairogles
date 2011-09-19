@@ -1458,7 +1458,6 @@ _cairo_gl_composite_begin (cairo_gl_composite_t *setup,
 FAIL:
     if (unlikely (status))
         status = _cairo_gl_context_release (ctx, status);
-
     return status;
 }
 

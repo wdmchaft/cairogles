@@ -97,6 +97,68 @@ _cairo_gl_surface_max_size(cairo_gl_surface_t *surface)
 	return ctx->max_texture_size;
 }
 
+// true means inner is within outer
+static cairo_bool_t 
+_cairo_gl_compare_region (int inner_x, int inner_y, 
+                        int inner_width, int inner_height,  
+                        int outer_x, int outer_y,
+                        int outer_width, int outer_height)
+{
+    int x1, y1, x2, y2;
+
+    if(inner_x < outer_x || inner_y < outer_y)
+        return FALSE;
+    x1 = inner_x + inner_width;
+    y1 = inner_y + inner_height;
+    x2 = outer_x + outer_width;
+    y2 = outer_y + outer_height;
+    if(x1 > x2 || y1 > y2)
+        return FALSE;
+    return TRUE;
+}
+
+// true means we need clip
+static cairo_bool_t 
+_cairo_gl_extents_within_clip (cairo_composite_rectangles_t extents,
+                               cairo_bool_t bounded,
+                               cairo_clip_t *clip)
+{
+    int x1, y1, w1, h1;
+    int x2, y2, w2, h2;
+    int i;
+
+    if(clip == NULL || (clip->path == NULL && clip->num_boxes == 0))
+        return FALSE;
+    else if(clip->path != NULL)
+        return TRUE;
+    
+    if(bounded == FALSE) {
+        x1 = extents.unbounded.x;
+        y1 = extents.unbounded.y;
+        w1 = extents.unbounded.width;
+        w1 = extents.unbounded.height;
+    }
+    else {
+        x1 = extents.bounded.x;
+        y1 = extents.bounded.y;
+        w1 = extents.bounded.width;
+        h1 = extents.bounded.height;
+    }
+
+    for(i = 0; i < clip->num_boxes; i++)
+    {
+        x2 = clip->boxes[i].p1.x;
+        y2 = clip->boxes[i].p1.y;
+        w2 = clip->boxes[i].p2.x - x2;
+        h2 = clip->boxes[i].p2.y - y2;
+
+        if (!_cairo_gl_compare_region (x1, y1, w1, h1, 
+                                      x2, y2, w2, h2))
+            return TRUE;
+    }
+    return FALSE;
+}        
+
 static cairo_bool_t
 _cairo_gl_support_standard_npot(cairo_gl_surface_t *surface)
 {
@@ -718,6 +780,13 @@ _cairo_gl_surface_init (cairo_device_t *device,
 	surface->height = surface->orig_height = height;
 	surface->scale_width = 1.0;
 	surface->scale_height = 1.0;
+	surface->fb = 0;
+	surface->rb = 0;
+	surface->ms_rb = 0;
+	surface->ms_stencil_rb = 0;
+	surface->ms_fb = 0;
+	surface->require_aa = FALSE;
+    surface->multisample_resolved = TRUE;
     status = _cairo_gl_context_acquire (device, &ctx);
     if (unlikely (status))
 	return;
@@ -823,6 +892,7 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 	surface->bound_fbo = FALSE;
     surface->tex_format = format;
     
+	surface->internal_format = format;
     return &surface->base;
 }
 
@@ -838,7 +908,12 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
     if (unlikely (status))
 	return status;
 
+    if(surface->multisample_resolved == FALSE)
+        surface->require_aa = TRUE;
+    else
+        surface->require_aa = FALSE;
     _cairo_gl_context_set_destination (ctx, surface);
+
     if (surface->base.content & CAIRO_CONTENT_COLOR) {
         r = color->red   * color->alpha;
         g = color->green * color->alpha;
@@ -976,10 +1051,57 @@ cairo_gl_surface_create_for_texture (cairo_device_t	*abstract_device,
 	surface->mask_surface = NULL;
 	surface->parent_surface = NULL;
 	surface->bound_fbo = FALSE;
+
+    // internal format default to GL_RGBA
+    surface->internal_format = GL_RGBA;
+    surface->tex_format = GL_RGBA;
     return &surface->base;
 }
 slim_hidden_def (cairo_gl_surface_create_for_texture);
 
+cairo_surface_t *
+cairo_gl_surface_create_for_texture_with_internal_format(cairo_device_t *abstract_device,
+	cairo_content_t content,
+	unsigned int tex,
+	int internal_format,
+	int width, int height)
+{
+	cairo_status_t status;
+	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)
+		cairo_gl_surface_create_for_texture(abstract_device, content,tex, 
+			width, height);
+
+	status = cairo_surface_status(&surface->base);
+	if(unlikely(status))
+		return _cairo_surface_create_in_error (status);
+	surface->internal_format = internal_format;
+	return &surface->base;
+}
+slim_hidden_def (cairo_gl_surface_create_for_texture_with_internal_format);
+
+void
+cairo_gl_surface_resolve(cairo_surface_t *surface)
+{
+    cairo_gl_surface_t *gl_surface = NULL;
+    cairo_status_t status;
+    cairo_gl_context_t *ctx;
+
+    if (surface == NULL || surface->type != CAIRO_SURFACE_TYPE_GL)
+        return;
+    
+    gl_surface = (cairo_gl_surface_t *)surface;
+    if(gl_surface->multisample_resolved == TRUE)
+        return;
+    status = _cairo_gl_context_acquire (gl_surface->base.device, &ctx);
+    if (unlikely (status))
+        return;
+    // blit multisample renderbuffer to texture
+    _cairo_gl_context_blit_destination(ctx, gl_surface);
+    status = _cairo_gl_context_release (ctx, status);
+    if (status)
+        status = _cairo_surface_set_error (surface, status);        
+} 
+slim_hidden_def (cairo_gl_surface_resolve);
 
 void
 cairo_gl_surface_set_size (cairo_surface_t *abstract_surface,
@@ -1058,13 +1180,13 @@ cairo_gl_surface_swapbuffers (cairo_surface_t *abstract_surface)
         status = _cairo_gl_context_acquire (surface->base.device, &ctx);
         if (unlikely (status))
             return;
-
-		_cairo_gl_context_set_destination(ctx, surface);
+        surface->require_aa = FALSE;
+        _cairo_gl_context_set_destination(ctx, surface);
 
         cairo_surface_flush (abstract_surface);
 
 	ctx->swap_buffers (ctx, surface);
-
+  
         status = _cairo_gl_context_release (ctx, status);
         if (status)
             status = _cairo_surface_set_error (abstract_surface, status);         
@@ -1150,7 +1272,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 				if(clone == NULL)
 					return clone;
 
-				if(clone != src)
+				if(&clone->base != src)
 					_cairo_surface_attach_snapshot(src, &clone->base, _cairo_gl_surface_remove_from_cache);
 				return (cairo_gl_surface_t *)cairo_surface_reference(clone);
 			}
@@ -1561,6 +1683,11 @@ _cairo_gl_surface_get_image (cairo_gl_surface_t      *surface,
      * fall back instead.
      */
     _cairo_gl_composite_flush (ctx);
+   
+    // force blit to texture
+    if(surface->multisample_resolved == FALSE)
+        _cairo_gl_context_blit_destination(ctx, surface);
+    surface->require_aa = FALSE;
     _cairo_gl_context_set_destination (ctx, surface);
 
     glPixelStorei (GL_PACK_ALIGNMENT, 4);
@@ -1583,7 +1710,7 @@ _cairo_gl_surface_get_image (cairo_gl_surface_t      *surface,
     }
 
 	// we need to check whether we need to enlarge image
-	if(surface->scale_width != 1.0 || surface->scale_height != 1.0)
+    if(surface->scale_width != 1.0 || surface->scale_height != 1.0)
 	{
 		enlarge_image = (cairo_image_surface_t *)
 			cairo_surface_create_similar(&image->base,
@@ -1591,6 +1718,7 @@ _cairo_gl_surface_get_image (cairo_gl_surface_t      *surface,
 				surface->orig_width, surface->orig_height);
 		cr = cairo_create(&enlarge_image->base);
 		cairo_scale(cr, 1.0 / surface->scale_width, 1.0 / surface->scale_height);
+    
 		cairo_set_source_surface(cr, &image->base, 0, 0);
 		cairo_paint(cr);
 		cairo_destroy(cr);
@@ -1643,6 +1771,21 @@ _cairo_gl_surface_finish (void *abstract_surface)
 		ctx->dispatch.DeleteRenderbuffers(1, &surface->rb);
 		surface->rb = 0;
 	}
+	if(surface->ms_rb)
+	{
+		ctx->dispatch.DeleteRenderbuffers(1, &surface->ms_rb);
+		surface->ms_rb = 0;
+	}
+	if(surface->ms_stencil_rb)
+	{
+		ctx->dispatch.DeleteRenderbuffers(1, &surface->ms_stencil_rb);
+		surface->ms_stencil_rb = 0;
+	}
+	if(surface->ms_fb)
+	{
+		ctx->dispatch.DeleteFramebuffers(1, &surface->ms_fb);
+		surface->ms_fb = 0;
+	}
     if (surface->owns_tex)
 	{
 		glDeleteTextures (1, &surface->tex);
@@ -1658,12 +1801,14 @@ _cairo_gl_surface_finish (void *abstract_surface)
 	if(surface->mask_surface != NULL)
 		cairo_surface_destroy(&(surface->mask_surface->base));
 	surface->parent_surface = NULL;
-	surface->bound_fbo = FALSE;
 		
 	surface->needs_new_data_surface = FALSE;
     _cairo_gl_tristrip_indices_destroy(surface->clip_indices);
     free(surface->clip_indices);
     surface->clip = NULL;
+    surface->require_aa = FALSE;
+    surface->multisample_resolved = TRUE;
+
     return _cairo_gl_context_release (ctx, status);
 }
 
@@ -1906,6 +2051,11 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
     if (unlikely (status))
         goto CLEANUP;
 	setup.ctx = ctx;
+    
+    // force blit to destination
+    if(dst->multisample_resolved == FALSE)
+        _cairo_gl_context_blit_destination(ctx, dst);
+    dst->require_aa = FALSE;
 	_cairo_gl_context_set_destination(ctx, dst);
 
 	setup.src.type = CAIRO_GL_OPERAND_CONSTANT;
@@ -2132,6 +2282,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 		clone = _cairo_gl_generate_clone(surface, src, extend);
 		if (clone == NULL)
 			return UNSUPPORTED("create_clone failed");
+        // for source to blit to texture
 	}
 
 	setup = (cairo_gl_composite_t *)malloc(sizeof(cairo_gl_composite_t));
@@ -2184,13 +2335,40 @@ _cairo_gl_surface_mask (void *abstract_surface,
 		goto FINISH;
 
 	setup->ctx = ctx;
+
+    // for blit for clone and mask_clone    
+    if(clone != NULL && clone->multisample_resolved == FALSE)
+        _cairo_gl_context_blit_destination(ctx, clone);
+    if(mask_clone != NULL && mask_clone->multisample_resolved == FALSE)
+        _cairo_gl_context_blit_destination(ctx, mask_clone);
+   
+    if(extents.is_bounded == 0)
+        bounded = FALSE;
+    else
+        bounded = TRUE; 
+    if(!_cairo_gl_extents_within_clip (extents, bounded, clip_pt))
+        clip_pt = NULL;
+
+    if(clip_pt != NULL && clip_pt->path != NULL) {
+        if(clip_pt->path->antialias != CAIRO_ANTIALIAS_NONE)
+            surface->require_aa = TRUE;
+        else
+            surface->require_aa = FALSE;
+    }
+
+	//surface->require_aa = FALSE;
+	// we set require_aa to false if multisample is resolved
+	if(surface->multisample_resolved == TRUE)
+		surface->require_aa = FALSE;
+	else
+		surface->require_aa = TRUE;
+
 	_cairo_gl_context_set_destination(ctx, surface);
 
     if (clip != NULL) {
 	status = _cairo_gl_clip(clip, setup, ctx, surface);
 	if (unlikely(status))
 		goto FINISH;
-    }
 
 	if (mask_clone != NULL) {
 		status = _cairo_gl_composite_set_mask(setup, mask, 
@@ -2238,9 +2416,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 		status = CAIRO_INT_STATUS_UNSUPPORTED;
 		goto FINISH;
 	}
-
-	if (unlikely (status))
-		goto FINISH;
 
 	// we have the image uploaded, we need to setup vertices
 	vertices[0] = extents.bounded.x;
@@ -2326,6 +2501,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 FINISH:
     _cairo_gl_composite_fini(setup);
 
+    surface->require_aa = FALSE;
     free(setup);
     if (clone != NULL)
 	cairo_surface_destroy(&clone->base);
@@ -2370,7 +2546,6 @@ _cairo_gl_surface_prepare_mask_surface (cairo_gl_surface_t *surface)
 
     surface->mask_surface = (cairo_gl_surface_t *) mask_surface;
     surface->mask_surface->parent_surface = surface;
-    surface->mask_surface->bound_fbo = TRUE;
     return _cairo_gl_surface_clear (surface->mask_surface, CAIRO_COLOR_TRANSPARENT);
 }
 
@@ -2382,14 +2557,12 @@ _cairo_gl_surface_paint_back_mask_surface (cairo_gl_surface_t	*surface,
     cairo_status_t status = CAIRO_STATUS_SUCCESS;
     cairo_surface_pattern_t mask_pattern;
 
-    surface->mask_surface->bound_fbo = TRUE;
     surface->mask_surface->base.is_clear = FALSE;
     _cairo_pattern_init_for_surface (&mask_pattern,
 				     (cairo_surface_t*) surface->mask_surface);
     mask_pattern.base.has_component_alpha = FALSE;
 
     status = _cairo_surface_paint (&surface->base, op, &(mask_pattern.base), clip);
-    surface->mask_surface->bound_fbo = FALSE;
 
     _cairo_pattern_fini (&mask_pattern.base);
     return status;
@@ -2431,14 +2604,11 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     int v;
     cairo_bool_t has_alpha = TRUE;
     
-	//cairo_rectangle_int_t *clip_extent, stroke_extent;
+    int extend = 0;
+    cairo_clip_t *clip_pt = clip;
 
-	if(antialias != CAIRO_ANTIALIAS_NONE || clip != NULL)
-	{
-		//printf("stroke set needs super sampling\n");
-		//surface->needs_super_sampling = TRUE;
-	}
-	
+	//cairo_rectangle_int_t *clip_extent, stroke_extent;
+    
     status = _cairo_composite_rectangles_init_for_stroke (&extents,
 							  surface->width,
 							  surface->height,
@@ -2466,12 +2636,16 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	    return status;
 	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
     }
-
+   
+    // for stroke, it always bounded 
+    if(!_cairo_gl_extents_within_clip (extents, TRUE, clip_pt))
+        clip_pt = NULL;
+    
 	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 	if(unlikely(status))
 		return status;
-
-	// upload image
+	
+    // upload image
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
 	{
 		cairo_surface_t *src = ((cairo_surface_pattern_t *)source)->surface;
@@ -2502,7 +2676,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	}
 
 	setup->source = (cairo_pattern_t*)source;
-
 	if(clone == NULL)
 		status = _cairo_gl_composite_set_source(setup,
 			source, extents.bounded.x, extents.bounded.y,
@@ -2532,10 +2705,21 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 
 
 	setup->ctx = ctx;
-	_cairo_gl_context_set_destination(ctx, surface);
+    
+    // force clone to blit back to texture
+    if(clone != NULL && clone->multisample_resolved == FALSE)
+        _cairo_gl_context_blit_destination(ctx, clone);
 
-    if (clip != NULL) {
-	status = _cairo_gl_clip(clip, setup, ctx, surface);
+    if(antialias != CAIRO_ANTIALIAS_NONE || 
+      (clip_pt != NULL && clip_pt->path != NULL && 
+       clip_pt->path->antialias != CAIRO_ANTIALIAS_NONE))
+        surface->require_aa = TRUE;
+    else
+        surface->require_aa = FALSE;
+	_cairo_gl_context_set_destination(ctx, surface);
+    
+    if (clip_pt != NULL) {
+	status = _cairo_gl_clip(clip_pt, setup, ctx, surface);
 	if (unlikely(status)) {
 	    if (clone != NULL)
 		cairo_surface_destroy(&clone->base);
@@ -2544,6 +2728,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	    free(setup);
 	    glDisable(GL_STENCIL_TEST);
 	    glDepthMask(GL_FALSE);
+            surface->require_aa = FALSE;
 	    status = _cairo_gl_context_release(ctx, status);
 	    return status;
 	}
@@ -2579,12 +2764,11 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 						    _cairo_path_fixed_stroke_to_shaper_add_quad,
 						    &indices);
 
-
-	glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &v);
+	//glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &v);
 	// fill it, we fix t later
 	status = _cairo_gl_fill(&indices);
 	
-	if(clone != NULL)
+    if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
 	_cairo_gl_tristrip_indices_destroy (&indices);
 	_cairo_gl_composite_fini(setup);
@@ -2592,6 +2776,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	glDisable(GL_STENCIL_TEST);
 	glDisable(GL_DEPTH_TEST);
 	glDepthMask(GL_FALSE);
+    surface->require_aa = FALSE;
 	status = _cairo_gl_context_release(ctx, status);
 	surface->needs_new_data_surface = TRUE;
     return status;
@@ -2617,6 +2802,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     cairo_traps_t traps;
     cairo_gl_tristrip_indices_t indices;
 
+    cairo_clip_t *clip_pt = clip;  
 
     // When clip and path do not intersect,, return without actually drawing.
     status = _cairo_composite_rectangles_init_for_fill (&extents,
@@ -2630,7 +2816,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     if (extents.is_bounded == 0) {
 	if (unlikely ((status = _cairo_gl_surface_prepare_mask_surface (surface))))
 	    return status;
-
 	status = _cairo_gl_surface_fill (surface->mask_surface,
 					 CAIRO_OPERATOR_OVER,
 					 source,
@@ -2643,6 +2828,10 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	    return status;
 	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
     }
+    
+    // for fill, it is always bounded
+    if(!_cairo_gl_extents_within_clip (extents, TRUE, clip_pt))
+        clip_pt = NULL;
 
 	// upload image
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
@@ -2690,12 +2879,23 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
 	// let's acquire context, set surface
 	setup->ctx = ctx;
+    // force clone to blit back to texture
+    if(clone != NULL && clone->multisample_resolved == FALSE)
+        _cairo_gl_context_blit_destination(ctx, clone);
+
+    if(antialias != CAIRO_ANTIALIAS_NONE || 
+      (clip_pt != NULL && clip_pt->path != NULL && 
+       clip_pt->path->antialias != CAIRO_ANTIALIAS_NONE))
+        surface->require_aa = TRUE;
+    else
+        surface->require_aa = FALSE;
+    //surface->require_aa = FALSE;
 	_cairo_gl_context_set_destination(ctx, surface);
 	// remember, we have set the current context, we need to release it
 	// when done
 
-    if (clip != NULL) {
-	status = _cairo_gl_clip(clip, setup, ctx, surface);
+    if (clip_pt != NULL) {
+	status = _cairo_gl_clip(clip_pt, setup, ctx, surface);
 	if (unlikely(status))
 	    goto CLEANUP_STENCIL_AND_DEPTH_TESTING;
     }
@@ -2739,6 +2939,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
     status = _cairo_gl_fill(&indices);
     surface->needs_new_data_surface = TRUE;
+    surface->require_aa = FALSE;
 
 CLEANUP_TRAPS_AND_GL:
     _cairo_traps_fini(&traps);
@@ -2758,6 +2959,7 @@ CLEANUP_AND_RELEASE_DEVICE:
 CLEANUP:
     if (clone != NULL)
 	cairo_surface_destroy (&clone->base);
+    surface->require_aa = FALSE;
     return status;
 }
 
@@ -2830,6 +3032,11 @@ _cairo_gl_surface_mark_dirty_rectangle(cairo_surface_t *abstract_surface,
     if (unlikely (status))
 		return status;
     _cairo_gl_composite_flush (ctx);
+
+    // force surface to blit to texture
+    if(surface->multisample_resolved == FALSE)
+        _cairo_gl_context_blit_destination(ctx, surface);
+    surface->require_aa = FALSE;
     _cairo_gl_context_set_destination (ctx, surface);
 	status = _cairo_gl_surface_draw_image(surface, (cairo_image_surface_t *)surface->data_surface,
 		x, y, width, height, x, y, FALSE);

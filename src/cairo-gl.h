@@ -83,6 +83,13 @@ cairo_gl_surface_create_for_texture (cairo_device_t *abstract_device,
 				     cairo_content_t content,
 				     unsigned int tex,
                                      int width, int height);
+cairo_public cairo_surface_t *
+cairo_gl_surface_create_for_texture_with_internal_format(cairo_device_t *abstract_device,
+	cairo_content_t content,
+	unsigned int tex,
+	int internal_format,
+	int width, int height);
+
 cairo_public unsigned char *
 cairo_gl_surface_get_data (cairo_surface_t *surface);
 
@@ -112,6 +119,9 @@ cairo_gl_surface_make_texture_external(cairo_surface_t *abstract_surface);
 
 cairo_public void
 cairo_gl_surface_swapbuffers (cairo_surface_t *surface);
+
+cairo_public void
+cairo_gl_surface_resolve (cairo_surface_t *surface);
 
 #if 0
 cairo_public void
