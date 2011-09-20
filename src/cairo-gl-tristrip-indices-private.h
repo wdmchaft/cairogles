@@ -34,18 +34,9 @@
  *	Martin Robinson <mrobinson@igalia.com>
  */
 
+#include <cairo-gl-private.h>
+
 #define MAX_INDEX 10000
-typedef struct _cairo_gl_tristrip_indices
-{
-    float *vertices;
-    float *mask_vertices;
-    int *indices;
-    int capacity;
-    int num_indices;
-    int num_vertices;
-    cairo_gl_composite_t *setup;
-    cairo_bool_t has_mask_vertices;
-} cairo_gl_tristrip_indices_t;
 
 cairo_private cairo_status_t
 _cairo_gl_tristrip_indices_init (cairo_gl_tristrip_indices_t *indices);

@@ -876,9 +876,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 			if(status == CAIRO_INT_STATUS_UNSUPPORTED)
 			{
 				// cache full in scratch texture
-				_cairo_gl_fill(indices.setup, indices.num_vertices,
-					indices.vertices, indices.mask_vertices, indices.num_indices,
-					indices.indices, indices.setup->ctx);
+				_cairo_gl_fill(&indices);
 				_cairo_gl_tristrip_indices_destroy (&indices);
 				_cairo_gl_tristrip_indices_init (&indices);
 				indices.setup = &setup;
@@ -1001,9 +999,8 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 
 	//printf("\tgenerate max font takes %ld usec, min font takes %ld usec\n", max_time, min_time);
 
-	status = _cairo_gl_fill(&setup, indices.num_vertices,
-		indices.vertices, indices.mask_vertices, indices.num_indices, indices.indices,
-		setup.ctx);
+	status = _cairo_gl_fill(&indices);
+
 	//printf("done text rendering\n");
 	//long stop  = _get_tick();
 	//printf("get glyphs and draw takes %ld usec for %0.2f size\n\n", stop - middle, 		scaled_font->font_matrix.xx);

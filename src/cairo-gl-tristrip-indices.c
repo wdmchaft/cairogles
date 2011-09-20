@@ -100,14 +100,7 @@ _cairo_gl_tristrip_indices_add_quad (cairo_gl_tristrip_indices_t *indices,
     // first off, we need to flush if max
     if(indices->num_indices > MAX_INDEX) {
 	if(indices->setup != NULL) {
-	    status = _cairo_gl_fill(indices->setup,
-				    indices->num_vertices,
-				    indices->vertices,
-				    NULL,
-				    indices->num_indices,
-				    indices->indices,
-				    indices->setup->ctx);
-	    // cleanup
+	    status = _cairo_gl_fill(&indices);
 	    _cairo_gl_tristrip_indices_destroy (indices);
 	    status = _cairo_gl_tristrip_indices_init (indices);
 	    indices->setup = setup;

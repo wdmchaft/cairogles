@@ -106,16 +106,27 @@ _cairo_gl_support_standard_npot(cairo_gl_surface_t *surface)
 
 
 cairo_status_t
-_cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vertices, int npoints, int *indices, cairo_gl_context_t *ctx)
+_cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 {
+	cairo_gl_composite_t *setup = indices->setup;
+	cairo_gl_context_t *ctx = setup->ctx;
+
+	int vpoints = indices->num_vertices;
+	GLfloat *vertices = indices->vertices;
+	int npoints = indices->num_indices;
+	int *gl_indices = indices->indices;
+
 	char *src_colors = NULL;
 	double *src_v = NULL;
 	double *mask_colors = NULL;
 
-	cairo_gl_composite_t *setup = (cairo_gl_composite_t *)closure;
 	int index = 0;
 	int stride = 4 * sizeof(GLfloat);
 	cairo_status_t status;
+
+	GLfloat *mask_vertices = NULL;
+	if (indices->has_mask_vertices)
+		mask_vertices = indices->mask_vertices;
 
 	if(setup->src.type == CAIRO_GL_OPERAND_CONSTANT)
 	{
@@ -178,7 +189,7 @@ _cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, GLfloat *mask_vert
 		return status;
 	}
 
-	_cairo_gl_composite_fill_constant_color(ctx, npoints, indices);
+	_cairo_gl_composite_fill_constant_color(ctx, npoints, gl_indices);
 	// we need to release context
 	if(src_colors != NULL)
 		free(src_colors);
@@ -204,10 +215,7 @@ cairo_status_t _cairo_gl_add_triangle(void *closure,
 	if(indices->num_indices > MAX_INDEX)
 	{
 		if(indices->setup != NULL)
-			status = _cairo_gl_fill(indices->setup, indices->num_vertices,
-				indices->vertices, NULL, indices->num_indices, 
-				indices->indices, indices->setup->ctx);
-		// cleanup
+			status = _cairo_gl_fill(indices);
 		_cairo_gl_tristrip_indices_destroy (indices);
 		status = _cairo_gl_tristrip_indices_init (indices);
 		indices->setup = setup;
@@ -264,10 +272,7 @@ cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
 	if(indices->num_indices > MAX_INDEX)
 	{
 		if(indices->setup != NULL)
-			status = _cairo_gl_fill(indices->setup, indices->num_vertices,
-				indices->vertices, NULL, indices->num_indices, 
-				indices->indices, indices->setup->ctx);
-		// cleanup
+			status = _cairo_gl_fill(indices);
 		_cairo_gl_tristrip_indices_destroy (indices);
 		status = _cairo_gl_tristrip_indices_init (indices);
 		indices->setup = setup;
@@ -351,17 +356,7 @@ cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
 	{
 		if(indices->setup != NULL)
 		{
-			if(indices->has_mask_vertices == TRUE)
-				status = _cairo_gl_fill(indices->setup, indices->num_vertices,
-					indices->vertices, indices->mask_vertices, 
-					indices->num_indices, 
-					indices->indices, indices->setup->ctx);
-			else
-				status = _cairo_gl_fill(indices->setup, indices->num_vertices,
-					indices->vertices, NULL, 
-					indices->num_indices, 
-					indices->indices, indices->setup->ctx);
-			// cleanup
+			status = _cairo_gl_fill(indices);
 			_cairo_gl_tristrip_indices_destroy (indices);
 			status = _cairo_gl_tristrip_indices_init (indices);
 			indices->setup = setup;
@@ -514,7 +509,7 @@ _cairo_gl_surface_generate_npot_surface(cairo_gl_surface_t *src)
 	return extend_src;
 }
 
-cairo_status_t
+static cairo_status_t
 _cairo_gl_clip (cairo_clip_t		*clip,
 		cairo_gl_composite_t	*setup, 
 		cairo_gl_context_t	*ctx,
@@ -554,15 +549,8 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     if (unlikely (status))
 	goto FAIL;
 
-    if (unlikely ((status = _cairo_gl_fill (setup,
-					    indices.num_vertices, 
-					    indices.vertices,
-					    NULL,
-					    indices.num_indices,
-					    indices.indices,
-					    setup->ctx)))) {
+    if (unlikely ((status = _cairo_gl_fill (&indices))))
 	goto FAIL;
-    }
 
     glEnable (GL_DEPTH_TEST);
     glColorMask (1, 1, 1, 1);
@@ -2100,10 +2088,7 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
 			goto CLEANUP;
 		}
     }
-	status = _cairo_gl_fill(&setup, indices.num_vertices,
-		indices.vertices, NULL, indices.num_indices,
-		indices.indices, setup.ctx);
-
+	status = _cairo_gl_fill(&indices);
 	_cairo_gl_tristrip_indices_destroy (&indices);
 
 	dst->needs_new_data_surface = TRUE;
@@ -2871,9 +2856,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 
 	glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &v);
 	// fill it, we fix t later
-	status = _cairo_gl_fill(setup, indices.num_vertices, 
-		indices.vertices, NULL, indices.num_indices, indices.indices,
-		setup->ctx);
+	status = _cairo_gl_fill(&indices);
 	
 	if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
@@ -3030,13 +3013,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     if (unlikely (status))
 	goto CLEANUP_TRAPS_AND_GL;
 
-    status = _cairo_gl_fill(setup,
-			    indices.num_vertices, 
-			    indices.vertices,
-			    NULL,
-			    indices.num_indices,
-			    indices.indices,
-			    setup->ctx);
+    status = _cairo_gl_fill(&indices);
     surface->needs_new_data_surface = TRUE;
 
 CLEANUP_TRAPS_AND_GL:

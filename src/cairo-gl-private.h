@@ -433,6 +433,18 @@ typedef struct _cairo_gl_composite {
 	cairo_gl_context_t *ctx;
 } cairo_gl_composite_t;
 
+typedef struct _cairo_gl_tristrip_indices
+{
+    float *vertices;
+    float *mask_vertices;
+    int *indices;
+    int capacity;
+    int num_indices;
+    int num_vertices;
+    cairo_gl_composite_t *setup;
+    cairo_bool_t has_mask_vertices;
+} cairo_gl_tristrip_indices_t;
+
 cairo_private extern const cairo_surface_backend_t _cairo_gl_surface_backend;
 
 static cairo_always_inline GLenum
@@ -613,13 +625,7 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
 
 
 cairo_private cairo_status_t
-_cairo_gl_clip(cairo_clip_t *clip, cairo_gl_composite_t *setup,
-	cairo_gl_context_t *ctx, cairo_gl_surface_t *surface);
-
-cairo_private cairo_status_t
-_cairo_gl_fill(void *closure, int vpoints, GLfloat *vertices, 
-	GLfloat *mask_vertices, int npoints,
-	int *indices, cairo_gl_context_t *ctx);
+_cairo_gl_fill (cairo_gl_tristrip_indices_t *indices);
 
 cairo_private void
 _cairo_gl_composite_emit_rect (cairo_gl_context_t *ctx,
