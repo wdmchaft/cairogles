@@ -695,7 +695,6 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
                 double min_height = 0;
                 double width;
                 double height;
-                float st[8];
 
 		//cairo_fixed_t x_top_left, x_bottom_left;
 		//cairo_fixed_t x_top_right, x_bottom_right;
@@ -950,26 +949,15 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		points[3].x = _cairo_fixed_from_double(x2);
 		points[3].y = _cairo_fixed_from_double(y1);
 
-		//printf("get glyph cache\n");
-		//float st[8];
-		st[0] = glyph->p1.x;
-		st[1] = glyph->p1.y;
-		st[2] = glyph->p1.x;
-		st[3] = glyph->p2.y;
-		st[4] = glyph->p2.x;
-		st[5] = glyph->p2.y;
-		st[6] = glyph->p2.x;
-		st[7] = glyph->p1.y;
-		
 		x_advance += current_x_advance;
 		y_advance += current_y_advance;
-		
-		/*if(scaled_font->font_matrix.xx > 30.42 && i == 33)
-		{
-			printf("here, %i character, size = %0.2f\n", i, scaled_font->font_matrix.xx);
-		}*/
 
-		status = _cairo_gl_add_convex_quad_with_mask(&indices, points, st);
+		_cairo_gl_tristrip_indices_add_texture_coord (&indices, glyph->p1.x, glyph->p1.y);
+		_cairo_gl_tristrip_indices_add_texture_coord (&indices, glyph->p1.x, glyph->p2.y);
+		_cairo_gl_tristrip_indices_add_texture_coord (&indices, glyph->p2.x, glyph->p1.y);
+		_cairo_gl_tristrip_indices_add_texture_coord (&indices, glyph->p2.x, glyph->p2.y);
+
+		status = _cairo_gl_tristrip_indices_add_quad (&indices, points);
 		if(unlikely(status))
 		{
 			_cairo_gl_glyph_cache_unlock(cache);

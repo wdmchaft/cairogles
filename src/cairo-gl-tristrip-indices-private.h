@@ -41,9 +41,6 @@
 cairo_private cairo_status_t
 _cairo_gl_tristrip_indices_init (cairo_gl_tristrip_indices_t *indices);
 
-cairo_private cairo_status_t
-_cairo_gl_tristrip_indices_increase_capacity (cairo_gl_tristrip_indices_t *indices);
-
 cairo_private void
 _cairo_gl_tristrip_indices_destroy (cairo_gl_tristrip_indices_t *indices);
 
@@ -63,3 +60,15 @@ _cairo_gl_tristrip_indices_add_boxes (cairo_gl_tristrip_indices_t *indices,
 cairo_private cairo_status_t
 _cairo_gl_tristrip_indices_add_traps (cairo_gl_tristrip_indices_t *indices,
 				      cairo_traps_t		  *traps);
+
+void
+_cairo_gl_tristrip_indices_add_texture_coord (cairo_gl_tristrip_indices_t *indices,
+					      float			  x,
+					      float			  y);
+
+cairo_private void
+_cairo_tristrip_get_gl_vertices_and_indices (cairo_tristrip_t *tristrip,
+					     int	      **indices_out,
+					     int	      *num_indices,
+					     GLfloat	      **vertices_out,
+					     int	      *num_vertices);

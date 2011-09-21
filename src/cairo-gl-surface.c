@@ -111,11 +111,6 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 	cairo_gl_composite_t *setup = indices->setup;
 	cairo_gl_context_t *ctx = setup->ctx;
 
-	int vpoints = indices->num_vertices;
-	GLfloat *vertices = indices->vertices;
-	int npoints = indices->num_indices;
-	int *gl_indices = indices->indices;
-
 	char *src_colors = NULL;
 	double *src_v = NULL;
 	double *mask_colors = NULL;
@@ -124,9 +119,20 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 	int stride = 4 * sizeof(GLfloat);
 	cairo_status_t status;
 
+	int vpoints = 0;
+	GLfloat *vertices = NULL;
+	int npoints = 0;
+	int *gl_indices = NULL;
+
 	GLfloat *mask_vertices = NULL;
-	if (indices->has_mask_vertices)
-		mask_vertices = indices->mask_vertices;
+	if (indices->num_texture_coords)
+		mask_vertices = indices->texture_coords;
+
+	_cairo_tristrip_get_gl_vertices_and_indices (&indices->tristrip,
+						     &gl_indices,
+						     &npoints,
+						     &vertices,
+						     &vpoints);
 
 	if(setup->src.type == CAIRO_GL_OPERAND_CONSTANT)
 	{
@@ -173,259 +179,84 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 			vpoints, 
 			vertices, 
 			src_colors,
-			//mask_vertices,
-			//mask_colors,
 			NULL,
 			mask_vertices,
 			ctx);
-	if(unlikely(status))
+
+	if (unlikely(status))
 	{
-		if(src_colors != NULL)
-			free(src_colors);
-		if(src_v != NULL)
-			free(src_v);
-		if(mask_colors != NULL)
-			free(mask_colors);
+		free (src_colors);
+		free (src_v);
+		free (mask_colors);
+		free (vertices);
+		free (gl_indices);
 		return status;
 	}
 
 	_cairo_gl_composite_fill_constant_color(ctx, npoints, gl_indices);
-	// we need to release context
-	if(src_colors != NULL)
-		free(src_colors);
-	if(src_v != NULL)
-		free(src_v);
-	if(mask_colors != NULL)
-		free(mask_colors);
+
+	free (src_colors);
+	free (src_v);
+	free (mask_colors);
+	free (vertices);
+	free (gl_indices);
 	return status;
 }
 
-cairo_status_t _cairo_gl_add_triangle(void *closure,
-	const cairo_point_t triangle[3])
+static cairo_status_t
+_cairo_gl_add_triangle (void		   *closure,
+			const cairo_point_t triangle[3])
 {
-        int last_index = 0;
-        int start_index = 0;
-        int i;
-        int num_indices, num_vertices;
-		cairo_status_t status;
+    cairo_gl_tristrip_indices_t *indices = (cairo_gl_tristrip_indices_t *)closure;
+    cairo_tristrip_t *tristrip = &indices->tristrip;
+    cairo_gl_composite_t *setup = indices->setup;
 
-	cairo_gl_tristrip_indices_t *indices = (cairo_gl_tristrip_indices_t *)closure;
-        cairo_gl_composite_t *setup = indices->setup;
-	// first off, we need to flush if max
-	if(indices->num_indices > MAX_INDEX)
-	{
-		if(indices->setup != NULL)
-			status = _cairo_gl_fill(indices);
-		_cairo_gl_tristrip_indices_destroy (indices);
-		status = _cairo_gl_tristrip_indices_init (indices);
-		indices->setup = setup;
-	}
-	// we add a triangle to strip, we add 3 vertices and 5 indices;
-	while(indices->num_indices + 5 >= indices->capacity ||
-		indices->num_vertices + 3 >= indices->capacity)
-	{
-		// we need to increase
-		status = _cairo_gl_tristrip_indices_increase_capacity (indices);
-	}
-    num_indices = indices->num_indices;
-    num_vertices = indices->num_vertices;
+    /* Flush everything if the mesh is very complicated. */
+    if (tristrip->num_points > MAX_INDEX && setup != NULL) {
+	cairo_status_t status = _cairo_gl_fill(indices);
+	_cairo_gl_tristrip_indices_destroy (indices);
+	status = _cairo_gl_tristrip_indices_init (indices);
+	indices->setup = setup;
+    }
 
-	if(num_indices != 0)
-	{
-		// we are not the first
-		last_index = indices->indices[num_indices-1];
-		start_index = last_index + 1;
-		indices->indices[num_indices] = last_index;
-		indices->indices[num_indices+1] = start_index;
-		indices->num_indices += 2;
-	}
-	num_indices = indices->num_indices;
-	for(i = 0; i < 3; i++)
-	{
-		indices->indices[num_indices+i] = start_index + i;
-		indices->vertices[num_vertices*2+i*2] = 
-			_cairo_fixed_to_double(triangle[i].x);
-		indices->vertices[num_vertices*2+i*2+1] = 
-			_cairo_fixed_to_double(triangle[i].y);
-	}
-	indices->num_indices += 3;
-	indices->num_vertices += 3;
-	return CAIRO_STATUS_SUCCESS;
+    _cairo_tristrip_move_to (tristrip, &triangle[0]);
+
+    _cairo_tristrip_add_point (tristrip, &triangle[0]);
+    _cairo_tristrip_add_point (tristrip, &triangle[1]);
+    _cairo_tristrip_add_point (tristrip, &triangle[2]);
+    return CAIRO_STATUS_SUCCESS;
 }
 
-cairo_status_t _cairo_gl_add_triangle_fan(void *closure,
-	const cairo_point_t *midpt,
-	const cairo_point_t *points,
-	int npoints)
+static cairo_status_t
+_cairo_gl_add_triangle_fan(void  *closure,
+					  const cairo_point_t *midpt,
+					  const cairo_point_t *points,
+					  int	npoints)
 {
-        int last_index = 0;
-        int start_index = 0;
-        int i;
-        int num_indices, num_vertices;
-	    int mid_index;
-		cairo_status_t status;
+    int i;
+    cairo_gl_tristrip_indices_t *indices = (cairo_gl_tristrip_indices_t *)closure;
+    cairo_tristrip_t *tristrip = &indices->tristrip;
+    cairo_gl_composite_t *setup = indices->setup;
 
-	cairo_gl_tristrip_indices_t *indices = (cairo_gl_tristrip_indices_t *)closure;
-        cairo_gl_composite_t *setup = indices->setup;
-	//printf("before add triangle fan indices = %d\n", indices->num_indices);
-	// first off, we need to flush if max
-	if(indices->num_indices > MAX_INDEX)
-	{
-		if(indices->setup != NULL)
-			status = _cairo_gl_fill(indices);
-		_cairo_gl_tristrip_indices_destroy (indices);
-		status = _cairo_gl_tristrip_indices_init (indices);
-		indices->setup = setup;
-	}
-	// we add a triangle fan to strip, we add npoints+1 vertices and (npoints-2)*2 indices;
-	while(indices->num_indices + (npoints - 2) * 2 + npoints + 1 >= indices->capacity ||
-		indices->num_vertices + npoints + 1 >= indices->capacity)
-	{
-		// we need to increase
-		status = _cairo_gl_tristrip_indices_increase_capacity (indices);
-	}
-    num_vertices = indices->num_vertices;
-	num_indices = indices->num_indices;
-	if(num_indices != 0)
-	{
-		// we are not the first
-		last_index = indices->indices[num_indices-1];
-		start_index = last_index + 1;
-		indices->indices[num_indices] = last_index;
-		indices->indices[num_indices+1] = start_index;
-		indices->num_indices += 2;
-	}
-	num_indices = indices->num_indices;
-	// add midpoints
-	num_indices = indices->num_indices;
-	mid_index = start_index;
-	indices->indices[num_indices] = mid_index;
-	indices->indices[num_indices+1] = mid_index + 1;
-	indices->indices[num_indices+2] = mid_index + 2;
-	indices->vertices[num_vertices*2] = 
-		_cairo_fixed_to_double(midpt->x);
-	indices->vertices[num_vertices*2+1] = 
-		_cairo_fixed_to_double(midpt->y);
-	indices->vertices[num_vertices*2+2] = 
-		_cairo_fixed_to_double(points[0].x);
-	indices->vertices[num_vertices*2+3] = 
-		_cairo_fixed_to_double(points[0].y);
-	indices->vertices[num_vertices*2+4] = 
-		_cairo_fixed_to_double(points[1].x);
-	indices->vertices[num_vertices*2+5] = 
-		_cairo_fixed_to_double(points[1].y);
-	indices->num_indices += 3;
-	indices->num_vertices += 3;
-	num_indices = indices->num_indices;
-	num_vertices = indices->num_vertices;
+    /* Flush everything if the mesh is very complicated. */
+    if (tristrip->num_points > MAX_INDEX && setup != NULL) {
+	cairo_status_t status = _cairo_gl_fill(indices);
+	_cairo_gl_tristrip_indices_destroy (indices);
+	status = _cairo_gl_tristrip_indices_init (indices);
+	indices->setup = setup;
+    }
 
-	for(i = 2; i < npoints; i++)
-	{
-		// add midpoint and last point
-		last_index = indices->indices[num_indices - 1];
-		indices->indices[num_indices] = last_index;
-		indices->indices[num_indices + 1] = mid_index;
-		indices->indices[num_indices + 2] = last_index + 1;
-		indices->num_indices += 3;
-		num_indices = indices->num_indices;
+    /* Our strategy here is to not even try to build a triangle fan, but to
+       draw each triangle as if it was an unconnected member of a triangle strip. */
+    for (i = 1; i < npoints; i++) {
+	_cairo_tristrip_move_to (tristrip, midpt);
 
-		indices->vertices[num_vertices*2] = 
-			_cairo_fixed_to_double(points[i].x);
-		indices->vertices[num_vertices*2+1] = 
-			_cairo_fixed_to_double(points[i].y);
-		indices->num_vertices += 1;
-		num_vertices = indices->num_vertices;
-	}
+	_cairo_tristrip_add_point (tristrip, midpt);
+	_cairo_tristrip_add_point (tristrip, &points[i - 1]);
+	_cairo_tristrip_add_point (tristrip, &points[i]);
+    }
 
-	return CAIRO_STATUS_SUCCESS;
-}
-
-cairo_status_t _cairo_gl_add_convex_quad_with_mask(void *closure,
-	const cairo_point_t quad[4], const float *mask_quad)
-{
-        int last_index = 0;
-        int start_index = 0;
-        int i;
-        int num_indices, num_vertices;
-		cairo_status_t status;
-	cairo_gl_tristrip_indices_t *indices = (cairo_gl_tristrip_indices_t *)closure;
-	cairo_gl_composite_t *setup = indices->setup;
-
-	// first off, we need to flush if max
-	if(indices->num_indices > MAX_INDEX)
-	{
-		if(indices->setup != NULL)
-		{
-			status = _cairo_gl_fill(indices);
-			_cairo_gl_tristrip_indices_destroy (indices);
-			status = _cairo_gl_tristrip_indices_init (indices);
-			indices->setup = setup;
-		}
-	}
-	// we add a triangle to strip, we add 4 vertices and 6 indices;
-	while(indices->num_indices + 5 >= indices->capacity ||
-		indices->num_vertices + 4 >= indices->capacity)
-	{
-		// we need to increase
-		status = _cairo_gl_tristrip_indices_increase_capacity (indices);
-	}
-    num_indices = indices->num_indices;
-    num_vertices = indices->num_vertices;
-
-	if(num_indices != 0)
-	{
-		// we are not the first
-		last_index = indices->indices[num_indices-1];
-		start_index = last_index + 1;
-		indices->indices[num_indices] = last_index;
-		indices->indices[num_indices+1] = start_index;
-		indices->num_indices += 2;
-	}
-	num_indices = indices->num_indices;
-	if(mask_quad != NULL)
-		indices->has_mask_vertices = TRUE;
-	else
-		indices->has_mask_vertices = FALSE;
-	for(i = 0; i < 2; i++)
-	{
-		indices->indices[num_indices+i] = start_index + i;
-		indices->vertices[num_vertices*2+i*2] = 
-			_cairo_fixed_to_double(quad[i].x);
-		indices->vertices[num_vertices*2+i*2+1] = 
-			_cairo_fixed_to_double(quad[i].y);
-		if(indices->has_mask_vertices == TRUE)
-		{
-			indices->mask_vertices[num_vertices*2+i*2] = mask_quad[i*2];
-			indices->mask_vertices[num_vertices*2+i*2+1] = mask_quad[i*2+1];
-		}
-	}
-	indices->num_indices += 2;
-	indices->num_vertices += 2;
-	num_indices = indices->num_indices;
-	num_vertices = indices->num_vertices;
-	// we reverse order of point 3 and point 4
-	start_index = indices->indices[num_indices-1];
-	indices->indices[num_indices] = start_index + 1;
-	indices->indices[num_indices+1] = start_index + 2;
-	indices->vertices[num_vertices*2] = 
-			_cairo_fixed_to_double(quad[3].x);
-		indices->vertices[num_vertices*2+1] = 
-			_cairo_fixed_to_double(quad[3].y);
-	indices->vertices[num_vertices*2+2] = 
-			_cairo_fixed_to_double(quad[2].x);
-		indices->vertices[num_vertices*2+3] = 
-			_cairo_fixed_to_double(quad[2].y);
-	if(indices->has_mask_vertices)
-	{
-		indices->mask_vertices[num_vertices*2] = mask_quad[6];
-		indices->mask_vertices[num_vertices*2+1] = mask_quad[7];
-		indices->mask_vertices[num_vertices*2+2] = mask_quad[4];
-		indices->mask_vertices[num_vertices*2+3] = mask_quad[5];
-	}
-	indices->num_indices += 2;
-	indices->num_vertices += 2;
-
-	return CAIRO_STATUS_SUCCESS;
+    return CAIRO_STATUS_SUCCESS;
 }
 
 static cairo_bool_t

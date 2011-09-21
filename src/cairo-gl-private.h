@@ -73,6 +73,7 @@ typedef char GLchar;
 #include "cairo-surface-clipper-private.h"
 
 #include "cairo-gl-ext-def-private.h"
+#include "cairo-tristrip-private.h"
 
 #define DEBUG_GL 0
 
@@ -435,14 +436,14 @@ typedef struct _cairo_gl_composite {
 
 typedef struct _cairo_gl_tristrip_indices
 {
-    float *vertices;
-    float *mask_vertices;
-    int *indices;
-    int capacity;
-    int num_indices;
-    int num_vertices;
     cairo_gl_composite_t *setup;
-    cairo_bool_t has_mask_vertices;
+
+    float *texture_coords;
+    float  texture_coords_embedded[64];
+    int size_texture_coords;
+    int num_texture_coords;
+
+    cairo_tristrip_t tristrip;
 } cairo_gl_tristrip_indices_t;
 
 cairo_private extern const cairo_surface_backend_t _cairo_gl_surface_backend;
@@ -601,28 +602,9 @@ cairo_private void
 _cairo_gl_composite_fill_constant_color(cairo_gl_context_t *ctx,
 	unsigned int count, int *indices);
 
-cairo_private cairo_status_t 
-_cairo_gl_add_triangle(void *closure,
-	const cairo_point_t triangle[3]);
-
-cairo_private cairo_status_t 
-_cairo_gl_add_triangle_fan(void *closure,
-	const cairo_point_t *midpt,
-	const cairo_point_t *points,
-	int npoints);
-
-cairo_private cairo_status_t 
-_cairo_gl_add_convex_quad_for_clip(void *closure,
-	const cairo_point_t quad[4]);
-
-cairo_private cairo_status_t 
-_cairo_gl_add_convex_quad_with_mask(void *closure,
-	const cairo_point_t quad[4], const float *mask_quad);
-
 cairo_private cairo_status_t
 _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
                          const cairo_color_t *color);
-
 
 cairo_private cairo_status_t
 _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices);

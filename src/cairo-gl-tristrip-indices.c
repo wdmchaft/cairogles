@@ -38,120 +38,101 @@
 
 #include "cairo-gl-private.h"
 #include "cairo-gl-tristrip-indices-private.h"
+#include "cairo-tristrip-private.h"
 
 #define INITIAL_INDICES_CAPACITY 64
 
 cairo_status_t
 _cairo_gl_tristrip_indices_init (cairo_gl_tristrip_indices_t *indices)
 {
-    indices->vertices = (float *)malloc(sizeof(float) * INITIAL_INDICES_CAPACITY * 2);
-    indices->mask_vertices = (float *)malloc(sizeof(float) * INITIAL_INDICES_CAPACITY * 2);
-    indices->indices = (int *)malloc(sizeof(int) * INITIAL_INDICES_CAPACITY);
-    indices->capacity = INITIAL_INDICES_CAPACITY;
-    indices->num_indices = 0;
-    indices->num_vertices = 0;
     indices->setup = NULL;
-    indices->has_mask_vertices = FALSE;
-    return CAIRO_STATUS_SUCCESS;
-}
 
-cairo_status_t
-_cairo_gl_tristrip_indices_increase_capacity (cairo_gl_tristrip_indices_t *indices)
-{
-    int new_capacity = indices->capacity * 2;
-    float *new_vertices = (float *)malloc(sizeof(float) * new_capacity * 2);
-    float *new_mask_vertices = (float *)malloc(sizeof(float) * new_capacity * 2);
-    int *new_indices = (int *)malloc(sizeof(int) * new_capacity);
+    indices->num_texture_coords = 0;
+    indices->size_texture_coords = ARRAY_LENGTH (indices->texture_coords_embedded);
+    indices->texture_coords = indices->texture_coords_embedded;
 
-    memcpy(new_vertices, indices->vertices, sizeof(float) * indices->num_vertices * 2);
-    memcpy(new_mask_vertices, indices->mask_vertices, sizeof(float) * indices->num_vertices * 2);
-    memcpy(new_indices, indices->indices, sizeof(int) * indices->num_indices);
-    free(indices->vertices);
-    free(indices->indices);
-    free(indices->mask_vertices);
-    indices->vertices = new_vertices;
-    indices->mask_vertices = new_mask_vertices;
-    indices->indices = new_indices;
-    indices->capacity = new_capacity;
+    _cairo_tristrip_init (&indices->tristrip);
     return CAIRO_STATUS_SUCCESS;
 }
 
 void
 _cairo_gl_tristrip_indices_destroy (cairo_gl_tristrip_indices_t *indices)
 {
-    free(indices->vertices);
-    free(indices->mask_vertices);
-    free(indices->indices);
-    indices->has_mask_vertices = FALSE;
+    _cairo_tristrip_fini (&indices->tristrip);
+
+    if (indices->texture_coords != indices->texture_coords_embedded) {
+	free (indices->texture_coords);
+	indices->texture_coords = indices->texture_coords_embedded;
+    }
+    indices->num_texture_coords = 0;
+    indices->size_texture_coords = ARRAY_LENGTH (indices->texture_coords_embedded);
 }
 
 cairo_status_t
 _cairo_gl_tristrip_indices_add_quad (cairo_gl_tristrip_indices_t *indices,
 				     const cairo_point_t	  quad[4])
 {
-     int last_index = 0;
-     int start_index = 0;
-     int i;
-     int num_indices,num_vertices;
-     cairo_status_t status;
+    cairo_tristrip_t *tristrip = &indices->tristrip;
 
-     cairo_gl_composite_t *setup = indices->setup;
-
-    // first off, we need to flush if max
-    if(indices->num_indices > MAX_INDEX) {
-	if(indices->setup != NULL) {
-	    status = _cairo_gl_fill(&indices);
-	    _cairo_gl_tristrip_indices_destroy (indices);
-	    status = _cairo_gl_tristrip_indices_init (indices);
-	    indices->setup = setup;
-	}
+    /* Flush everything if the mesh is very complicated. */
+    cairo_gl_composite_t *setup = indices->setup;
+    if (tristrip->num_points > MAX_INDEX && setup != NULL) {
+	cairo_status_t status = _cairo_gl_fill(indices);
+	_cairo_gl_tristrip_indices_destroy (indices);
+	status = _cairo_gl_tristrip_indices_init (indices);
+	indices->setup = setup;
     }
 
-    // we add a triangle to strip, we add 4 vertices and 6 indices;
-    while (indices->num_indices + 5 >= indices->capacity ||
-	  indices->num_vertices + 4 >= indices->capacity) {
-	// we need to increase
-	status = _cairo_gl_tristrip_indices_increase_capacity (indices);
-    }
-    num_indices = indices->num_indices;
-    num_vertices = indices->num_vertices;
+    _cairo_tristrip_move_to (tristrip, &quad[0]);
 
-    if(num_indices != 0) {
-	// we are not the first
-	last_index = indices->indices[num_indices-1];
-	start_index = last_index + 1;
-	indices->indices[num_indices] = last_index;
-	indices->indices[num_indices+1] = start_index;
-	indices->num_indices += 2;
-    }
+    _cairo_tristrip_add_point (tristrip, &quad[0]);
+    _cairo_tristrip_add_point (tristrip, &quad[1]);
 
-    num_indices = indices->num_indices;
-    indices->has_mask_vertices = FALSE;
-    for(i = 0; i < 2; i++) {
-	indices->indices[num_indices+i] = start_index + i;
-	indices->vertices[num_vertices*2+i*2] = _cairo_fixed_to_double(quad[i].x);
-	indices->vertices[num_vertices*2+i*2+1] = _cairo_fixed_to_double(quad[i].y);
-    }
-
-    indices->num_indices += 2;
-    indices->num_vertices += 2;
-    num_indices = indices->num_indices;
-    num_vertices = indices->num_vertices;
-
-    // Cairo stores quad vertices in counter-clockwise, but we need to emit them
-    // from top to bottom in the triangle strip, so we need to reverse the order
-    // of the last two vertices.
-    start_index = indices->indices[num_indices-1];
-    indices->indices[num_indices] = start_index + 1;
-    indices->indices[num_indices+1] = start_index + 2;
-    indices->vertices[num_vertices*2] = _cairo_fixed_to_double(quad[3].x);
-    indices->vertices[num_vertices*2+1] = _cairo_fixed_to_double(quad[3].y);
-    indices->vertices[num_vertices*2+2] = _cairo_fixed_to_double(quad[2].x);
-    indices->vertices[num_vertices*2+3] = _cairo_fixed_to_double(quad[2].y);
-    indices->num_indices += 2;
-    indices->num_vertices += 2;
+    /* Cairo stores quad vertices in counter-clockwise order, but we need to
+       emit them from top to bottom in the triangle strip, so we need to reverse
+       the order of the last two vertices. */
+    _cairo_tristrip_add_point (tristrip, &quad[3]);
+    _cairo_tristrip_add_point (tristrip, &quad[2]);
 
     return CAIRO_STATUS_SUCCESS;
+}
+
+static cairo_bool_t
+_points_equal (cairo_point_t *a, cairo_point_t *b)
+{
+    return a->x == b->x && a->y == b->y;
+}
+
+void
+_cairo_tristrip_get_gl_vertices_and_indices (cairo_tristrip_t *tristrip,
+					     int	      **indices_out,
+					     int	      *num_indices,
+					     GLfloat	      **vertices_out,
+					     int	      *num_vertices)
+{
+    int i;
+    int num_points = tristrip->num_points;
+    int last_point_index = -1;
+    cairo_point_t *last_point = 0;
+
+    GLfloat *vertices = _cairo_malloc_abc (num_points, sizeof (GLfloat), 2);
+    int *indices = _cairo_malloc_ab (num_points, sizeof (int));
+
+    *vertices_out = vertices;
+    *indices_out = indices;
+
+    for (i = 0; i < num_points; i++) {
+        cairo_point_t *current_point = &tristrip->points[i];
+	if (last_point == NULL || !_points_equal (current_point, last_point)) {
+	    last_point = current_point;
+	    last_point_index++;
+	    vertices[last_point_index * 2] = _cairo_fixed_to_double (last_point->x);
+	    vertices[(last_point_index * 2) + 1] = _cairo_fixed_to_double (last_point->y);
+	}
+	indices[i] = last_point_index;
+    }
+    *num_indices = num_points;
+    *num_vertices = last_point_index + 1;
 }
 
 cairo_status_t
@@ -229,4 +210,53 @@ _cairo_gl_tristrip_indices_add_path (cairo_gl_tristrip_indices_t *indices,
 CLEANUP:
     _cairo_traps_fini (&traps);
     return status;
+}
+
+static cairo_bool_t
+_cairo_gl_tristrip_indices_grow_texture_coords (cairo_gl_tristrip_indices_t *indices)
+{
+    float *texture_coords;
+    int new_size = 4 * indices->size_texture_coords;
+
+    if (CAIRO_INJECT_FAULT ()) {
+	//strip->status = _cairo_error (CAIRO_STATUS_NO_MEMORY);
+	return FALSE;
+    }
+
+    if (indices->texture_coords == indices->texture_coords_embedded) {
+	texture_coords = _cairo_malloc_abc (new_size, sizeof (cairo_point_t), 2);
+	if (texture_coords != NULL) {
+	    memcpy (texture_coords,
+		    indices->texture_coords,
+		    sizeof (indices->texture_coords_embedded));
+	    }
+    } else {
+	texture_coords = _cairo_realloc_ab (indices->texture_coords,
+					    new_size,
+					    sizeof (cairo_point_t) * 2);
+    }
+
+    if (unlikely (texture_coords == NULL)) {
+	//strip->status = _cairo_error (CAIRO_STATUS_NO_MEMORY);
+	return FALSE;
+    }
+
+    indices->texture_coords = texture_coords;
+    indices->size_texture_coords = new_size;
+    return TRUE;
+}
+
+void
+_cairo_gl_tristrip_indices_add_texture_coord (cairo_gl_tristrip_indices_t *indices,
+					      float			  x,
+					      float			  y)
+{
+    if (unlikely (indices->num_texture_coords == indices->size_texture_coords)) {
+	if (unlikely (! _cairo_gl_tristrip_indices_grow_texture_coords (indices)))
+	    return;
+    }
+
+    indices->texture_coords[indices->num_texture_coords * 2] = x;
+    indices->texture_coords[(indices->num_texture_coords * 2) + 1] = y;
+    indices->num_texture_coords++;
 }
