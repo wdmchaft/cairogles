@@ -45,22 +45,6 @@
 #include "cairo-error-private.h"
 #include "cairo-gl-private.h"
 
-
-// Henry Song
-#include <sys/time.h>
-//#define GL_DEPTH_STENCIL 	0x84F9
-//#define GL_DEPTH24_STENCIL8_OES 0x88F0
-
-#if 0
-// this function is not used
-static long _get_tick(void)
-{
-	struct timeval now;
-	gettimeofday(&now, NULL);
-	return now.tv_sec * 1000000 + now.tv_usec;
-}
-#endif
-	
 static void
 _gl_lock (void *device)
 {
@@ -263,14 +247,12 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     glGetIntegerv (GL_MAX_RENDERBUFFER_SIZE, &ctx->max_framebuffer_size);
     ctx->max_texture_size = 0;
     glGetIntegerv (GL_MAX_TEXTURE_SIZE, &ctx->max_texture_size);
-	//ctx->max_texture_size = 2048;
     ctx->max_textures = 0;
     glGetIntegerv (GL_MAX_TEXTURE_IMAGE_UNITS, &ctx->max_textures);
 
     for (n = 0; n < ARRAY_LENGTH (ctx->glyph_cache); n++)
 	_cairo_gl_glyph_cache_init (&ctx->glyph_cache[n]);
 
-	//ctx->mask_surface = NULL;
     return CAIRO_STATUS_SUCCESS;
 }
 
@@ -304,7 +286,6 @@ _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
 	else if(likely(surface->fb))
 		return;
 
-	//long now = _get_tick();
     /* Create a framebuffer object wrapping the texture so that we can render
      * to it.
      */
@@ -329,23 +310,11 @@ _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
 				    surface->tex,
 				    0);
 	}
-	//status = glGetError();
-	//printf(" status = %x\n", status);
 #if CAIRO_HAS_GL_SURFACE
     glDrawBuffer (GL_COLOR_ATTACHMENT0);
     glReadBuffer (GL_COLOR_ATTACHMENT0);
 #endif
 
-// Henry Song
-/*
-	dispatch->GenRenderbuffers(1, &surface->db);
-	dispatch->BindRenderbuffer(GL_RENDERBUFFER, surface->db);
-	dispatch->RenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
-		surface->width, surface->height);
-	dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-		GL_RENDERBUFFER, surface->db);
-	dispatch->BindRenderbuffer(GL_RENDERBUFFER, 0);
-*/	
 	// Henry Song
 	// We need support of packed depth_stencil
 	dispatch->GenRenderbuffers(1, &surface->rb);
@@ -383,7 +352,6 @@ _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
 		 "destination is framebuffer incomplete: %s [%#x]\n",
 		 str, status);
     }
-	//printf("generate framebuffer takes %ld usec\n", _get_tick() - now);
 }
 
 /*
@@ -435,10 +403,6 @@ _cairo_gl_context_set_destination (cairo_gl_context_t *ctx,
 
     //_cairo_gl_composite_flush (ctx);
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-	//glEnable(GL_MULTISAMPLE);
-
-	//long now = _get_tick();
-	//long now1 = now;
 
     ctx->current_target = surface;
     surface->needs_update = FALSE;
@@ -446,49 +410,33 @@ _cairo_gl_context_set_destination (cairo_gl_context_t *ctx,
     if (_cairo_gl_surface_is_texture (surface)) 
 	{
         _cairo_gl_ensure_framebuffer (ctx, surface);
-		//printf("ensure framebuffer takes %ld usec\n", _get_tick() - now);
-		//now = _get_tick();
 		if(surface->parent_surface != NULL)
 		{
 			if(surface->bound_fbo == FALSE)
 			{
         		ctx->dispatch.BindFramebuffer (GL_FRAMEBUFFER, surface->parent_surface->fb);
 			}
-			//printf("----bind parent fbo = %d\n", surface->parent_surface->fb);
 		}
 		else
 		{
 			if(surface->mask_surface == NULL || surface->mask_surface->bound_fbo == FALSE)
         		ctx->dispatch.BindFramebuffer (GL_FRAMEBUFFER, surface->fb);
-			//printf("-----bind self fbo = %d\n", surface->fb);
 		}
-		//printf("------------bind framebuffer takes %ld usec\n", _get_tick() - now);
-		//now = _get_tick();
     	dispatch->FramebufferTexture2D (GL_FRAMEBUFFER,
 				    GL_COLOR_ATTACHMENT0,
 				    ctx->tex_target,
 				    surface->tex,
 				    0);
-		//printf("framebuffer texture 2d takes %ld usec\n", _get_tick() - now);
-		//now = _get_tick();
 
 #if CAIRO_HAS_GL_SURFACE
     	glDrawBuffer (GL_COLOR_ATTACHMENT0);
     	glReadBuffer (GL_COLOR_ATTACHMENT0);
 #endif
-		//GLenum s = glGetError();
-		//printf("framebuffertexture2d error = %x\n", s);
 		ctx->dispatch.BindRenderbuffer (GL_RENDERBUFFER, surface->rb);
-		//printf("bind renderbuffer takes %ld usec\n", _get_tick() - now);
-		//now = _get_tick();
 		ctx->dispatch.FramebufferRenderbuffer(GL_FRAMEBUFFER, 
 			GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, surface->rb);
-		//printf("attach color takes %ld usec\n", _get_tick() - now);
-		//now = _get_tick();
 		ctx->dispatch.FramebufferRenderbuffer(GL_FRAMEBUFFER, 
 			GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, surface->rb);
-    	//printf("attach stencil takes %ld usec\n", _get_tick() - now);
-		//now = _get_tick();
     } else {
 		//printf("*********** set destination make current\n");
         ctx->make_current (ctx, surface);
@@ -500,25 +448,12 @@ _cairo_gl_context_set_destination (cairo_gl_context_t *ctx,
 #endif
     }
 
-	//glEnable(GL_MULTISAMPLE);
     glViewport (0, 0, surface->width, surface->height);
 
-	// Henry 
-	// take care of external tex case
-/*	if(surface->external_tex == TRUE)
-		_gl_identity_ortho (ctx->modelviewprojection_matrix,
-			    0, surface->width, 0, surface->height);
-//				0, surface->width, surface->height, 0);
-*/
     if (_cairo_gl_surface_is_texture (surface))
 	_gl_identity_ortho (ctx->modelviewprojection_matrix,
-	// Henry Song
-		    0, surface->width, 0, surface->height);
-//				0, surface->width, surface->height, 0);
+			    0, surface->width, 0, surface->height);
     else
 	_gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, surface->height, 0);
-//			    0, surface->width, 0, surface->height);
-//				0, surface->height, surface->width, 0);
-	//printf("set destination takes %ld usec\n\n\n", _get_tick() - now1);
 }
