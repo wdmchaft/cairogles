@@ -48,7 +48,7 @@ _cairo_gl_tristrip_indices_init (cairo_gl_tristrip_indices_t *indices)
     indices->setup = NULL;
 
     indices->num_texture_coords = 0;
-    indices->size_texture_coords = ARRAY_LENGTH (indices->texture_coords_embedded);
+    indices->size_texture_coords = ARRAY_LENGTH (indices->texture_coords_embedded) / 2;
     indices->texture_coords = indices->texture_coords_embedded;
 
     _cairo_tristrip_init (&indices->tristrip);
