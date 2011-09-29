@@ -592,9 +592,7 @@ _cairo_gl_composite_begin_constant_color(cairo_gl_composite_t *setup,
 										 int vertices_size, 
 										 void *vertices,
 										 void *color,
-										 void *mask_vertices,
 										 void *mask_color,
-										 //cairo_gl_context_t **ctx);
 										 cairo_gl_context_t *ctx);
 
 // Henry Song

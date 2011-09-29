@@ -1465,11 +1465,11 @@ FAIL:
 // Henry Song
 cairo_status_t
 _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
-							int vertices_size, void *vertices, 
-							void *color,
-							void *mask_vertices,
-							void *mask_color,
-                           	cairo_gl_context_t *ctx)
+					  int vertices_size,
+					  void *vertices, 
+					  void *color,
+					  void *mask_color,
+					  cairo_gl_context_t *ctx)
 {
     unsigned int dst_size, src_size, mask_size, vertex_size;
     //cairo_gl_context_t *ctx;

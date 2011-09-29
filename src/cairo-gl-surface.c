@@ -179,7 +179,6 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 			vpoints, 
 			vertices, 
 			src_colors,
-			NULL,
 			mask_vertices,
 			ctx);
 
@@ -2304,7 +2303,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 				8, 
 				vertices, 
 				st,
-				mask_vertices,
 				mask_st,
 				ctx);
 		}
@@ -2313,7 +2311,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 				8, 
 				vertices, 
 				st,
-				NULL,
 				NULL,
 				ctx);
 	}
@@ -2370,7 +2367,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 				4, 
 				vertices, 
 				colors,
-				vertices,
 				mask_st,
 				ctx);
 		else
@@ -2378,7 +2374,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 				4, 
 				vertices, 
 				colors,
-				NULL,
 				NULL,
 				ctx);
 	}
@@ -2413,7 +2408,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 				4, 
 				vertices, 
 				colors,
-				vertices,
 				mask_st,
 				ctx);
 		else
@@ -2421,7 +2415,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 				4, 
 				vertices, 
 				colors,
-				NULL,
 				NULL,
 				ctx);
 	}
