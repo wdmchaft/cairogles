@@ -272,8 +272,8 @@ cairo_glx_device_create (Display *dpy, GLXContext gl_ctx)
 
     ctx = calloc (1, sizeof (cairo_glx_context_t));
     if (unlikely (ctx == NULL))
-	return _cairo_gl_context_create_in_error (CAIRO_STATUS_NO_MEMORY);
-
+  	return _cairo_gl_context_create_in_error (CAIRO_STATUS_NO_MEMORY);
+ 
     ctx->display = dpy;
     ctx->dummy_window = dummy;
     ctx->context = gl_ctx;

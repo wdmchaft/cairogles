@@ -51,6 +51,13 @@
 #include "cairo-surface-clipper-private.h"
 #include <math.h>
 
+static long _get_tick(void)
+{
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    return now.tv_sec * 1000000 + now.tv_usec;
+}
+
 static cairo_int_status_t
 _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
 				   cairo_operator_t	    op,
@@ -181,6 +188,7 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 
 	int number_of_vertices = 0;
 	GLfloat *vertices = NULL;
+
 	int number_of_indices = 0;
 	unsigned short *gl_indices = NULL;
 
@@ -215,8 +223,10 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 			st[index*2+1] = src_v[index*2+1];
 		}
 	}
+    //printf("\tcopy color %ld\n", _get_tick() - now);
 
 		// we need to fill colors with st values
+    //now = _get_tick();
 	status = _cairo_gl_composite_begin_constant_color(setup, 
 			number_of_vertices, 
 			vertices, 
@@ -408,10 +418,17 @@ _cairo_gl_clip (cairo_clip_t		*clip,
        triangle strip cache and doing the fill. In case that happens we prepare
        to update the stencil buffer now. */
     glDepthMask (GL_TRUE);
+    //printf("\tdepth mask enable %ld usec\n", _get_tick() - now);
+    //now = _get_tick();
     glEnable (GL_STENCIL_TEST);
     glClear (GL_STENCIL_BUFFER_BIT);
     glStencilOp (GL_REPLACE,  GL_REPLACE, GL_REPLACE);
+    //printf("\tstencil op %ld usec\n", _get_tick() - now);
+    //now = _get_tick();
     glStencilFunc (GL_ALWAYS, 1, 0xffffffff);
+    //printf("\tstencil func %ld usec\n", _get_tick() - now);
+    //now = _get_tick();
+
     glColorMask (0, 0, 0, 0);
 
     if (surface->clip != clip) { /* The cached clip is out of date. */
@@ -449,7 +466,6 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     surface->clip_indices->setup = setup;
     if (unlikely ((status = _cairo_gl_fill (surface->clip_indices))))
 	goto FAIL;
-
     glColorMask (1, 1, 1, 1);
     glStencilOp (GL_KEEP, GL_KEEP, GL_KEEP);
     glStencilFunc (GL_EQUAL, 1, 1);
@@ -1071,9 +1087,6 @@ cairo_gl_surface_create_for_texture_with_internal_format(cairo_device_t *abstrac
 		cairo_gl_surface_create_for_texture(abstract_device, content,tex, 
 			width, height);
 
-	status = cairo_surface_status(&surface->base);
-	if(unlikely(status))
-		return _cairo_surface_create_in_error (status);
 	surface->internal_format = internal_format;
 	return &surface->base;
 }
@@ -2246,6 +2259,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
     GLfloat vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
 	GLfloat texture_coordinates[8];
 	GLfloat mask_texture_coords[8];
+    cairo_clip_t *clip_pt = clip;
 	
     if (mask == NULL)
 		status = _cairo_composite_rectangles_init_for_paint(&extents,
@@ -2272,7 +2286,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	
 	if (unlikely(status))
 		return status;
-	
+	//printf("get rectangle extents %ld usec\n", _get_tick() - now);
 	// upload image
 	// check has snapsot
 	if (source->type == CAIRO_PATTERN_TYPE_SURFACE) {
@@ -2300,7 +2314,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 			goto FINISH;
 		}
 	}
-
+    //printf("generate mask clone %ld usec\n", _get_tick() - now);
 	setup->source = (cairo_pattern_t*)source;
 
 	// set up source
@@ -2335,18 +2349,16 @@ _cairo_gl_surface_mask (void *abstract_surface,
 		goto FINISH;
 
 	setup->ctx = ctx;
-
+    
+    //now = _get_tick();
     // for blit for clone and mask_clone    
     if(clone != NULL && clone->multisample_resolved == FALSE)
         _cairo_gl_context_blit_destination(ctx, clone);
     if(mask_clone != NULL && mask_clone->multisample_resolved == FALSE)
         _cairo_gl_context_blit_destination(ctx, mask_clone);
-   
-    if(extents.is_bounded == 0)
-        bounded = FALSE;
-    else
-        bounded = TRUE; 
-    if(!_cairo_gl_extents_within_clip (extents, bounded, clip_pt))
+    //printf("blit clone and mask clone %ld \n", _get_tick() - now);
+    //now = _get_tick();
+    if(!_cairo_gl_extents_within_clip (extents, extents.is_bounded, clip_pt))
         clip_pt = NULL;
 
     if(clip_pt != NULL && clip_pt->path != NULL) {
@@ -2369,6 +2381,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	status = _cairo_gl_clip(clip, setup, ctx, surface);
 	if (unlikely(status))
 		goto FINISH;
+    }
 
 	if (mask_clone != NULL) {
 		status = _cairo_gl_composite_set_mask(setup, mask, 
@@ -2607,8 +2620,13 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     int extend = 0;
     cairo_clip_t *clip_pt = clip;
 
+    long now, whole_now;
+
 	//cairo_rectangle_int_t *clip_extent, stroke_extent;
     
+    //now = _get_tick();
+    //whole_now = now;
+    //printf("&&&&&&&&&&&&&&&&&&& start stroke &&&&&&&&&&&&&&&&&&&&\n");
     status = _cairo_composite_rectangles_init_for_stroke (&extents,
 							  surface->width,
 							  surface->height,
@@ -2617,7 +2635,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 							  clip);
     if (unlikely (status))
 		return status;
-
+    //printf("\tinit stroke %ld\n", _get_tick() - now);
+    
     if (extents.is_bounded == 0) {
 	if (unlikely ((status = _cairo_gl_surface_prepare_mask_surface (surface))))
 	    return status;
@@ -2638,14 +2657,18 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     }
    
     // for stroke, it always bounded 
+    //now = _get_tick();
     if(!_cairo_gl_extents_within_clip (extents, TRUE, clip_pt))
         clip_pt = NULL;
+    //printf("\tcheck extents within clip %ld\n", _get_tick() - now);
     
+    //now = _get_tick();
 	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 	if(unlikely(status))
 		return status;
-	
+	//printf("\taquire context %ld\n", _get_tick() - now);
     // upload image
+    //now = _get_tick();
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
 	{
 		cairo_surface_t *src = ((cairo_surface_pattern_t *)source)->surface;
@@ -2661,6 +2684,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
         has_alpha = ((cairo_solid_pattern_t *)source)->color.alpha == 1.0 ? FALSE : TRUE;
 	
+    //now = _get_tick();
 	setup = (cairo_gl_composite_t *)malloc(sizeof(cairo_gl_composite_t));
 	
 	status = _cairo_gl_composite_init(setup, op, surface, FALSE,
@@ -2674,6 +2698,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		status = _cairo_gl_context_release(ctx, status);
 		return status;
 	}
+    //printf("\tsetup init %ld\n", _get_tick() - now);
 
 	setup->source = (cairo_pattern_t*)source;
 	if(clone == NULL)
@@ -2707,19 +2732,23 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	setup->ctx = ctx;
     
     // force clone to blit back to texture
+    //now = _get_tick();
     if(clone != NULL && clone->multisample_resolved == FALSE)
         _cairo_gl_context_blit_destination(ctx, clone);
-
+    //printf("\tblit clone %ld\n", _get_tick() - now);
     if(antialias != CAIRO_ANTIALIAS_NONE || 
       (clip_pt != NULL && clip_pt->path != NULL && 
        clip_pt->path->antialias != CAIRO_ANTIALIAS_NONE))
         surface->require_aa = TRUE;
     else
         surface->require_aa = FALSE;
+    //now = _get_tick();
 	_cairo_gl_context_set_destination(ctx, surface);
-    
+    //printf("\tset destination %ld\n", _get_tick() - now);
+    //now = _get_tick(); 
     if (clip_pt != NULL) {
 	status = _cairo_gl_clip(clip_pt, setup, ctx, surface);
+    //printf("\tgl_clip %ld usec\n", _get_tick() - now);
 	if (unlikely(status)) {
 	    if (clone != NULL)
 		cairo_surface_destroy(&clone->base);
@@ -2753,7 +2782,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 
 	status = _cairo_gl_tristrip_indices_init (&indices);
 	indices.setup = setup;
-
 	status = _cairo_path_fixed_stroke_to_shaper (path,
 						    style,
 						    ctm,
@@ -2763,22 +2791,28 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 						    _cairo_gl_add_triangle_fan,
 						    _cairo_path_fixed_stroke_to_shaper_add_quad,
 						    &indices);
-
+    //printf("\ttessellate %ld\n", _get_tick() - now);
 	//glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &v);
 	// fill it, we fix t later
+    //now = _get_tick();
 	status = _cairo_gl_fill(&indices);
-	
+	//printf("\tgl_fill %ld\n", _get_tick() - now);
     if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
 	_cairo_gl_tristrip_indices_destroy (&indices);
 	_cairo_gl_composite_fini(setup);
 	free(setup);
+    //now = _get_tick();
 	glDisable(GL_STENCIL_TEST);
-	glDisable(GL_DEPTH_TEST);
+	//glDisable(GL_DEPTH_TEST);
 	glDepthMask(GL_FALSE);
+    //printf("\tdisable GL %ld\n", _get_tick() - now);
     surface->require_aa = FALSE;
+    //now = _get_tick();
 	status = _cairo_gl_context_release(ctx, status);
+    //printf("\t release context %ld\n", _get_tick() - now);
 	surface->needs_new_data_surface = TRUE;
+    //printf("&&&&&&&&&&&&& finish stroke %ld &&&&&&&&&&&&&&&&&&\n\n", _get_tick() - whole_now);
     return status;
 }
 
@@ -3011,6 +3045,7 @@ void cairo_gl_reset_device(cairo_device_t *device)
 	if(device == NULL)
 		return;
 	ctx = (cairo_gl_context_t *)device;
+    ctx->bound_fb = 0;
 	ctx->reset(ctx);
 }
 

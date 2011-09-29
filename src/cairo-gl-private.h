@@ -62,11 +62,14 @@
 #include <GL/gl.h>
 #include <GL/glext.h>
 #elif CAIRO_HAS_GLESV2_SURFACE
+#ifndef GL_API_EXT
+#define GL_API_EXT
+#endif
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
 // Henry Song
-typedef char GLchar;
+//typedef char GLchar;
 
 #endif
 // Henry Song
@@ -362,6 +365,7 @@ struct _cairo_gl_context {
 	cairo_bool_t standard_npot;
 
 	GLint max_sample_size;
+    cairo_bool_t force_non_msaa;
 
     const cairo_gl_shader_impl_t *shader_impl;
 
@@ -393,6 +397,7 @@ struct _cairo_gl_context {
 
 	// Henry Song
 	//cairo_clip_t *clip;
+    GLuint bound_fb;
 
     cairo_bool_t has_mesa_pack_invert;
     cairo_gl_dispatch_t dispatch;
@@ -536,7 +541,7 @@ _cairo_gl_context_release (cairo_gl_context_t *ctx, cairo_status_t status)
     GLenum err;
 
     err = _cairo_gl_get_error ();
-
+    
     if (unlikely (err)) {
         cairo_status_t new_status;
 	new_status = _cairo_error (CAIRO_STATUS_DEVICE_ERROR);

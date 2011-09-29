@@ -55,6 +55,9 @@
 #include <GL/gl.h>
 #include <GL/glext.h>
 #elif CAIRO_HAS_GLESV2_SURFACE
+#ifndef GL_API_EXT
+#define GL_API_EXT
+#endif
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #endif

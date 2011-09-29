@@ -514,6 +514,108 @@ _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
     return _cairo_gl_ensure_framebuffer_for_gl (ctx, surface);
 #endif
 }
+#endif
+
+#if CAIRO_HAS_GLESV2_SURFACE
+static void
+_cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
+                              cairo_gl_surface_t *surface)
+{
+    PFNGLRENDERBUFFERSTORAGEMULTISAMPLEIMGPROC
+        pglRenderbufferStorageMultisampleIMG;
+    PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEIMGPROC 
+        pglFramebufferTexture2DMultisampleIMG;
+    
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+	int sample_size = ctx->max_sample_size > SAMPLE_SIZE ? SAMPLE_SIZE : ctx->max_sample_size;
+	
+    if(likely(surface->fb))
+		return;
+
+    /* Create a framebuffer object wrapping the texture so that we can render
+     * to it.
+     */
+	//GLenum err;
+
+	// first create color renderbuffer
+    if(sample_size > 1) {
+	    dispatch->GenFramebuffers (1, &(surface->fb));
+	    dispatch->BindFramebuffer (GL_FRAMEBUFFER, surface->fb);
+        pglFramebufferTexture2DMultisampleIMG = 
+            (PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEIMGPROC)
+            eglGetProcAddress("glFramebufferTexture2DMultisampleIMG");
+        if (!pglFramebufferTexture2DMultisampleIMG)
+            ctx->force_non_msaa = TRUE;
+        else
+	        pglFramebufferTexture2DMultisampleIMG(GL_FRAMEBUFFER,
+		                                          GL_COLOR_ATTACHMENT0, 
+                                                  ctx->tex_target, 
+		                                          surface->tex, 
+                                                  0, 
+                                                  sample_size);
+        pglRenderbufferStorageMultisampleIMG =
+            (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEIMGPROC)
+            eglGetProcAddress("glRenderbufferStorageMultisampleIMG");
+        if(!pglRenderbufferStorageMultisampleIMG)
+            ctx->force_non_msaa = TRUE;
+        else {
+            dispatch->GenRenderbuffers(1, &(surface->rb));
+	        dispatch->BindRenderbuffer(GL_RENDERBUFFER, 
+                                       surface->rb);
+	        pglRenderbufferStorageMultisampleIMG(GL_RENDERBUFFER,
+		                                         sample_size,
+		                                         GL_DEPTH24_STENCIL8_OES, 
+		                                         surface->width, 
+                                                 surface->height);
+	        dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+		                                      GL_DEPTH_ATTACHMENT, 
+                                              GL_RENDERBUFFER, 
+                                              surface->rb);
+	        dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+		                                      GL_STENCIL_ATTACHMENT, 
+                                              GL_RENDERBUFFER, 
+                                              surface->rb);
+        }
+    }
+    else {
+	// create single sample buffer
+	    dispatch->GenFramebuffers (1, &(surface->fb));
+        dispatch->BindFramebuffer(GL_FRAMEBUFFER, surface->fb);
+	
+        dispatch->FramebufferTexture2D (GL_FRAMEBUFFER,
+	                                    GL_COLOR_ATTACHMENT0,
+	                                    ctx->tex_target,
+	                                    surface->tex,
+	                                    0);
+        dispatch->GenRenderbuffers(1, &(surface->rb));
+	    dispatch->BindRenderbuffer(GL_RENDERBUFFER, surface->rb);
+	    glRenderbufferStorage(GL_RENDERBUFFER,
+		                      GL_DEPTH24_STENCIL8_OES,
+		                      surface->width, 
+                           surface->height);
+	    dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+		                                  GL_DEPTH_ATTACHMENT, 
+                                          GL_RENDERBUFFER, 
+                                          surface->rb);
+	    dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+		                                  GL_STENCIL_ATTACHMENT, 
+                                          GL_RENDERBUFFER, surface->rb);
+    }
+	// check status
+	_cairo_gl_check_framebuffer_status(dispatch);
+}
+#endif
+
+static void
+_cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
+                              cairo_gl_surface_t *surface)
+{
+#if CAIRO_HAS_GLESV2_SURFACE
+    _cairo_gl_ensure_framebuffer_for_gles (ctx, surface);
+#elif CAIRO_HAS_GL_SURFACE
+    _cairo_gl_ensure_framebuffer_for_gl (ctx, surface);
+#endif
+}
 
 /*
  * Stores a parallel projection transformation in matrix 'm',

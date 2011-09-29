@@ -346,6 +346,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
     double max_x;
     double max_y;
     cairo_point_t points[4];
+    cairo_antialias_t aa;
 
 	//cairo_antialias_t current_antialias = scaled_font->options.antialias;
 	//scaled_font->options.antialias = CAIRO_ANTIALIAS_SUBPIXEL;
@@ -431,9 +432,25 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 	}
 
     // we alway paint to texture, so force blit to texture
-    if(dst->multisample_resolved == FALSE)
-        _cairo_gl_context_blit_destination(ctx, dst);	
-	_cairo_gl_context_set_destination(ctx, dst);
+    // if default or grey, if multisample not resolve, we set antialias
+    // to be NONE
+	//	options.antialias = scaled_font->options.antialias;
+    aa = scaled_font->options.antialias;
+    if(dst->multisample_resolved == FALSE) 
+    {
+        //printf("paint to multisample\n");
+        dst->require_aa = TRUE;
+    }
+    else
+    {
+        //printf("paint to single sample\n");
+        dst->require_aa = FALSE;
+    }
+        // we always resolve multisampling
+        //if(dst->multisample_resolved == FALSE)
+        //    _cairo_gl_context_blit_destination(ctx, dst);	
+	
+    _cairo_gl_context_set_destination(ctx, dst);
 	setup.ctx = ctx;
 	// clip
 	/*
@@ -525,7 +542,8 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 	/*if(ctx->gl_flavor == CAIRO_GL_FLAVOR_ES)
 		options.antialias = CAIRO_ANTIALIAS_SUBPIXEL;
 	else*/
-		options.antialias = scaled_font->options.antialias;
+	//options.antialias = scaled_font->options.antialias;
+    options.antialias = aa;
 		//options.antialias = CAIRO_ANTIALIAS_SUBPIXEL;
 	options.hint_metrics = scaled_font->options.hint_metrics;
 	options.hint_style = scaled_font->options.hint_style;

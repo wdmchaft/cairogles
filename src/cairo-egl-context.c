@@ -146,9 +146,9 @@ static void
 _egl_reset(void *abstract_ctx)
 {
 	cairo_egl_context_t *ctx = abstract_ctx;
-	ctx->target_display = EGL_NO_DISPLAY;
+	/*ctx->target_display = EGL_NO_DISPLAY;
 	ctx->target_surface = EGL_NO_SURFACE;
-	ctx->target_context = EGL_NO_CONTEXT;
+	ctx->target_context = EGL_NO_CONTEXT;*/
 }
 
 static cairo_bool_t
@@ -192,7 +192,7 @@ cairo_egl_device_create (EGLDisplay dpy, EGLContext egl)
     ctx->base.swap_buffers = _egl_swap_buffers;
     ctx->base.destroy = _egl_destroy;
 	ctx->base.reset = _egl_reset;
-
+    
     if (!_egl_make_current_surfaceless (ctx)) {
 	/* Fall back to dummy surface, meh. */
 	EGLint config_attribs[] = {
@@ -211,7 +211,7 @@ cairo_egl_device_create (EGLDisplay dpy, EGLContext egl)
 	eglChooseConfig (dpy, config_attribs, &config, 1, &numConfigs);
 
 	ctx->dummy_surface = eglCreatePbufferSurface (dpy, config, attribs);
-
+    EGLint e = eglGetError();
 	if (ctx->dummy_surface == NULL) {
 	    free (ctx);
 	    return _cairo_gl_context_create_in_error (CAIRO_STATUS_NO_MEMORY);
