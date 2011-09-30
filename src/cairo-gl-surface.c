@@ -909,6 +909,7 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
     surface->tex_format = format;
     
 	surface->internal_format = format;
+    surface->tex_format = format;
     return &surface->base;
 }
 
