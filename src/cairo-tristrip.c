@@ -116,7 +116,7 @@ _cairo_tristrip_add_point (cairo_tristrip_t *strip,
 			   const cairo_point_t *p)
 {
     if (likely (strip->num_points == strip->size_points)) {
-	if (unlikely (_cairo_tristrip_grow (strip)))
+	if (!_cairo_tristrip_grow (strip))
 	    return;
     }
 
