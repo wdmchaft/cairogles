@@ -2056,6 +2056,27 @@ _cairo_gl_surface_paint (void *abstract_surface,
 	clip);
 }
 
+static void
+map_vertices_to_surface_space (GLfloat			*coords,
+			       int			 coord_count,
+			       cairo_gl_surface_t	*surface,
+			       const cairo_matrix_t	*matrix,
+			       GLfloat			*surface_coords)
+{
+    int i;
+    cairo_matrix_t scale_matrix = *matrix;
+    cairo_matrix_scale(&scale_matrix,
+		       1.0 / surface->orig_width,
+		       1.0 / surface->orig_height);
+    for (i = 0; i < coord_count; i++) {
+	double x = coords[i * 2];
+	double y = coords[(i * 2) + 1];
+	cairo_matrix_transform_point(&scale_matrix, &x, &y);
+	surface_coords[i * 2] = x;
+	surface_coords[(i * 2) + 1] = y;
+    }
+}
+
 static cairo_int_status_t
 _cairo_gl_surface_mask (void *abstract_surface,
 	cairo_operator_t op,
@@ -2065,45 +2086,23 @@ _cairo_gl_surface_mask (void *abstract_surface,
 {
     cairo_gl_surface_t *surface = abstract_surface;
     cairo_composite_rectangles_t extents; 
-    //cairo_box_t boxes_stack[32] ,*clip_boxes = boxes_stack;
-    //cairo_clip_t local_clip;
-    //cairo_bool_t have_clip = FALSE;
-    //int num_boxes = ARRAY_LENGTH (boxes_stack);
-    //cairo_polygon_t polygon;
     cairo_status_t status;
     cairo_gl_composite_t *setup = NULL;
     cairo_gl_context_t *ctx = NULL;
     cairo_gl_surface_t *clone = NULL;
-    //cairo_surface_t *snapshot = NULL;
-    cairo_solid_pattern_t *solid = NULL;
     cairo_gl_surface_t *mask_clone = NULL;
-    //cairo_surface_t *mask_snapshot = NULL;
-    //float temp_width, temp_height;
-	//_cairo_gl_path_t *current;
-	//char *colors;
-	//int stride;
-	//int index;
     GLfloat vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
-    GLfloat mask_vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
-    double v[] = {0, 0, 0, 0, 0, 0, 0, 0};
-    GLfloat st[] = { 0, 0, 1, 0, 1, 1, 0, 1};
-    GLfloat mask_st[] = { 0, 0, 1, 0, 1, 1, 0, 1};
     GLfloat colors[] = {0, 0, 0, 0,
                         0, 0, 0, 0,
                         0, 0, 0, 0,
                         0, 0, 0, 0};
-    int i = 0;
-    cairo_matrix_t m, m1;
-    int extend = 0;
-
-	if(mask == NULL)
+	if (mask == NULL)
 		status = _cairo_composite_rectangles_init_for_paint(&extents,
 			surface->width,
 			surface->height,
 			op, source, clip);
-	else
-	{
-		if(op == CAIRO_OPERATOR_IN ||
+	else {
+		if (op == CAIRO_OPERATOR_IN ||
 		   op == CAIRO_OPERATOR_OUT ||
 		   op == CAIRO_OPERATOR_DEST_IN ||
 		   op == CAIRO_OPERATOR_DEST_ATOP)
@@ -2120,371 +2119,238 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	}
 
 	
-	if(unlikely(status))
+	if (unlikely(status))
 		return status;
 	
 	// upload image
-	if(source->extend == CAIRO_EXTEND_REPEAT ||
-		source->extend == CAIRO_EXTEND_REFLECT)
-		extend = 1;
 	// check has snapsot
-	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
-	{
+	if (source->type == CAIRO_PATTERN_TYPE_SURFACE) {
 		cairo_surface_t *src = ((cairo_surface_pattern_t *)source)->surface;
+		cairo_bool_t extend = source->extend == CAIRO_EXTEND_REPEAT ||
+				      source->extend == CAIRO_EXTEND_REFLECT;
 		clone = _cairo_gl_generate_clone(surface, src, extend);
-		if(clone == NULL)
+		if (clone == NULL)
 			return UNSUPPORTED("create_clone failed");
 	}
-	else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
-		solid = (cairo_solid_pattern_t *)source;
+
 	setup = (cairo_gl_composite_t *)malloc(sizeof(cairo_gl_composite_t));
-	
-	status = _cairo_gl_composite_init(setup, op, surface, FALSE,
-		&extents.bounded);
-	if(unlikely (status))
-	{
-		if(clone != NULL)
-			cairo_surface_destroy(&clone->base);
-		_cairo_gl_composite_fini(setup);
-		free(setup);
-		return status;
-	}
-	extend = 0;
-	if(mask != NULL)
-	{
-		if(mask->extend == CAIRO_EXTEND_REPEAT ||	
-			mask->extend == CAIRO_EXTEND_REFLECT)
-			extend = 1;
-		if(mask->type == CAIRO_PATTERN_TYPE_SURFACE)
-		{
-			cairo_surface_t *msk = ((cairo_surface_pattern_t *)mask)->surface;
-			mask_clone = _cairo_gl_generate_clone(surface, msk, extend);
-			if(mask_clone == NULL)
-			{
-				if(clone != NULL)
-					cairo_surface_destroy(&clone->base);
-				_cairo_gl_composite_fini(setup);
-				free(setup);
-				glDisable(GL_STENCIL_TEST);
-				glDisable(GL_DEPTH_TEST);
-				glDepthMask(GL_FALSE);
-				status = _cairo_gl_context_release(ctx, status);
-				return UNSUPPORTED("generate_clone for mask failed");
-			}
+	status = _cairo_gl_composite_init(setup, op, surface, FALSE, &extents.bounded);
+	if (unlikely (status))
+		goto FINISH;
+
+	if (mask != NULL && mask->type == CAIRO_PATTERN_TYPE_SURFACE) {
+		cairo_surface_t *msk = ((cairo_surface_pattern_t *)mask)->surface;
+		cairo_bool_t extend = source->extend == CAIRO_EXTEND_REPEAT ||
+				      source->extend == CAIRO_EXTEND_REFLECT;
+		mask_clone = _cairo_gl_generate_clone(surface, msk, extend);
+		if (mask_clone == NULL) {
+			status = UNSUPPORTED("generate_clone for mask failed");
+			goto FINISH;
 		}
 	}
 
 	setup->source = (cairo_pattern_t*)source;
 
 	// set up source
-	if(clone == NULL)
-		status = _cairo_gl_composite_set_source(setup,
-			source, extents.bounded.x, extents.bounded.y,
-			extents.bounded.x, extents.bounded.y, 
-			extents.bounded.width, extents.bounded.height,
-			0, 0, 0);
-	else
-	{
-            float temp_width = clone->orig_width;
-            float temp_height = clone->orig_height;
-
-		status = _cairo_gl_composite_set_source(setup,
-			source, extents.bounded.x, extents.bounded.y,
-			extents.bounded.x, extents.bounded.y, 
-			extents.bounded.width, extents.bounded.height,
-			clone->tex, (int)temp_width, (int)temp_height);
+	if (clone == NULL) {
+		status = _cairo_gl_composite_set_source(setup, source,
+							extents.bounded.x,
+							extents.bounded.y,
+							extents.bounded.x,
+							extents.bounded.y, 
+							extents.bounded.width,
+							extents.bounded.height,
+							0, /* texture */
+							0, /* width */
+							0); /* height */
+	} else {
+		status = _cairo_gl_composite_set_source(setup, source,
+							extents.bounded.x,
+							extents.bounded.y,
+							extents.bounded.x,
+							extents.bounded.y, 
+							extents.bounded.width,
+							extents.bounded.height,
+							clone->tex,
+							(int) clone->orig_width,
+							(int) clone->orig_height);
 	}
-	if(unlikely(status))
-	{
-		if(clone != NULL)
-			cairo_surface_destroy(&clone->base);
-		_cairo_gl_composite_fini(setup);
-		free(setup);
-		return status;
-	}
+	if (unlikely(status))
+		goto FINISH;
 
 	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
-	if(unlikely(status))
-	{
-		if(clone != NULL)
-			cairo_surface_destroy(&clone->base);
-		_cairo_gl_composite_fini(setup);
-		free(setup);
-		return status;
-	}
+	if (unlikely(status))
+		goto FINISH;
+
 	setup->ctx = ctx;
 	_cairo_gl_context_set_destination(ctx, surface);
 
     if (clip != NULL) {
 	status = _cairo_gl_clip(clip, setup, ctx, surface);
-	if (unlikely(status)) {
-	    if (clone != NULL)
-		cairo_surface_destroy(&clone->base);
-
-	    _cairo_gl_composite_fini(setup);
-	    free(setup);
-	    glDisable(GL_STENCIL_TEST);
-	    glDisable(GL_DEPTH_TEST);
-	    glDepthMask(GL_FALSE);
-	    status = _cairo_gl_context_release(ctx, status);
-	    return status;
-	}
+	if (unlikely(status))
+		goto FINISH;
     }
 
-	if(mask_clone != NULL)
-	{
-            float temp_width = mask_clone->orig_width;
-            float temp_height = mask_clone->orig_height;
-
+	if (mask_clone != NULL) {
 		status = _cairo_gl_composite_set_mask(setup, mask, 
-			extents.bounded.x, extents.bounded.y,
-			extents.bounded.x, extents.bounded.y, 
-			extents.bounded.width, extents.bounded.height,
-			mask_clone->tex, (int)temp_width, (int)temp_height); 
+						      extents.bounded.x,
+						      extents.bounded.y,
+						      extents.bounded.x,
+						      extents.bounded.y, 
+						      extents.bounded.width,
+						      extents.bounded.height,
+						      mask_clone->tex,
+						      (int) mask_clone->orig_width,
+						      (int) mask_clone->orig_height);
+	} else {
+		status = _cairo_gl_composite_set_mask(setup, mask, 
+						      extents.bounded.x,
+						      extents.bounded.y,
+						      extents.bounded.x,
+						      extents.bounded.y, 
+						      extents.bounded.width,
+						      extents.bounded.height,
+						      0, /* texture */
+						      0, /* width */
+						      0); /* height */
 	}
-	else
-		status = _cairo_gl_composite_set_mask(setup, mask, 
-			extents.bounded.x, extents.bounded.y,
-			extents.bounded.x, extents.bounded.y, 
-			extents.bounded.width, extents.bounded.height,
-			0, 0, 0);
-	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
+	if (unlikely (status))
+		goto FINISH;
+
+	if (source->type == CAIRO_PATTERN_TYPE_SURFACE)
 		setup->src.type = CAIRO_GL_OPERAND_TEXTURE;
-	else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
+	else if (source->type == CAIRO_PATTERN_TYPE_SOLID)
 		setup->src.type = CAIRO_GL_OPERAND_CONSTANT;
-	else if(source->type == CAIRO_PATTERN_TYPE_LINEAR)
-	{
-		if(source->extend == CAIRO_EXTEND_NONE)
+	else if (source->type == CAIRO_PATTERN_TYPE_LINEAR) {
+		if (source->extend == CAIRO_EXTEND_NONE)
 			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE;
-		else if(source->extend == CAIRO_EXTEND_PAD)
+		else if (source->extend == CAIRO_EXTEND_PAD)
 			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD;
-		else if(source->extend == CAIRO_EXTEND_REPEAT)
+		else if (source->extend == CAIRO_EXTEND_REPEAT)
 			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT;
 		else
 			setup->src.type = CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT;
+
+	} else if (source->type == CAIRO_PATTERN_TYPE_RADIAL) {
+		// FIXME: What do we do here?
+	} else {
+		status = CAIRO_INT_STATUS_UNSUPPORTED;
+		goto FINISH;
 	}
-	else if(source->type == CAIRO_PATTERN_TYPE_RADIAL)
-	{}
-		//setup->src.type = CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_NONE_CIRCLE_IN_CIRCLE;
-	else
-	{
-		if(clone != NULL)
-			cairo_surface_destroy(&clone->base);
-		if(mask_clone != NULL)
-			cairo_surface_destroy(&mask_clone->base);
-		_cairo_gl_composite_fini(setup);
-		free(setup);
-		glDisable(GL_STENCIL_TEST);
-		glDisable(GL_DEPTH_TEST);
-		glDepthMask(GL_FALSE);
-		status = _cairo_gl_context_release(ctx, status);
-		return CAIRO_INT_STATUS_UNSUPPORTED;
-	}
-	
+
+	if (unlikely (status))
+		goto FINISH;
+
 	// we have the image uploaded, we need to setup vertices
-	v[0] = extents.bounded.x;
-	v[1] = extents.bounded.y;
-	v[2] = extents.bounded.x + extents.bounded.width;
-	v[3] = extents.bounded.y;
-	v[4] = extents.bounded.x + extents.bounded.width;
-	v[5] = extents.bounded.y + extents.bounded.height;
-	v[6] = extents.bounded.x;
-	v[7] = extents.bounded.y + extents.bounded.height;
-	for(i = 0; i < 8; i++)
-		vertices[i] = v[i];
+	vertices[0] = extents.bounded.x;
+	vertices[1] = extents.bounded.y;
+	vertices[2] = extents.bounded.x + extents.bounded.width;
+	vertices[3] = extents.bounded.y;
+	vertices[4] = extents.bounded.x + extents.bounded.width;
+	vertices[5] = extents.bounded.y + extents.bounded.height;
+	vertices[6] = extents.bounded.x;
+	vertices[7] = extents.bounded.y + extents.bounded.height;
 
-	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
-	{
-		// compute s, t for bounding box
-		cairo_matrix_init_scale(&m, 1.0, 1.0);
-		cairo_matrix_multiply(&m, &m, &source->matrix);
-		cairo_matrix_init_scale(&m1, 1.0 / clone->orig_width,
-			1.0 / clone->orig_height);
-		cairo_matrix_multiply(&m, &m, &m1);
-		
-		cairo_matrix_transform_point(&m, &v[0], &v[1]);
-		cairo_matrix_transform_point(&m, &v[2], &v[3]);
-		cairo_matrix_transform_point(&m, &v[4], &v[5]);
-		cairo_matrix_transform_point(&m, &v[6], &v[7]);
-		for(i = 0; i < 8; i++)
-			st[i] = v[i];
+	if (source->type == CAIRO_PATTERN_TYPE_SURFACE) {
+		GLfloat texture_coordinates[8];
+		map_vertices_to_surface_space (vertices, 4, clone, &source->matrix, texture_coordinates);
 
-		if(mask != NULL && mask_clone != NULL)
-		{
-			v[0] = extents.bounded.x;
-			v[1] = extents.bounded.y;
-			v[2] = extents.bounded.x + extents.bounded.width;
-			v[3] = extents.bounded.y;
-			v[4] = extents.bounded.x + extents.bounded.width;
-			v[5] = extents.bounded.y + extents.bounded.height;
-			v[6] = extents.bounded.x;
-			v[7] = extents.bounded.y + extents.bounded.height;
-			cairo_matrix_init_scale(&m, 1.0, 1.0);
-			cairo_matrix_multiply(&m, &m, &mask->matrix);
-			cairo_matrix_init_scale(&m1, 1.0 / mask_clone->orig_width, 
-				1.0 / mask_clone->orig_height);
-			cairo_matrix_multiply(&m, &m, &m1);
+		if (mask != NULL && mask_clone != NULL) {
+			GLfloat mask_texture_coords[8];
+			map_vertices_to_surface_space (vertices, 4, mask_clone,
+						       &mask->matrix,
+						       mask_texture_coords);
 
-			cairo_matrix_transform_point(&m, &v[0], &v[1]);
-			cairo_matrix_transform_point(&m, &v[2], &v[3]);
-			cairo_matrix_transform_point(&m, &v[4], &v[5]);
-			cairo_matrix_transform_point(&m, &v[6], &v[7]);
-			for(i = 0; i < 8; i++)
-				mask_st[i] = v[i];
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				8, 
 				vertices, 
-				st,
-				mask_st,
+				texture_coordinates,
+				mask_texture_coords,
 				ctx);
-		}
-		else
+		} else {
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				8, 
 				vertices, 
-				st,
+				texture_coordinates,
 				NULL,
 				ctx);
-	}
-	else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
-	{
-		if(unlikely(status))
-		{
-			if(clone != NULL)
-				cairo_surface_destroy(&clone->base);
-			if(mask_clone != NULL)
-				cairo_surface_destroy(&mask_clone->base);
-			_cairo_gl_composite_fini(setup);
-			free(setup);
-			glDisable(GL_STENCIL_TEST);
-			glDisable(GL_DEPTH_TEST);
-			glDepthMask(GL_FALSE);
-			//cairo_status_t status1 = _cairo_gl_context_release(ctx, status);
-			return status;
 		}
-		v[0] = extents.bounded.x;
-		v[1] = extents.bounded.y;
-		v[2] = extents.bounded.x + extents.bounded.width;
-		v[3] = extents.bounded.y;
-		v[4] = extents.bounded.x + extents.bounded.width;
-		v[5] = extents.bounded.y + extents.bounded.height;
-		v[6] = extents.bounded.x;
-		v[7] = extents.bounded.y + extents.bounded.height;
-		if(mask != NULL && mask_clone != NULL)
-		{
-			cairo_matrix_init_scale(&m, 1.0, 1.0);
-			cairo_matrix_multiply(&m, &m, &mask->matrix);
-			cairo_matrix_init_scale(&m1, 1.0 / mask_clone->orig_width, 
-				1.0 / mask_clone->orig_height);
-			cairo_matrix_multiply(&m, &m, &m1);
 
-			cairo_matrix_transform_point(&m, &v[0], &v[1]);
-			cairo_matrix_transform_point(&m, &v[2], &v[3]);
-			cairo_matrix_transform_point(&m, &v[4], &v[5]);
-			cairo_matrix_transform_point(&m, &v[6], &v[7]);
-			for(i = 0; i < 8; i++)
-				mask_st[i] = v[i];
+	} else if (source->type == CAIRO_PATTERN_TYPE_SOLID) {
+		int i;
+		cairo_solid_pattern_t *solid = (cairo_solid_pattern_t *)source;
+		for (i = 0; i < 4; i++) {
+			colors[i * 4] = solid->color.red;
+			colors[(i * 4) + 1] = solid->color.green;
+			colors[(i * 4) + 2] = solid->color.blue;
+			colors[(i * 4) + 3] = solid->color.alpha;
 		}
-		
-		colors[0] = solid->color.red;
-		colors[1] = solid->color.green;
-		colors[2] = solid->color.blue;
-		colors[3] = solid->color.alpha;
-		colors[4] = colors[8] = colors[12] = colors[0];
-		colors[5] = colors[9] = colors[13] = colors[1];
-		colors[6] = colors[10] = colors[14] = colors[2];
-		colors[7] = colors[11] = colors[15] = colors[3];
-		if(mask != NULL && mask_clone != NULL)
+
+		if (mask != NULL && mask_clone != NULL) {
+			GLfloat mask_texture_coords[8];
+			map_vertices_to_surface_space (vertices, 4, mask_clone,
+						       &mask->matrix,
+						       mask_texture_coords);
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				4, 
 				vertices, 
 				colors,
-				mask_st,
+				mask_texture_coords,
 				ctx);
-		else
+		} else {
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				4, 
 				vertices, 
 				colors,
 				NULL,
 				ctx);
-	}
-	else if(source->type == CAIRO_PATTERN_TYPE_LINEAR ||
-		source->type == CAIRO_PATTERN_TYPE_RADIAL)
-	{
-		v[0] = extents.bounded.x;
-		v[1] = extents.bounded.y;
-		v[2] = extents.bounded.x + extents.bounded.width;
-		v[3] = extents.bounded.y;
-		v[4] = extents.bounded.x + extents.bounded.width;
-		v[5] = extents.bounded.y + extents.bounded.height;
-		v[6] = extents.bounded.x;
-		v[7] = extents.bounded.y + extents.bounded.height;
-		if(mask != NULL && mask_clone != NULL)
-		{
-			cairo_matrix_init_scale(&m, 1.0, 1.0);
-			cairo_matrix_multiply(&m, &m, &mask->matrix);
-			cairo_matrix_init_scale(&m1, 1.0 / mask_clone->orig_width, 
-				1.0 / mask_clone->orig_height);
-			cairo_matrix_multiply(&m, &m, &m1);
-
-			cairo_matrix_transform_point(&m, &v[0], &v[1]);
-			cairo_matrix_transform_point(&m, &v[2], &v[3]);
-			cairo_matrix_transform_point(&m, &v[4], &v[5]);
-			cairo_matrix_transform_point(&m, &v[6], &v[7]);
-			for(i = 0; i < 8; i++)
-				mask_st[i] = v[i];
 		}
-		if(mask != NULL && mask_clone != NULL)
+	} else if (source->type == CAIRO_PATTERN_TYPE_LINEAR ||
+		source->type == CAIRO_PATTERN_TYPE_RADIAL) {
+		if (mask != NULL && mask_clone != NULL) {
+			GLfloat mask_texture_coords[8];
+			map_vertices_to_surface_space (vertices, 4, mask_clone,
+						       &mask->matrix,
+						       mask_texture_coords);
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				4, 
 				vertices, 
 				colors,
-				mask_st,
+				mask_texture_coords,
 				ctx);
-		else
+		} else {
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				4, 
 				vertices, 
 				colors,
 				NULL,
 				ctx);
+		}
 	}
 
-	if(unlikely(status))
-	{
-		if(clone != NULL)
-			cairo_surface_destroy(&clone->base);
-		if(mask_clone != NULL)
-			cairo_surface_destroy(&mask_clone->base);
-		_cairo_gl_composite_fini(setup);
-		free(setup);
-		glDisable(GL_STENCIL_TEST);
-		glDisable(GL_DEPTH_TEST);
-		glDepthMask(GL_FALSE);
-		status = _cairo_gl_context_release(ctx, status);
-		return status;
-	}
+    if (unlikely(status))
+	goto FINISH;
 
 
-	_cairo_gl_composite_fill_constant_color(ctx, 4, NULL);
-	// we done drawings
-	_cairo_gl_composite_fini(setup);
-	if(clone != NULL)
-	{
-		cairo_surface_destroy(&clone->base);
-	}
-	if(mask_clone != NULL)
-	{
-		cairo_surface_destroy(&mask_clone->base);
-	}
-	free(setup);
-	glDisable(GL_STENCIL_TEST);
-	glDisable(GL_DEPTH_TEST);
-	glDepthMask(GL_FALSE);
-	status = _cairo_gl_context_release(ctx, status);
-	surface->needs_new_data_surface = TRUE;
-	return status;
+    _cairo_gl_composite_fill_constant_color(ctx, 4, NULL);
+    surface->needs_new_data_surface = TRUE;
+
+FINISH:
+    _cairo_gl_composite_fini(setup);
+
+    free(setup);
+    if (clone != NULL)
+	cairo_surface_destroy(&clone->base);
+    if (mask_clone != NULL)
+	cairo_surface_destroy(&mask_clone->base);
+    if (ctx)
+    status = _cairo_gl_context_release(ctx, status);
+
+    glDisable(GL_STENCIL_TEST);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    return status;
 }
 
 static cairo_int_status_t
@@ -2575,7 +2441,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     cairo_gl_context_t *ctx = NULL;
     cairo_gl_surface_t *clone = NULL;
     //cairo_surface_t *snapshot = NULL;
-    int extend = 0;
     int v;
 
 	//cairo_rectangle_int_t *clip_extent, stroke_extent;
@@ -2622,9 +2487,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
 	{
 		cairo_surface_t *src = ((cairo_surface_pattern_t *)source)->surface;
-		if(source->extend == CAIRO_EXTEND_REPEAT || 
-		   source->extend == CAIRO_EXTEND_REFLECT)
-		   	extend = 1;
+		cairo_bool_t extend = source->extend == CAIRO_EXTEND_REPEAT ||
+				      source->extend == CAIRO_EXTEND_REFLECT;
 		clone = _cairo_gl_generate_clone(surface, src, extend);
 		if(clone == NULL)
 		{
@@ -2746,7 +2610,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     cairo_gl_context_t *ctx = NULL;
     cairo_traps_t traps;
     cairo_gl_tristrip_indices_t indices;
-    int extend = 0;
 
 
     // When clip and path do not intersect,, return without actually drawing.
@@ -2779,9 +2642,8 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
 	{
 		cairo_surface_t *src = ((cairo_surface_pattern_t *)source)->surface;
-		if(source->extend == CAIRO_EXTEND_REPEAT || 
-		   source->extend == CAIRO_EXTEND_REFLECT)
-		   	extend = 1;
+		cairo_bool_t extend = source->extend == CAIRO_EXTEND_REPEAT ||
+				      source->extend == CAIRO_EXTEND_REFLECT;
 		clone = _cairo_gl_generate_clone(surface, src, extend);
 
 		if(clone == NULL)
