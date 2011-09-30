@@ -418,6 +418,7 @@ _cairo_gl_gradient_digest_linear_gradient(const cairo_gradient_pattern_t *patter
 	cairo_status_t status;
         cairo_matrix_t matrix;
         cairo_linear_pattern_t *linear = NULL;
+    float precision_scale = 100.0f;
 	if(pattern->n_stops > CAIRO_GL_MAX_STOPS_SIZE)
 		return CAIRO_INT_STATUS_UNSUPPORTED;
 
@@ -435,16 +436,16 @@ _cairo_gl_gradient_digest_linear_gradient(const cairo_gradient_pattern_t *patter
 	cairo_matrix_transform_point(&matrix, &a, &b);
 	cairo_matrix_transform_point(&matrix, &c, &d);
 
-	stops[0] = a;
+	stops[0] = a / precision_scale;
 	if(upsidedown)
-		stops[1] = surface_height - b;
+		stops[1] = (surface_height - b) / precision_scale;
 	else
-		stops[1] = b;
-	stops[2] = c;
+		stops[1] = b / precision_scale;
+	stops[2] = c / precision_scale;
 	if(upsidedown)
-		stops[3] = surface_height - d;
+		stops[3] = (surface_height - d) / precision_scale;
 	else
-	stops[3] = d;
+	stops[3] = d / precision_scale;
 	
 	for(i = 0; i < pattern->n_stops; i++)
 	{
@@ -487,6 +488,7 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	double angle;
 	double tangent_end_1_x, tangent_end_1_y;
 	double tangent_end_2_x, tangent_end_2_y;
+    float precision_scale = 100.0f;
 	//int n;
 	cairo_matrix_t temp_matrix;
 	double mx1, my1, mx2, my2;
@@ -527,19 +529,19 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	cairo_matrix_transform_point(&matrix, &dx2, &dy2);
 	scales[1] = 100.0 / sqrt((dx1 - dx2)*(dx1 - dx2) + (dy1 - dy2)*(dy1 - dy2));
 	
-	circle_1[0] = a;
+	circle_1[0] = a / precision_scale;
 	if(upsidedown)
-		circle_1[1] = surface_height - b;
+		circle_1[1] = (surface_height - b) / precision_scale;
 	else
-		circle_1[1] = b;
-	circle_1[2] = radial->cd1.radius;
+		circle_1[1] = b / precision_scale;
+	circle_1[2] = radial->cd1.radius / precision_scale;
 	
-	circle_2[0] = c;
+	circle_2[0] = c / precision_scale;
 	if(upsidedown)
-		circle_2[1] = surface_height - d;
+		circle_2[1] = (surface_height - d) / precision_scale;
 	else
-		circle_2[1] = d;
-	circle_2[2] = radial->cd2.radius;
+		circle_2[1] = d / precision_scale;
+	circle_2[2] = radial->cd2.radius / precision_scale;
 		
 	for(i = 0; i < pattern->n_stops; i++)
 	{
@@ -574,11 +576,12 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 				end_point[0] = circle_2[0] + 0.01 / circle_1[2];
 			else
 				end_point[0] = circle_2[0] - 0.01 / circle_1[2];
-			
+		    end_point[0] /= precision_scale;	
 			if(circle_1[1] > circle_2[1])
 				end_point[1] = circle_2[1] + 0.01 / circle_1[2];
 			else
 				end_point[1] = circle_2[1] - 0.01 / circle_1[2];
+		    end_point[1] /= precision_scale;	
 		}
 	}
 	else if(radial->cd2.radius >= c + radial->cd1.radius)
@@ -591,10 +594,12 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 				end_point[0] = circle_1[0] + 0.01 / circle_2[2];
 			else
 				end_point[0] = circle_1[0] - 0.01 / circle_2[2];
+		    end_point[0] /= precision_scale;	
 			if(circle_2[1] > circle_1[0])
 				end_point[1] = circle_1[1] + 0.01 / circle_2[2];
 			else
 				end_point[1] = circle_1[1] - 0.01 / circle_2[2];
+		    end_point[1] /= precision_scale;	
 		}
 	}
 	if(*circle_in_circle == TRUE && *moved_center == 1)
@@ -612,36 +617,36 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 		if(dx == 0.0)
 		{
 			if(dy > 0.0)
-				cairo_matrix_init_translate(matrix_1, -circle_2[0], -(circle_2[1] - radial->cd2.radius / scales[1]));
+				cairo_matrix_init_translate(matrix_1, -circle_2[0], -(circle_2[1] - radial->cd2.radius / (scales[1] * precision_scale)));
 			else
-				cairo_matrix_init_translate(matrix_1, -circle_2[0], -(circle_2[1] + radial->cd2.radius / scales[1]));
+				cairo_matrix_init_translate(matrix_1, -circle_2[0], -(circle_2[1] + radial->cd2.radius / (scales[1] * precision_scale)));
 		}
 		else if(dy == 0.0)
 		{
 			if(dx > 0.0)
-				cairo_matrix_init_translate(matrix_1, -(circle_2[0] - radial->cd2.radius / scales[0]), -circle_2[1]);
+				cairo_matrix_init_translate(matrix_1, -(circle_2[0] - radial->cd2.radius / (scales[0] * precision_scale)), -circle_2[1]);
 			else
-				cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / scales[0]), -circle_2[1]);
+				cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / (scales[0] * precision_scale)), -circle_2[1]);
 		}
 		else
 		{
 			if(dx > 0.0 && dy > 0.0)
-				cairo_matrix_init_translate(matrix_1, -(circle_2[0] - radial->cd2.radius / scales[0]), -(circle_2[1] + radial->cd2.radius / scales[1]));
+				cairo_matrix_init_translate(matrix_1, -(circle_2[0] - radial->cd2.radius / (scales[0] * precision_scale)), -(circle_2[1] + radial->cd2.radius / (scales[1] * precision_scale)));
 			else if(dx > 0.0 && dy < 0.0)
-				cairo_matrix_init_translate(matrix_1, -(circle_2[0] - radial->cd2.radius / scales[0]), -(circle_2[1] - radial->cd2.radius / scales[1]));
+				cairo_matrix_init_translate(matrix_1, -(circle_2[0] - radial->cd2.radius / (scales[0] * precision_scale)), -(circle_2[1] - radial->cd2.radius / (scales[1] * precision_scale)));
 			else if(dx < 0.0 && dy > 0.0)
 			{
 				if(upsidedown)
-					cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / scales[0]), -(surface_height - (circle_2[1] + radial->cd2.radius / scales[1])));
+					cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / (scales[0] * precision_scale)), -(surface_height / precision_scale - (circle_2[1] + radial->cd2.radius / (scales[1] * precision_scale))));
 				else
-					cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / scales[0]), -((circle_2[1] + radial->cd2.radius / scales[1])));
+					cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / (scales[0] * precision_scale)), -((circle_2[1] + radial->cd2.radius / (scales[1] * precision_scale))));
 			}
 			else
 			{
 				if(upsidedown)
-					cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / scales[0]), -(circle_2[1] + radial->cd2.radius / scales[1]));
+					cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / (scales[0] * precision_scale)), -(circle_2[1] + radial->cd2.radius / (scales[1] * precision_scale)));
 				else
-					cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / scales[0]), -(circle_2[1] + radial->cd2.radius / scales[1]));
+					cairo_matrix_init_translate(matrix_1, -(circle_2[0] + radial->cd2.radius / (scales[0] * precision_scale)), -(circle_2[1] + radial->cd2.radius / (scales[1] * precision_scale)));
 			}
 		}
 
@@ -759,80 +764,80 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 						  &tangent_end_1_x, &tangent_end_1_y,
 						  &tangent_end_2_x, &tangent_end_2_y);
 		cairo_matrix_transform_point(&matrix, &tangent_end_1_x, &tangent_end_1_y);
-		tangents_end[0] = tangent_end_1_x;
+		tangents_end[0] = tangent_end_1_x / precision_scale;
 		if(upsidedown)
-			tangents_end[1] = surface_height - tangent_end_1_y;
+			tangents_end[1] = (surface_height - tangent_end_1_y) / precision_scale;
 		else
-			tangents_end[1] = tangent_end_1_y;
+			tangents_end[1] = tangent_end_1_y / precision_scale;
 		cairo_matrix_transform_point(&matrix, &tangent_end_2_x, &tangent_end_2_y);
-		tangents_end[2] = tangent_end_2_x;
+		tangents_end[2] = tangent_end_2_x / precision_scale;
 		if(upsidedown)
-			tangents_end[3] = surface_height - tangent_end_2_y;
+			tangents_end[3] = (surface_height - tangent_end_2_y) / precision_scale;
 		else
-			tangents_end[3] = tangent_end_2_y;
+			tangents_end[3] = tangent_end_2_y / precision_scale;
 	}						  
 	// transform in cairo
 	if(parallel == FALSE)
 	{
 		cairo_matrix_transform_point(&matrix, &end_x, &end_y);
-		end_point[0] = end_x;
+		end_point[0] = end_x / precision_scale;
 		if(upsidedown)
-			end_point[1] = surface_height - end_y;
+			end_point[1] = (surface_height - end_y) / precision_scale;
 		else
-			end_point[1] = end_y;
+			end_point[1] = end_y / precision_scale;
 	}
 	cairo_matrix_transform_point(&matrix, &tangent_1_x, &tangent_1_y);
-	tangents[0] = tangent_1_x;
+	tangents[0] = tangent_1_x / precision_scale;
 	if(upsidedown)
-		tangents[1] = surface_height - tangent_1_y;
+		tangents[1] = (surface_height - tangent_1_y) / precision_scale;
 	else
-		tangents[1] = tangent_1_y;
+		tangents[1] = tangent_1_y / precision_scale;
 	
 	cairo_matrix_transform_point(&matrix, &tangent_2_x, &tangent_2_y);
-	tangents[2] = tangent_2_x;
+	tangents[2] = tangent_2_x / precision_scale;
 	if(upsidedown)
-		tangents[3] = surface_height - tangent_2_y;
+		tangents[3] = (surface_height - tangent_2_y) / precision_scale;
 	else
-		tangents[3] = tangent_2_y;
+		tangents[3] = tangent_2_y / precision_scale;
 	cairo_matrix_transform_point(&matrix, &tangent_3_x, &tangent_3_y);
-	tangents[4] = tangent_3_x;
+	tangents[4] = tangent_3_x / precision_scale;
 	if(upsidedown)
-		tangents[5] = surface_height - tangent_3_y;
+		tangents[5] = (surface_height - tangent_3_y) / precision_scale;
 	else
-		tangents[5] = tangent_3_y;
+		tangents[5] = tangent_3_y / precision_scale;
 	
 	cairo_matrix_transform_point(&matrix, &tangent_4_x, &tangent_4_y);
-	tangents[6] = tangent_4_x;
+	tangents[6] = tangent_4_x / precision_scale;
 	if(upsidedown)
-		tangents[7] = surface_height - tangent_4_y;
+		tangents[7] = (surface_height - tangent_4_y) / precision_scale;
 	else
-		tangents[7] = tangent_4_y;
+		tangents[7] = tangent_4_y / precision_scale;
 
 	// compute transformation 1
 	if(parallel == FALSE)
 	{
 		if(upsidedown)
 		{
-			cairo_matrix_init_translate(matrix_1, -end_x, -(surface_height - end_y));
-			cairo_matrix_init_translate(matrix_2, -end_x, -(surface_height - end_y));
+			cairo_matrix_init_translate(matrix_1, -end_x / precision_scale, -(surface_height - end_y) / precision_scale);
+			cairo_matrix_init_translate(matrix_2, -end_x / precision_scale, -(surface_height - end_y) / precision_scale);
 		}
 		else
 		{
-			cairo_matrix_init_translate(matrix_1, -end_x, -end_y);
-			cairo_matrix_init_translate(matrix_2, -end_x, -end_y);
+			cairo_matrix_init_translate(matrix_1, -end_x / precision_scale, -end_y / precision_scale);
+			cairo_matrix_init_translate(matrix_2, -end_x / precision_scale, -end_y / precision_scale);
 		}
 	}
 	else
 	{
 		if(upsidedown)
 		{
-			cairo_matrix_init_translate(matrix_1, -tangent_end_1_x, -(surface_height - tangent_end_1_y));
-			cairo_matrix_init_translate(matrix_2, -tangent_end_2_x, -(surface_height - tangent_end_2_y));
+			cairo_matrix_init_translate(matrix_1, -tangent_end_1_x / precision_scale, -(surface_height - tangent_end_1_y) / precision_scale);
+			cairo_matrix_init_translate(matrix_2, -tangent_end_2_x / precision_scale, -(surface_height - tangent_end_2_y) / precision_scale);
 		}
 		else
 		{
-			cairo_matrix_init_translate(matrix_1, -tangent_end_1_x, -tangent_end_1_y);
-			cairo_matrix_init_translate(matrix_2, -tangent_end_2_x, -tangent_end_2_y);
+			cairo_matrix_init_translate(matrix_1, -tangent_end_1_x / precision_scale, -tangent_end_1_y / precision_scale);
+			cairo_matrix_init_translate(matrix_2, -tangent_end_2_x / precision_scale, -tangent_end_2_y / precision_scale);
 		}
 	}		
 	//double nx1 = 200; 
@@ -955,8 +960,11 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 		my1 = radial->cd2.center.y;
 	}
 	cairo_matrix_transform_point(&matrix, &mx1, &my1);
+    mx1 /= precision_scale;
 	if(upsidedown)
 		my1 = surface_height - my1;
+    my1 /= precision_scale;
+
 	mx2 = mx1;
 	my2 = my1;
 	matrix_transform_point(matrix_1, &mx1, &my1);
