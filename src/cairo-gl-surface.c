@@ -122,7 +122,7 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 	int vpoints = 0;
 	GLfloat *vertices = NULL;
 	int npoints = 0;
-	int *gl_indices = NULL;
+	unsigned short *gl_indices = NULL;
 
 	GLfloat *mask_vertices = NULL;
 	if (indices->num_texture_coords)
@@ -1221,7 +1221,8 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 		}
 		status = _cairo_gl_surface_draw_image(clone, img_src, 0, 0,
 			img_src->width, img_src->height, 0, 0, FALSE);
-		cairo_surface_destroy(&img_src->base);
+        if(cairo_surface_get_type(src) != CAIRO_SURFACE_TYPE_IMAGE)
+		    cairo_surface_destroy(&img_src->base);
 		if(extra != NULL)
 			free(extra);
 		

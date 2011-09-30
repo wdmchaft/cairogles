@@ -105,7 +105,7 @@ _points_equal (cairo_point_t *a, cairo_point_t *b)
 
 void
 _cairo_tristrip_get_gl_vertices_and_indices (cairo_tristrip_t *tristrip,
-					     int	      **indices_out,
+					     unsigned short	      **indices_out,
 					     int	      *num_indices,
 					     GLfloat	      **vertices_out,
 					     int	      *num_vertices)
@@ -116,7 +116,7 @@ _cairo_tristrip_get_gl_vertices_and_indices (cairo_tristrip_t *tristrip,
     cairo_point_t *last_point = 0;
 
     GLfloat *vertices = _cairo_malloc_abc (num_points, sizeof (GLfloat), 2);
-    int *indices = _cairo_malloc_ab (num_points, sizeof (int));
+    unsigned short *indices = _cairo_malloc_ab (num_points, sizeof (unsigned short));
 
     *vertices_out = vertices;
     *indices_out = indices;

@@ -598,7 +598,7 @@ _cairo_gl_composite_begin_constant_color(cairo_gl_composite_t *setup,
 // Henry Song
 cairo_private void
 _cairo_gl_composite_fill_constant_color(cairo_gl_context_t *ctx,
-	unsigned int count, int *indices);
+	unsigned int count, unsigned short *indices);
 
 cairo_private cairo_status_t
 _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,

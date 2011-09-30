@@ -68,7 +68,7 @@ _cairo_gl_tristrip_indices_add_texture_coord (cairo_gl_tristrip_indices_t *indic
 
 cairo_private void
 _cairo_tristrip_get_gl_vertices_and_indices (cairo_tristrip_t *tristrip,
-					     int	      **indices_out,
+					     unsigned short	      **indices_out,
 					     int	      *num_indices,
 					     GLfloat	      **vertices_out,
 					     int	      *num_vertices);
