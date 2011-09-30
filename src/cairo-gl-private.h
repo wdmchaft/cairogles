@@ -204,6 +204,7 @@ typedef struct _cairo_gl_surface {
 
 	// mask surface
 	struct _cairo_gl_surface *mask_surface;
+    GLint tex_format;
 	struct _cairo_gl_surface *parent_surface;
 	cairo_bool_t bound_fbo;
 } cairo_gl_surface_t;

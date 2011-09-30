@@ -724,6 +724,7 @@ _cairo_gl_surface_init (cairo_device_t *device,
 	surface->mask_surface = NULL;
 	surface->parent_surface = NULL;
 	surface->bound_fbo = FALSE;
+    surface->tex_format = GL_RGBA; // default
 }
 
 static cairo_surface_t *
@@ -810,6 +811,7 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 	surface->mask_surface = NULL;
 	surface->parent_surface = NULL;
 	surface->bound_fbo = FALSE;
+    surface->tex_format = format;
     return &surface->base;
 }
 
@@ -1356,6 +1358,38 @@ _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
 	 * b. the row stride cannot be handled by GL itself using a 4 byte alignment
 	 *    constraint
 	 */
+    
+    // for GLES, we need to check internal format match tex format
+    if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES) {
+        if(format != dst->tex_format && 
+           dst->owns_tex == TRUE &&
+           dst->tex != 0) {
+            glDeleteTextures(1, &dst->tex);
+            if (dst->depth)
+                ctx->dispatch.DeleteFramebuffers (1, &dst->depth);
+            if (dst->fb)
+	        {
+                ctx->dispatch.DeleteFramebuffers (1, &dst->fb);
+		        dst->fb = 0;
+	        }
+	        if(dst->rb)
+	        {
+	        	ctx->dispatch.DeleteRenderbuffers(1, &dst->rb);
+		        dst->rb = 0;
+	        }
+            glGenTextures(1, &dst->tex);
+            _cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
+            glBindTexture (ctx->tex_target, dst->tex);
+            glTexParameteri (ctx->tex_target, GL_TEXTURE_MIN_FILTER, 
+                             GL_NEAREST);
+            glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, 
+                             GL_NEAREST);
+            glTexImage2D (ctx->tex_target, 0, format, dst->width, 
+                          dst->height, 0,
+		                  format, GL_UNSIGNED_BYTE, NULL);
+            dst->tex_format = format;
+        }
+    }
 	if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES &&
 	    (src->width * cpp < src->stride - 3 ||
 	     width != src->width))
@@ -1371,7 +1405,7 @@ _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
 	{
 	    glPixelStorei (GL_UNPACK_ALIGNMENT, 4);
 	}
-        _cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
+    _cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
 	glBindTexture (ctx->tex_target, dst->tex);
 	glTexParameteri (ctx->tex_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -1380,7 +1414,6 @@ _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
 			 format, type,
 			 data_start_gles2 != NULL ? data_start_gles2 :
 						    data_start);
-
 
 	if (data_start_gles2)
 	    free (data_start_gles2);
@@ -1610,7 +1643,7 @@ _cairo_gl_surface_finish (void *abstract_surface)
 	if(surface->rb)
 	{
 		ctx->dispatch.DeleteRenderbuffers(1, &surface->rb);
-		surface->fb = 0;
+		surface->rb = 0;
 	}
     if (surface->owns_tex)
 	{
