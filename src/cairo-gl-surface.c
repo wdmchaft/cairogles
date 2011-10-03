@@ -104,7 +104,6 @@ _cairo_gl_support_standard_npot(cairo_gl_surface_t *surface)
 	return ctx->standard_npot;
 }
 
-
 cairo_status_t
 _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 {
@@ -113,31 +112,30 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 
 	char *src_colors = NULL;
 	double *src_v = NULL;
-	double *mask_colors = NULL;
 
 	int index = 0;
 	int stride = 4 * sizeof(GLfloat);
 	cairo_status_t status;
 
-	int vpoints = 0;
+	int number_of_vertices = 0;
 	GLfloat *vertices = NULL;
-	int npoints = 0;
+	int number_of_indices = 0;
 	unsigned short *gl_indices = NULL;
 
 	GLfloat *mask_texture_coords = NULL;
 	if (_cairo_array_num_elements (&indices->mask_texture_coords) > 0)
 		mask_texture_coords = _cairo_array_index (&indices->mask_texture_coords, 0);
 
-	_cairo_tristrip_get_gl_vertices_and_indices (&indices->tristrip,
-						     &gl_indices,
-						     &npoints,
-						     &vertices,
-						     &vpoints);
+	number_of_vertices = _cairo_array_num_elements (&indices->vertices) / 2;
+	vertices = _cairo_array_index (&indices->vertices, 0);
+
+	number_of_indices = _cairo_array_num_elements (&indices->indices);
+	gl_indices = _cairo_array_index (&indices->indices, 0);
 
 	if(setup->src.type == CAIRO_GL_OPERAND_CONSTANT)
 	{
-		src_colors = (char *)malloc(sizeof(GLfloat)*4*vpoints);
-		while(index < vpoints)
+		src_colors = (char *)malloc(sizeof(GLfloat)*4*number_of_vertices);
+		while(index < number_of_vertices)
 		{
 			memcpy(src_colors+index*stride, &(setup->src.constant.color), stride);
 			index++;
@@ -147,15 +145,15 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 	{
 		cairo_matrix_t m, m1;
 		GLfloat *st = NULL;
-		src_v = (double *)malloc(sizeof(double)*vpoints*2);
-		src_colors = (char *)malloc(sizeof(GLfloat)*2*vpoints);
+		src_v = (double *)malloc(sizeof(double)*number_of_vertices*2);
+		src_colors = (char *)malloc(sizeof(GLfloat)*2*number_of_vertices);
 		cairo_matrix_init_scale(&m, 1.0, 1.0);
 		cairo_matrix_multiply(&m, &m, &(setup->source->matrix));
 		cairo_matrix_init_scale(&m1, 1.0 / setup->src.texture.width,
 			1.0 / setup->src.texture.height);
 		cairo_matrix_multiply(&m, &m, &m1);
 		st = (GLfloat*)src_colors;
-		for(index = 0; index < vpoints; index++)
+		for(index = 0; index < number_of_vertices; index++)
 		{
 			src_v[index*2] = vertices[index*2];
 			src_v[index*2+1] = vertices[index*2+1];
@@ -165,18 +163,9 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 		}
 	}
 
-	if(setup->mask.type == CAIRO_GL_OPERAND_CONSTANT)
-	{
-		mask_colors = malloc(sizeof(GLfloat)*4*vpoints);
-		while(index < vpoints)
-		{
-			memcpy(mask_colors+index*stride, &(setup->mask.constant.color), stride);
-			index++;
-		}
-	}
 		// we need to fill colors with st values
 	status = _cairo_gl_composite_begin_constant_color(setup, 
-			vpoints, 
+			number_of_vertices, 
 			vertices, 
 			src_colors,
 			mask_texture_coords,
@@ -186,19 +175,13 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 	{
 		free (src_colors);
 		free (src_v);
-		free (mask_colors);
-		free (vertices);
-		free (gl_indices);
 		return status;
 	}
 
-	_cairo_gl_composite_fill_constant_color(ctx, npoints, gl_indices);
+	_cairo_gl_composite_fill_constant_color(ctx, number_of_indices, gl_indices);
 
 	free (src_colors);
 	free (src_v);
-	free (mask_colors);
-	free (vertices);
-	free (gl_indices);
 	return status;
 }
 
@@ -206,39 +189,38 @@ static cairo_status_t
 _cairo_gl_add_triangle (void		   *closure,
 			const cairo_point_t triangle[3])
 {
+    cairo_status_t status;
     cairo_gl_tristrip_indices_t *indices = (cairo_gl_tristrip_indices_t *)closure;
-    cairo_tristrip_t *tristrip = &indices->tristrip;
     cairo_gl_composite_t *setup = indices->setup;
 
     /* Flush everything if the mesh is very complicated. */
-    if (tristrip->num_points > MAX_INDEX && setup != NULL) {
+    if (_cairo_array_num_elements (&indices->indices) > MAX_INDEX && setup != NULL) {
 	cairo_status_t status = _cairo_gl_fill(indices);
 	_cairo_gl_tristrip_indices_destroy (indices);
 	status = _cairo_gl_tristrip_indices_init (indices);
 	indices->setup = setup;
     }
 
-    _cairo_tristrip_move_to (tristrip, &triangle[0]);
-
-    _cairo_tristrip_add_point (tristrip, &triangle[0]);
-    _cairo_tristrip_add_point (tristrip, &triangle[1]);
-    _cairo_tristrip_add_point (tristrip, &triangle[2]);
-    return CAIRO_STATUS_SUCCESS;
+    status = _cairo_gl_tristrip_add_vertex (indices, &triangle[0]);
+    status = _cairo_gl_tristrip_add_vertex (indices, &triangle[1]);
+    status = _cairo_gl_tristrip_add_vertex (indices, &triangle[2]);
+    if (unlikely (status))
+	return status;
+    return _cairo_gl_tristrip_indices_append_vertex_indices (indices, 3);
 }
 
 static cairo_status_t
-_cairo_gl_add_triangle_fan(void  *closure,
-					  const cairo_point_t *midpt,
-					  const cairo_point_t *points,
-					  int	npoints)
+_cairo_gl_add_triangle_fan(void			*closure,
+			   const cairo_point_t	*midpt,
+			   const cairo_point_t	*points,
+			   int			 npoints)
 {
     int i;
     cairo_gl_tristrip_indices_t *indices = (cairo_gl_tristrip_indices_t *)closure;
-    cairo_tristrip_t *tristrip = &indices->tristrip;
     cairo_gl_composite_t *setup = indices->setup;
 
     /* Flush everything if the mesh is very complicated. */
-    if (tristrip->num_points > MAX_INDEX && setup != NULL) {
+    if (_cairo_array_num_elements (&indices->indices) > MAX_INDEX && setup != NULL) {
 	cairo_status_t status = _cairo_gl_fill(indices);
 	_cairo_gl_tristrip_indices_destroy (indices);
 	status = _cairo_gl_tristrip_indices_init (indices);
@@ -248,11 +230,15 @@ _cairo_gl_add_triangle_fan(void  *closure,
     /* Our strategy here is to not even try to build a triangle fan, but to
        draw each triangle as if it was an unconnected member of a triangle strip. */
     for (i = 1; i < npoints; i++) {
-	_cairo_tristrip_move_to (tristrip, midpt);
-
-	_cairo_tristrip_add_point (tristrip, midpt);
-	_cairo_tristrip_add_point (tristrip, &points[i - 1]);
-	_cairo_tristrip_add_point (tristrip, &points[i]);
+	cairo_status_t status;
+	status =_cairo_gl_tristrip_add_vertex (indices, midpt);
+	status = _cairo_gl_tristrip_add_vertex (indices, &points[i - 1]);
+	status = _cairo_gl_tristrip_add_vertex (indices, &points[i]);
+	if (unlikely (status))
+	    return status;
+	status = _cairo_gl_tristrip_indices_append_vertex_indices (indices, 3);
+	if (unlikely (status))
+	    return status;
     }
 
     return CAIRO_STATUS_SUCCESS;

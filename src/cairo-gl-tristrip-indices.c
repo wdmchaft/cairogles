@@ -38,7 +38,6 @@
 
 #include "cairo-gl-private.h"
 #include "cairo-gl-tristrip-indices-private.h"
-#include "cairo-tristrip-private.h"
 
 #define INITIAL_INDICES_CAPACITY 64
 
@@ -47,84 +46,100 @@ _cairo_gl_tristrip_indices_init (cairo_gl_tristrip_indices_t *indices)
 {
     indices->setup = NULL;
 
+    _cairo_array_init (&indices->vertices, sizeof(float));
+    _cairo_array_init (&indices->indices, sizeof(unsigned short));
     _cairo_array_init (&indices->mask_texture_coords, sizeof(float));
-
-    _cairo_tristrip_init (&indices->tristrip);
     return CAIRO_STATUS_SUCCESS;
 }
 
 void
 _cairo_gl_tristrip_indices_destroy (cairo_gl_tristrip_indices_t *indices)
 {
-    _cairo_tristrip_fini (&indices->tristrip);
+    _cairo_array_fini (&indices->vertices);
+    _cairo_array_fini (&indices->indices);
     _cairo_array_fini (&indices->mask_texture_coords);
 }
 
 cairo_status_t
-_cairo_gl_tristrip_indices_add_quad (cairo_gl_tristrip_indices_t *indices,
-				     const cairo_point_t	  quad[4])
+_cairo_gl_tristrip_indices_append_vertex_indices (cairo_gl_tristrip_indices_t	*tristrip_indices,
+						  unsigned short		 number_of_new_indices)
 {
-    cairo_tristrip_t *tristrip = &indices->tristrip;
+    cairo_int_status_t status = CAIRO_INT_STATUS_SUCCESS;
+    cairo_array_t *indices = &tristrip_indices->indices;
+    int number_of_indices = _cairo_array_num_elements (indices);
+    unsigned short current_vertex_index = 0;
+    int i;
+
+    assert (number_of_new_indices > 0);
+
+    /* If any preexisting triangle triangle strip indices exist on this
+       context, we insert a set of degenerate triangle from the last
+       preexisting vertex to our first one. */
+    if (number_of_indices > 0) {
+	const unsigned short *indices_array = _cairo_array_index_const (indices, 0);
+	current_vertex_index = indices_array[number_of_indices - 1];
+
+	status = _cairo_array_append (indices, &current_vertex_index);
+	if (unlikely (status))
+	    return status;
+
+	current_vertex_index++;
+	status =_cairo_array_append (indices, &current_vertex_index);
+	if (unlikely (status))
+	    return status;
+    }
+
+    for (i = 0; i < number_of_new_indices; i++) {
+	status = _cairo_array_append (indices, &current_vertex_index);
+	current_vertex_index++;
+	if (unlikely (status))
+	    return status;
+    }
+
+    return CAIRO_STATUS_SUCCESS;
+}
+
+cairo_status_t
+_cairo_gl_tristrip_add_vertex (cairo_gl_tristrip_indices_t	*indices,
+			       const cairo_point_t		*vertex)
+{
+    cairo_status_t status;
+    float x = _cairo_fixed_to_double (vertex->x);
+    float y = _cairo_fixed_to_double (vertex->y);
+
+    status = _cairo_array_append (&indices->vertices, &x);
+    status = _cairo_array_append (&indices->vertices, &y);
+    return status;
+}
+
+cairo_status_t
+_cairo_gl_tristrip_indices_add_quad (cairo_gl_tristrip_indices_t	*indices,
+				     const cairo_point_t		 quad[4])
+{
+    cairo_status_t status;
 
     /* Flush everything if the mesh is very complicated. */
     cairo_gl_composite_t *setup = indices->setup;
-    if (tristrip->num_points > MAX_INDEX && setup != NULL) {
+    if (_cairo_array_num_elements (&indices->indices) > MAX_INDEX && setup != NULL) {
 	cairo_status_t status = _cairo_gl_fill(indices);
 	_cairo_gl_tristrip_indices_destroy (indices);
 	status = _cairo_gl_tristrip_indices_init (indices);
 	indices->setup = setup;
     }
 
-    _cairo_tristrip_move_to (tristrip, &quad[0]);
-
-    _cairo_tristrip_add_point (tristrip, &quad[0]);
-    _cairo_tristrip_add_point (tristrip, &quad[1]);
+    status = _cairo_gl_tristrip_add_vertex (indices, &quad[0]);
+    status = _cairo_gl_tristrip_add_vertex (indices, &quad[1]);
 
     /* Cairo stores quad vertices in counter-clockwise order, but we need to
        emit them from top to bottom in the triangle strip, so we need to reverse
        the order of the last two vertices. */
-    _cairo_tristrip_add_point (tristrip, &quad[3]);
-    _cairo_tristrip_add_point (tristrip, &quad[2]);
+    status = _cairo_gl_tristrip_add_vertex (indices, &quad[3]);
+    status = _cairo_gl_tristrip_add_vertex (indices, &quad[2]);
 
-    return CAIRO_STATUS_SUCCESS;
-}
+    if (unlikely (status))
+	return status;
 
-static cairo_bool_t
-_points_equal (cairo_point_t *a, cairo_point_t *b)
-{
-    return a->x == b->x && a->y == b->y;
-}
-
-void
-_cairo_tristrip_get_gl_vertices_and_indices (cairo_tristrip_t *tristrip,
-					     unsigned short	      **indices_out,
-					     int	      *num_indices,
-					     GLfloat	      **vertices_out,
-					     int	      *num_vertices)
-{
-    int i;
-    int num_points = tristrip->num_points;
-    int last_point_index = -1;
-    cairo_point_t *last_point = 0;
-
-    GLfloat *vertices = _cairo_malloc_abc (num_points, sizeof (GLfloat), 2);
-    unsigned short *indices = _cairo_malloc_ab (num_points, sizeof (unsigned short));
-
-    *vertices_out = vertices;
-    *indices_out = indices;
-
-    for (i = 0; i < num_points; i++) {
-        cairo_point_t *current_point = &tristrip->points[i];
-	if (last_point == NULL || !_points_equal (current_point, last_point)) {
-	    last_point = current_point;
-	    last_point_index++;
-	    vertices[last_point_index * 2] = _cairo_fixed_to_double (last_point->x);
-	    vertices[(last_point_index * 2) + 1] = _cairo_fixed_to_double (last_point->y);
-	}
-	indices[i] = last_point_index;
-    }
-    *num_indices = num_points;
-    *num_vertices = last_point_index + 1;
+    return _cairo_gl_tristrip_indices_append_vertex_indices (indices, 4);
 }
 
 cairo_status_t

@@ -73,7 +73,6 @@ typedef char GLchar;
 #include "cairo-surface-clipper-private.h"
 
 #include "cairo-gl-ext-def-private.h"
-#include "cairo-tristrip-private.h"
 
 #define DEBUG_GL 0
 
@@ -438,9 +437,9 @@ typedef struct _cairo_gl_composite {
 typedef struct _cairo_gl_tristrip_indices
 {
     cairo_gl_composite_t *setup;
+    cairo_array_t indices;
+    cairo_array_t vertices;
     cairo_array_t mask_texture_coords;
-
-    cairo_tristrip_t tristrip;
 } cairo_gl_tristrip_indices_t;
 
 cairo_private extern const cairo_surface_backend_t _cairo_gl_surface_backend;
