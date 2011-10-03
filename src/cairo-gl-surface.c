@@ -124,9 +124,9 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 	int npoints = 0;
 	unsigned short *gl_indices = NULL;
 
-	GLfloat *mask_vertices = NULL;
-	if (indices->num_texture_coords)
-		mask_vertices = indices->texture_coords;
+	GLfloat *mask_texture_coords = NULL;
+	if (_cairo_array_num_elements (&indices->mask_texture_coords) > 0)
+		mask_texture_coords = _cairo_array_index (&indices->mask_texture_coords, 0);
 
 	_cairo_tristrip_get_gl_vertices_and_indices (&indices->tristrip,
 						     &gl_indices,
@@ -179,7 +179,7 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 			vpoints, 
 			vertices, 
 			src_colors,
-			mask_vertices,
+			mask_texture_coords,
 			ctx);
 
 	if (unlikely(status))

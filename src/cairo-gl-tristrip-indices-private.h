@@ -61,10 +61,10 @@ cairo_private cairo_status_t
 _cairo_gl_tristrip_indices_add_traps (cairo_gl_tristrip_indices_t *indices,
 				      cairo_traps_t		  *traps);
 
-void
-_cairo_gl_tristrip_indices_add_texture_coord (cairo_gl_tristrip_indices_t *indices,
-					      float			  x,
-					      float			  y);
+cairo_private void
+_cairo_gl_tristrip_indices_add_mask_texture_coord (cairo_gl_tristrip_indices_t	*indices,
+						   float			 x,
+						   float			 y);
 
 cairo_private void
 _cairo_tristrip_get_gl_vertices_and_indices (cairo_tristrip_t *tristrip,

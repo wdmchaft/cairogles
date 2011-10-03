@@ -438,11 +438,7 @@ typedef struct _cairo_gl_composite {
 typedef struct _cairo_gl_tristrip_indices
 {
     cairo_gl_composite_t *setup;
-
-    float *texture_coords;
-    float  texture_coords_embedded[64];
-    int size_texture_coords;
-    int num_texture_coords;
+    cairo_array_t mask_texture_coords;
 
     cairo_tristrip_t tristrip;
 } cairo_gl_tristrip_indices_t;

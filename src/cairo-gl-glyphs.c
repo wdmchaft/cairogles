@@ -952,10 +952,10 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		x_advance += current_x_advance;
 		y_advance += current_y_advance;
 
-		_cairo_gl_tristrip_indices_add_texture_coord (&indices, glyph->p1.x, glyph->p1.y);
-		_cairo_gl_tristrip_indices_add_texture_coord (&indices, glyph->p1.x, glyph->p2.y);
-		_cairo_gl_tristrip_indices_add_texture_coord (&indices, glyph->p2.x, glyph->p1.y);
-		_cairo_gl_tristrip_indices_add_texture_coord (&indices, glyph->p2.x, glyph->p2.y);
+		_cairo_gl_tristrip_indices_add_mask_texture_coord (&indices, glyph->p1.x, glyph->p1.y);
+		_cairo_gl_tristrip_indices_add_mask_texture_coord (&indices, glyph->p1.x, glyph->p2.y);
+		_cairo_gl_tristrip_indices_add_mask_texture_coord (&indices, glyph->p2.x, glyph->p1.y);
+		_cairo_gl_tristrip_indices_add_mask_texture_coord (&indices, glyph->p2.x, glyph->p2.y);
 
 		status = _cairo_gl_tristrip_indices_add_quad (&indices, points);
 		if(unlikely(status))

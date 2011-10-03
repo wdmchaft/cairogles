@@ -47,9 +47,7 @@ _cairo_gl_tristrip_indices_init (cairo_gl_tristrip_indices_t *indices)
 {
     indices->setup = NULL;
 
-    indices->num_texture_coords = 0;
-    indices->size_texture_coords = ARRAY_LENGTH (indices->texture_coords_embedded) / 2;
-    indices->texture_coords = indices->texture_coords_embedded;
+    _cairo_array_init (&indices->mask_texture_coords, sizeof(float));
 
     _cairo_tristrip_init (&indices->tristrip);
     return CAIRO_STATUS_SUCCESS;
@@ -59,13 +57,7 @@ void
 _cairo_gl_tristrip_indices_destroy (cairo_gl_tristrip_indices_t *indices)
 {
     _cairo_tristrip_fini (&indices->tristrip);
-
-    if (indices->texture_coords != indices->texture_coords_embedded) {
-	free (indices->texture_coords);
-	indices->texture_coords = indices->texture_coords_embedded;
-    }
-    indices->num_texture_coords = 0;
-    indices->size_texture_coords = ARRAY_LENGTH (indices->texture_coords_embedded);
+    _cairo_array_fini (&indices->mask_texture_coords);
 }
 
 cairo_status_t
@@ -212,51 +204,14 @@ CLEANUP:
     return status;
 }
 
-static cairo_bool_t
-_cairo_gl_tristrip_indices_grow_texture_coords (cairo_gl_tristrip_indices_t *indices)
-{
-    float *texture_coords;
-    int new_size = 4 * indices->size_texture_coords;
-
-    if (CAIRO_INJECT_FAULT ()) {
-	//strip->status = _cairo_error (CAIRO_STATUS_NO_MEMORY);
-	return FALSE;
-    }
-
-    if (indices->texture_coords == indices->texture_coords_embedded) {
-	texture_coords = _cairo_malloc_abc (new_size, sizeof (cairo_point_t), 2);
-	if (texture_coords != NULL) {
-	    memcpy (texture_coords,
-		    indices->texture_coords,
-		    sizeof (indices->texture_coords_embedded));
-	    }
-    } else {
-	texture_coords = _cairo_realloc_ab (indices->texture_coords,
-					    new_size,
-					    sizeof (cairo_point_t) * 2);
-    }
-
-    if (unlikely (texture_coords == NULL)) {
-	//strip->status = _cairo_error (CAIRO_STATUS_NO_MEMORY);
-	return FALSE;
-    }
-
-    indices->texture_coords = texture_coords;
-    indices->size_texture_coords = new_size;
-    return TRUE;
-}
-
 void
-_cairo_gl_tristrip_indices_add_texture_coord (cairo_gl_tristrip_indices_t *indices,
-					      float			  x,
-					      float			  y)
+_cairo_gl_tristrip_indices_add_mask_texture_coord (cairo_gl_tristrip_indices_t	*indices,
+						   float			 x,
+						   float			 y)
 {
-    if (unlikely (indices->num_texture_coords == indices->size_texture_coords)) {
-	if (unlikely (! _cairo_gl_tristrip_indices_grow_texture_coords (indices)))
-	    return;
-    }
-
-    indices->texture_coords[indices->num_texture_coords * 2] = x;
-    indices->texture_coords[(indices->num_texture_coords * 2) + 1] = y;
-    indices->num_texture_coords++;
+    /* We ignore the status here, because eventually we are going to emit these vertices
+      directly to a GL bound buffer. */
+    cairo_int_status_t status;
+    status = _cairo_array_append (&indices->mask_texture_coords, &x);
+    status =_cairo_array_append (&indices->mask_texture_coords, &y);
 }
