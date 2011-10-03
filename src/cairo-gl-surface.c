@@ -2262,14 +2262,14 @@ _cairo_gl_surface_mask (void *abstract_surface,
 						       mask_texture_coords);
 
 			status = _cairo_gl_composite_begin_constant_color(setup, 
-				8, 
+				4, 
 				vertices, 
 				texture_coordinates,
 				mask_texture_coords,
 				ctx);
 		} else {
 			status = _cairo_gl_composite_begin_constant_color(setup, 
-				8, 
+				4, 
 				vertices, 
 				texture_coordinates,
 				NULL,
