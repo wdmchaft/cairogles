@@ -573,15 +573,13 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 		{
 			*moved_center = 1;
 			if(circle_1[0] > circle_2[0])
-				end_point[0] = circle_2[0] + 0.01 / circle_1[2];
+				end_point[0] = circle_2[0] + 0.01 * circle_1[2];
 			else
-				end_point[0] = circle_2[0] - 0.01 / circle_1[2];
-		    end_point[0] /= precision_scale;	
+				end_point[0] = circle_2[0] - 0.01 * circle_1[2];
 			if(circle_1[1] > circle_2[1])
-				end_point[1] = circle_2[1] + 0.01 / circle_1[2];
+				end_point[1] = circle_2[1] + 0.01 * circle_1[2];
 			else
-				end_point[1] = circle_2[1] - 0.01 / circle_1[2];
-		    end_point[1] /= precision_scale;	
+				end_point[1] = circle_2[1] - 0.01 * circle_1[2];
 		}
 	}
 	else if(radial->cd2.radius >= c + radial->cd1.radius)
@@ -591,15 +589,13 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 		{
 			*moved_center = 1;
 			if(circle_2[0] > circle_1[0])
-				end_point[0] = circle_1[0] + 0.01 / circle_2[2];
+				end_point[0] = circle_1[0] + 0.01 * circle_2[2];
 			else
-				end_point[0] = circle_1[0] - 0.01 / circle_2[2];
-		    end_point[0] /= precision_scale;	
+				end_point[0] = circle_1[0] - 0.01 * circle_2[2];
 			if(circle_2[1] > circle_1[0])
-				end_point[1] = circle_1[1] + 0.01 / circle_2[2];
+				end_point[1] = circle_1[1] + 0.01 * circle_2[2];
 			else
-				end_point[1] = circle_1[1] - 0.01 / circle_2[2];
-		    end_point[1] /= precision_scale;	
+				end_point[1] = circle_1[1] - 0.01 * circle_2[2];
 		}
 	}
 	if(*circle_in_circle == TRUE && *moved_center == 1)

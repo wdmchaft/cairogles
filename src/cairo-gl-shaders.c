@@ -758,12 +758,14 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"uniform float %s_total_dist;\n"
 		"uniform int %s_nstops;\n"
 		"uniform vec2 %s_delta;\n"
+        "\n"
+        "float %s_precision_scale = 100.0;\n"
 		"float %s_get_distance_from_start(vec2 coord)\n"
 		"{\n"
 		"  if(%s_total_dist == 0.0)\n"
 		"    return 1.0;\n"
 		"  float d = 1.0 / %s_total_dist;\n"
-		"  float dis = dot(%s_delta, coord - %s_stops[0]) *d;\n"
+		"  float dis = dot(%s_delta, coord / %s_precision_scale - %s_stops[0]) *d;\n"
 		"    return dis;\n"
 		"}\n"
 		"int %s_i;\n"
@@ -819,7 +821,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
-		namestr, namestr);
+		namestr, namestr, namestr, namestr);
 	break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
 	_cairo_output_stream_printf (stream,
@@ -829,12 +831,14 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"uniform float %s_total_dist;\n"
 		"uniform int %s_nstops;\n"
 		"uniform vec2 %s_delta;\n"
+        "\n"
+        "float %s_precision_scale = 100.0;\n"
 		"float %s_get_distance_from_start(vec2 coord)\n"
 		"{\n"
 		"  if(%s_total_dist == 0.0)\n"
 		"    return 1.0;\n"
 		"  float d = 1.0 / %s_total_dist;\n"
-		"  float dis = dot(%s_delta, coord - %s_stops[0]) *d;\n"
+		"  float dis = dot(%s_delta, coord / %s_precision_scale - %s_stops[0]) *d;\n"
 		"    return dis;\n"
 		"}\n"
 		"int %s_i;\n"
@@ -847,7 +851,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"  if(%s_dis >= %s_offsets[%s_nstops-1])\n"
 		"    return %s_colors[%s_nstops-1];\n"
 		"  else if(%s_dis <= %s_offsets[0])\n"
-		"    return %s_colors[1];\n"
+		"    return %s_colors[0];\n"
 		"  if(%s_nstops == 2)\n"
 		"  {\n"
 		"    if(%s_offsets[0] == 0.0 && %s_offsets[1] == 1.0)\n"
@@ -887,7 +891,8 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
-		namestr, namestr, namestr, namestr, namestr, namestr);
+		namestr, namestr, namestr, namestr, namestr, namestr,
+        namestr, namestr);
 	break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REPEAT:
 	_cairo_output_stream_printf (stream,
@@ -898,13 +903,14 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"uniform int %s_nstops;\n"
 		"uniform vec2 %s_delta;\n"
 		"float %s_reversed;\n"
+        "float %s_precision_scale = 100.0;\n"
 		"float %s_get_distance_from_start(vec2 coord)\n"
 		"{\n"
 		"  %s_reversed = 0.0;\n"
 		"  if(%s_total_dist == 0.0)\n"
 		"    return 1.0;\n"
 		"  float d = 1.0 / %s_total_dist;\n"
-		"  float dis = dot(%s_delta, coord - %s_stops[0]) *d;\n"
+		"  float dis = dot(%s_delta, coord / %s_precision_scale - %s_stops[0]) *d;\n"
 		"  if(dis == 0.0)\n"
 		"    return dis;\n"
 		"  if(dis < 0.0)\n"
@@ -970,7 +976,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
-		namestr, namestr, namestr, namestr);
+		namestr, namestr, namestr, namestr, namestr, namestr);
 	break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_REFLECT:
 	_cairo_output_stream_printf (stream,
@@ -980,12 +986,13 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"uniform float %s_total_dist;\n"
 		"uniform int %s_nstops;\n"
 		"uniform vec2 %s_delta;\n"
+        "float %s_precision_scale = 100.0;\n"
 		"vec2 %s_get_distance_from_start(vec2 coord)\n"
 		"{\n"
 		"  if(%s_total_dist == 0.0)\n"
 		"    return vec2(1.0, 0.0);\n"
 		"  float d = 1.0 / %s_total_dist;\n"
-		"  float dis = dot(%s_delta, coord - %s_stops[0]) *d;\n"
+		"  float dis = dot(%s_delta, coord / %s_precision_scale - %s_stops[0]) *d;\n"
 		"  if(dis == 0.0)\n"
 		"    return vec2(dis, 0.0);\n"
 		"  if(dis < 0.0)\n"
@@ -1105,7 +1112,8 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
-		namestr, namestr, namestr, namestr, namestr);
+		namestr, namestr, namestr, namestr, namestr, namestr,
+        namestr);
 	break;
 	/*
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
@@ -1211,6 +1219,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"float %s_r2;\n"
 		"float %s_dr1;\n"
 		"float %s_dr2;\n"
+        "float %s_precision_scale = 100.0;\n"
 		"int %s_determine_opp(vec2 coord)\n"
 		"{\n"
 		"  float x1, y1;\n"
@@ -1280,6 +1289,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"int %s_reverse;\n"
 		"vec4 %s_get_color(vec2 coord)\n"
 		"{\n"
+        "  coord /= %s_precision_scale;\n"
 		"  %s_reverse = 0;\n"
 		"  %s_r1 = %s_circle_1.z;\n"
 		"  %s_r2 = %s_circle_2.z;\n"
@@ -1368,7 +1378,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
-		namestr, namestr, namestr, namestr, namestr, namestr);
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr);
 	break;
 	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_IN_CIRCLE:
 	case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_IN_CIRCLE:
@@ -1391,6 +1401,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"float %s_r2;\n"
 		"float %s_dr1;\n"
 		"float %s_dr2;\n"
+        "float %s_precision_scale = 100.0;\n"
 		"int %s_determine_opp(vec2 coord)\n"
 		"{\n"
 		"  float x1, y1;\n"
@@ -1500,6 +1511,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"int %s_reverse;\n"
 		"vec4 %s_get_color(vec2 coord)\n"
 		"{\n"
+        "  coord /= %s_precision_scale;\n"
 		"  %s_reverse = 0;\n"
 		"  %s_r1 = %s_circle_1.z;\n"
 		"  %s_r2 = %s_circle_2.z;\n"
@@ -1684,6 +1696,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"uniform vec2 %s_matrix_2[3];\n"
 		"vec2 start1, start;\n"
 		"vec2 %s_end;\n"
+        "float %s_precision_scale = 100.0;\n"
 		"int %s_determine_opp(vec2 coord)\n"
 		"{\n"
 		"  float x1, y1, y2;\n"
@@ -1922,6 +1935,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"  vec2 circle_1_near, circle_1_far, circle_2_near, circle_2_far;\n"
 		"  float dis_1_near, dis_1_far, my_dis, dis_2_near, dis_2_far;\n"
 		"  int opp;\n"
+        "  coord /= %s_precision_scale;\n"
 		"  opp = %s_determine_opp(coord);\n"
 		"  if(opp == 0)\n"
 		"  {\n"
@@ -2349,7 +2363,8 @@ cairo_gl_shader_get_fragment_source (cairo_gl_context_t *ctx,
 
     _cairo_output_stream_printf (stream,
 	"#ifdef GL_ES\n"
-	"precision highp float;\n"
+	//"precision highp float;\n"
+	"precision mediump float;\n"
 	"#endif\n");
 
     if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES) {
@@ -2466,7 +2481,7 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
      * asked for a different program while a shader is bound.  This shouldn't
      * be a performance issue, since this is only called once per compile.
      */
-    glGetIntegerv (GL_CURRENT_PROGRAM, &saved_program);
+    //glGetIntegerv (GL_CURRENT_PROGRAM, &saved_program);
     dispatch->UseProgram (shader->program);
 
     location = dispatch->GetUniformLocation (shader->program, "source_sampler");

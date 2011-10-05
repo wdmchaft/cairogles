@@ -269,7 +269,7 @@ _cairo_gl_size_need_extend(int in_size, int *out_size, float *scale)
 	
 	f = logf(in_size) / logf(2.0);
 	d = (int)f;
-	if(f == 0.0)
+	if(f - d == 0.0)
 	{
 		*out_size = in_size;
 		*scale = 1.0;
