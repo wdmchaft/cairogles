@@ -1490,41 +1490,32 @@ _cairo_gl_surface_get_image (cairo_gl_surface_t      *surface,
      * support GL_PACK_ROW_LENGTH anyway, and this makes sure that the
      * pixman image that is created has row_stride = row_width * bpp.
      */
-    if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES) 
-	{
-		format = GL_RGBA;
-		if (!_cairo_is_little_endian ()) 
-		{
-	    	ASSERT_NOT_REACHED;
+    if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES) {
+	format = GL_RGBA;
+	if (!_cairo_is_little_endian ()) {
+	    ASSERT_NOT_REACHED;
 	    /* TODO: Add r8g8b8a8 support to pixman and enable this
 	       if (surface->base.content == CAIRO_CONTENT_COLOR)
 	       pixman_format = PIXMAN_r8g8b8x8;
 	       else
 	       pixman_format = PIXMAN_r8g8b8a8;
 	    */
-		}
-		else 
-		{
-	    	if (surface->base.content == CAIRO_CONTENT_COLOR)
-			{
-				pixman_format = PIXMAN_x8b8g8r8;
-				//pixman_format = PIXMAN_x8r8g8b8;
-				cpp = 4;
-			}
-	    	else if(surface->base.content == CAIRO_CONTENT_COLOR_ALPHA)
-			{
-				pixman_format = PIXMAN_a8b8g8r8;
-				//pixman_format = PIXMAN_a8r8g8b8;
-				cpp = 4;
-			}
-			else
-			{
-				format = GL_ALPHA;
-				pixman_format = PIXMAN_a8;
-				cpp = 1;
-			}
-		}
-		type = GL_UNSIGNED_BYTE;
+	} else {
+	    if (surface->base.content == CAIRO_CONTENT_COLOR) {
+		pixman_format = PIXMAN_x8b8g8r8;
+		//pixman_format = PIXMAN_x8r8g8b8;
+		cpp = 4;
+	    } else if(surface->base.content == CAIRO_CONTENT_COLOR_ALPHA) {
+		pixman_format = PIXMAN_a8b8g8r8;
+		//pixman_format = PIXMAN_a8r8g8b8;
+		cpp = 4;
+	    } else {
+		format = GL_ALPHA;
+		pixman_format = PIXMAN_a8;
+		cpp = 1;
+	    }
+	}
+	type = GL_UNSIGNED_BYTE;
     }
 
 	width = interest->width;
