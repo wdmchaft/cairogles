@@ -2072,7 +2072,10 @@ _cairo_gl_surface_mask (void *abstract_surface,
                         0, 0, 0, 0,
                         0, 0, 0, 0,
                         0, 0, 0, 0};
-	if (mask == NULL)
+	GLfloat texture_coordinates[8];
+	GLfloat mask_texture_coords[8];
+	
+    if (mask == NULL)
 		status = _cairo_composite_rectangles_init_for_paint(&extents,
 			surface->width,
 			surface->height,
@@ -2228,11 +2231,9 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	vertices[7] = extents.bounded.y + extents.bounded.height;
 
 	if (source->type == CAIRO_PATTERN_TYPE_SURFACE) {
-		GLfloat texture_coordinates[8];
 		map_vertices_to_surface_space (vertices, 4, clone, &source->matrix, texture_coordinates);
 
 		if (mask != NULL && mask_clone != NULL) {
-			GLfloat mask_texture_coords[8];
 			map_vertices_to_surface_space (vertices, 4, mask_clone,
 						       &mask->matrix,
 						       mask_texture_coords);
@@ -2263,7 +2264,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 		}
 
 		if (mask != NULL && mask_clone != NULL) {
-			GLfloat mask_texture_coords[8];
 			map_vertices_to_surface_space (vertices, 4, mask_clone,
 						       &mask->matrix,
 						       mask_texture_coords);
@@ -2284,7 +2284,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	} else if (source->type == CAIRO_PATTERN_TYPE_LINEAR ||
 		source->type == CAIRO_PATTERN_TYPE_RADIAL) {
 		if (mask != NULL && mask_clone != NULL) {
-			GLfloat mask_texture_coords[8];
 			map_vertices_to_surface_space (vertices, 4, mask_clone,
 						       &mask->matrix,
 						       mask_texture_coords);
