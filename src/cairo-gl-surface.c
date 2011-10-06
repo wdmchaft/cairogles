@@ -2039,9 +2039,11 @@ map_vertices_to_surface_space (GLfloat			*coords,
 {
     int i;
     cairo_matrix_t scale_matrix = *matrix;
-    cairo_matrix_scale(&scale_matrix,
-		       1.0 / surface->orig_width,
-		       1.0 / surface->orig_height);
+    cairo_matrix_t m;
+    cairo_matrix_init_scale(&m, 
+                            1.0 / surface->orig_width, 
+                            1.0 / surface->orig_height);
+    cairo_matrix_multiply(&scale_matrix, &scale_matrix, &m);
     for (i = 0; i < coord_count; i++) {
 	double x = coords[i * 2];
 	double y = coords[(i * 2) + 1];
