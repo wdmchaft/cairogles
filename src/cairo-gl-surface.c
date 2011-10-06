@@ -132,16 +132,7 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 	number_of_indices = _cairo_array_num_elements (&indices->indices);
 	gl_indices = _cairo_array_index (&indices->indices, 0);
 
-	if(setup->src.type == CAIRO_GL_OPERAND_CONSTANT)
-	{
-		src_colors = (char *)malloc(sizeof(GLfloat)*4*number_of_vertices);
-		while(index < number_of_vertices)
-		{
-			memcpy(src_colors+index*stride, &(setup->src.constant.color), stride);
-			index++;
-		}
-	}
-	else if(setup->src.type == CAIRO_GL_OPERAND_TEXTURE)
+	if(setup->src.type == CAIRO_GL_OPERAND_TEXTURE)
 	{
 		cairo_matrix_t m, m1;
 		GLfloat *st = NULL;
@@ -173,15 +164,18 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 
 	if (unlikely(status))
 	{
-		free (src_colors);
-		free (src_v);
+        if(src_colors)
+		    free (src_colors);
+        if(src_colors)
+		    free (src_v);
 		return status;
 	}
 
 	_cairo_gl_composite_fill_constant_color(ctx, number_of_indices, gl_indices);
-
-	free (src_colors);
-	free (src_v);
+    if(src_colors)
+	    free (src_colors);
+    if(src_colors)
+	    free (src_v);
 	return status;
 }
 
@@ -2068,10 +2062,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
     cairo_gl_surface_t *clone = NULL;
     cairo_gl_surface_t *mask_clone = NULL;
     GLfloat vertices[] = {0, 0, 0, 0, 0, 0, 0, 0};
-    GLfloat colors[] = {0, 0, 0, 0,
-                        0, 0, 0, 0,
-                        0, 0, 0, 0,
-                        0, 0, 0, 0};
 	GLfloat texture_coordinates[8];
 	GLfloat mask_texture_coords[8];
 	
@@ -2254,15 +2244,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 		}
 
 	} else if (source->type == CAIRO_PATTERN_TYPE_SOLID) {
-		int i;
-		cairo_solid_pattern_t *solid = (cairo_solid_pattern_t *)source;
-		for (i = 0; i < 4; i++) {
-			colors[i * 4] = solid->color.red;
-			colors[(i * 4) + 1] = solid->color.green;
-			colors[(i * 4) + 2] = solid->color.blue;
-			colors[(i * 4) + 3] = solid->color.alpha;
-		}
-
 		if (mask != NULL && mask_clone != NULL) {
 			map_vertices_to_surface_space (vertices, 4, mask_clone,
 						       &mask->matrix,
@@ -2270,14 +2251,14 @@ _cairo_gl_surface_mask (void *abstract_surface,
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				4, 
 				vertices, 
-				colors,
+				NULL,
 				mask_texture_coords,
 				ctx);
 		} else {
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				4, 
 				vertices, 
-				colors,
+				NULL,
 				NULL,
 				ctx);
 		}
@@ -2290,14 +2271,14 @@ _cairo_gl_surface_mask (void *abstract_surface,
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				4, 
 				vertices, 
-				colors,
+				NULL,
 				mask_texture_coords,
 				ctx);
 		} else {
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				4, 
 				vertices, 
-				colors,
+				NULL,
 				NULL,
 				ctx);
 		}

@@ -1544,13 +1544,7 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
 
 	// Henry Song
 
-    if(setup->src.type == CAIRO_GL_OPERAND_CONSTANT)
-	{
-		ctx->dispatch.VertexAttribPointer(CAIRO_GL_COLOR_ATTRIB_INDEX, 4,
-							GL_FLOAT, GL_TRUE, 0, color); 
-		ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
-	}
-	else if(setup->src.type == CAIRO_GL_OPERAND_TEXTURE)
+	if(setup->src.type == CAIRO_GL_OPERAND_TEXTURE)
 	{
         //glActiveTexture (GL_TEXTURE0 + CAIRO_GL_TEX_SOURCE);
         glActiveTexture (GL_TEXTURE0 + CAIRO_GL_TEX_SOURCE);
