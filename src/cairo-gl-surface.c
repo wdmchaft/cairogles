@@ -1089,6 +1089,7 @@ cairo_gl_surface_create_for_texture_with_internal_format(cairo_device_t *abstrac
 			width, height);
 
 	surface->internal_format = internal_format;
+    surface->tex_format = internal_format;
 	return &surface->base;
 }
 slim_hidden_def (cairo_gl_surface_create_for_texture_with_internal_format);
