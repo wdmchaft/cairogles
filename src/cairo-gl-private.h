@@ -467,7 +467,7 @@ static cairo_always_inline GLenum
 _cairo_gl_get_error (void)
 {
     GLenum err = glGetError();
-
+    if(err == GL_OUT_OF_MEMORY) printf("out of memory\n");
     if (unlikely (err))
         while (glGetError ());
 
