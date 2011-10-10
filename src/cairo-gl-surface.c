@@ -326,7 +326,6 @@ _cairo_gl_clip (cairo_clip_t		*clip,
 		cairo_gl_surface_t	*surface)
 {
     cairo_status_t status = CAIRO_STATUS_SUCCESS;
-    cairo_gl_tristrip_indices_t indices;
 
     cairo_clip_path_t *clip_path = clip->path;
     int num_clip_boxes = clip->num_boxes;
@@ -334,12 +333,33 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     if (clip_path == NULL && num_clip_boxes == 0)
 	return CAIRO_STATUS_SUCCESS;
 
-    if (unlikely ((status = _cairo_gl_tristrip_indices_init  (&indices))))
-	return status;
+    if(surface->clip == clip) {
+        glDepthMask (GL_TRUE);
+        glEnable (GL_STENCIL_TEST);
+        if(!_cairo_gl_surface_is_texture (surface)) {
+            glClear (GL_STENCIL_BUFFER_BIT);
+            glStencilOp (GL_REPLACE,  GL_REPLACE, GL_REPLACE);
+            glStencilFunc (GL_ALWAYS, 1, 0xffffffff);
+            glColorMask (0, 0, 0, 0);
+            surface->clip_indices->setup = setup;
+            if (unlikely ((status = _cairo_gl_fill (surface->clip_indices))))
+	        goto FAIL;
+        }
+
+        glColorMask (1, 1, 1, 1);
+        if(!_cairo_gl_surface_is_texture (surface)) {
+            glStencilOp (GL_KEEP, GL_KEEP, GL_KEEP);
+            glStencilFunc (GL_EQUAL, 1, 1);
+        }
+        return CAIRO_STATUS_SUCCESS;
+    }
 
     /* Operations on_triangle strip indices may end up flushing the surface
        triangle strip cache and doing the fill. In case that happens we prepare
        to update the stencil buffer now. */
+    surface->clip = clip;
+    _cairo_gl_tristrip_indices_destroy (surface->clip_indices);
+    _cairo_gl_tristrip_indices_init (surface->clip_indices);
     glDepthMask (GL_TRUE);
     glEnable (GL_STENCIL_TEST);
     glClear (GL_STENCIL_BUFFER_BIT);
@@ -347,24 +367,24 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     glStencilFunc (GL_ALWAYS, 1, 0xffffffff);
     glColorMask (0, 0, 0, 0);
 
-    indices.setup = setup;
+    surface->clip_indices->setup = setup;
     if (clip_path != NULL) {
-	status = _cairo_gl_tristrip_indices_add_path (&indices, clip_path);
+	status = _cairo_gl_tristrip_indices_add_path (surface->clip_indices, 
+                                                  clip_path);
     } else {
-	status = _cairo_gl_tristrip_indices_add_boxes (&indices,
-							     num_clip_boxes,
-							     clip->boxes);
+	status = _cairo_gl_tristrip_indices_add_boxes (surface->clip_indices,
+							                       num_clip_boxes,
+							                       clip->boxes);
     }
     if (unlikely (status))
 	goto FAIL;
 
-    if (unlikely ((status = _cairo_gl_fill (&indices))))
+    if (unlikely ((status = _cairo_gl_fill (surface->clip_indices))))
 	goto FAIL;
 
     glColorMask (1, 1, 1, 1);
     glStencilOp (GL_KEEP, GL_KEEP, GL_KEEP);
     glStencilFunc (GL_EQUAL, 1, 1);
-    _cairo_gl_tristrip_indices_destroy  (&indices);
     return CAIRO_STATUS_SUCCESS;
 
 FAIL:
@@ -702,6 +722,11 @@ _cairo_gl_surface_init (cairo_device_t *device,
 	surface->parent_surface = NULL;
 	surface->bound_fbo = FALSE;
     surface->tex_format = GL_RGBA; // default
+    surface->clip = NULL;
+    surface->clip_indices = 
+        (cairo_gl_tristrip_indices_t *)malloc(sizeof(cairo_gl_tristrip_indices_t));
+    status = _cairo_gl_tristrip_indices_init(surface->clip_indices);
+
 }
 
 static cairo_surface_t *
@@ -1631,7 +1656,9 @@ _cairo_gl_surface_finish (void *abstract_surface)
 	surface->bound_fbo = FALSE;
 		
 	surface->needs_new_data_surface = FALSE;
-
+    _cairo_gl_tristrip_indices_destroy(surface->clip_indices);
+    free(surface->clip_indices);
+    surface->clip = NULL;
     return _cairo_gl_context_release (ctx, status);
 }
 
@@ -2512,19 +2539,19 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	    status = _cairo_gl_context_release(ctx, status);
 	    return status;
 	}
-    } else {
+    } //else {
 	/* Enable the stencil buffer, even if we have no clip so that
 	   we can use it below to prevent overlapping shapes. We initialize
 	   it all to one here which represents infinite clip. */
-	glDepthMask (GL_TRUE);
+	/*glDepthMask (GL_TRUE);
 	glEnable (GL_STENCIL_TEST);
 	glClearStencil(1);
 	glClear (GL_STENCIL_BUFFER_BIT);
 	glStencilFunc (GL_EQUAL, 1, 1);
-    }
+    }*/
 
     /* This prevents shapes from _cairo_path_fixed_stroke_to_shaper from overlapping. */
-    glStencilOp (GL_ZERO, GL_ZERO, GL_ZERO);
+    //glStencilOp (GL_ZERO, GL_ZERO, GL_ZERO);
 
 	status = _cairo_gl_tristrip_indices_init (&indices);
 	indices.setup = setup;

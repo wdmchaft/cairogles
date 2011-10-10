@@ -174,6 +174,7 @@ typedef enum cairo_gl_var_type {
 /* This union structure describes a potential source or mask operand to the
  * compositing equation.
  */
+struct _cairo_gl_tristrip_indices;
 typedef struct _cairo_gl_surface {
     cairo_surface_t base;
 
@@ -206,6 +207,8 @@ typedef struct _cairo_gl_surface {
     GLint tex_format;
 	struct _cairo_gl_surface *parent_surface;
 	cairo_bool_t bound_fbo;
+    cairo_clip_t *clip;
+    struct _cairo_gl_tristrip_indices *clip_indices;
 } cairo_gl_surface_t;
 
 typedef struct cairo_gl_operand {
