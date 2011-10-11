@@ -1211,11 +1211,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 		if(clone == NULL || cairo_surface_get_type(&clone->base) == CAIRO_SURFACE_TYPE_IMAGE)
 		{
 			if(cairo_surface_get_type(src) != CAIRO_SURFACE_TYPE_IMAGE)
-			{
-				cairo_surface_destroy(&img_src->base);
-				if(extra != NULL)
-					free(extra);
-			}
+                _cairo_surface_release_source_image(src, img_src, extra);
 			if(clone != NULL)
 			{
 				cairo_surface_destroy(&clone->base);
