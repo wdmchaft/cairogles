@@ -2360,8 +2360,8 @@ _cairo_gl_surface_mask (void *abstract_surface,
         _cairo_gl_context_blit_destination(ctx, mask_clone);
     //printf("blit clone and mask clone %ld \n", _get_tick() - now);
     //now = _get_tick();
-    if(!_cairo_gl_extents_within_clip (extents, extents.is_bounded, clip_pt))
-        clip_pt = NULL;
+    //if(!_cairo_gl_extents_within_clip (extents, extents.is_bounded, clip_pt))
+    //    clip_pt = NULL;
 
     if(clip_pt != NULL && clip_pt->path != NULL) {
         if(clip_pt->path->antialias != CAIRO_ANTIALIAS_NONE)
@@ -2660,8 +2660,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
    
     // for stroke, it always bounded 
     //now = _get_tick();
-    if(!_cairo_gl_extents_within_clip (extents, TRUE, clip_pt))
-        clip_pt = NULL;
+    //if(!_cairo_gl_extents_within_clip (extents, TRUE, clip_pt))
+    //    clip_pt = NULL;
     //printf("\tcheck extents within clip %ld\n", _get_tick() - now);
     
     //now = _get_tick();
@@ -2866,8 +2866,8 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     }
     
     // for fill, it is always bounded
-    if(!_cairo_gl_extents_within_clip (extents, TRUE, clip_pt))
-        clip_pt = NULL;
+    //if(!_cairo_gl_extents_within_clip (extents, TRUE, clip_pt))
+    //    clip_pt = NULL;
 
 	// upload image
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
