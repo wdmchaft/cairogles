@@ -768,11 +768,6 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
     if (unlikely (surface->base.status))
 	return &surface->base;
 
-    status = _cairo_gl_ensure_framebuffer(ctx, surface);
-    if (unlikely (status)) {
-    _cairo_surface_set_error (&surface->base, status);
-    return &surface->base;
-    }
 
     surface->owns_tex = TRUE;
 
@@ -815,6 +810,10 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 	surface->parent_surface = NULL;
 	surface->bound_fbo = FALSE;
     surface->tex_format = format;
+    status = _cairo_gl_ensure_framebuffer(ctx, surface);
+    if (unlikely (status))
+    _cairo_surface_set_error (&surface->base, status);
+    
     return &surface->base;
 }
 
@@ -957,15 +956,7 @@ cairo_gl_surface_create_for_texture (cairo_device_t	*abstract_device,
     surface = (cairo_gl_surface_t *)
 	_cairo_gl_surface_create_scratch_for_texture (ctx, content,
 						      tex, width, height);
-    // we need to ensure FBO upfront
-    status = _cairo_gl_ensure_framebuffer (ctx, surface);
-    if (unlikely (status)) {
-        _cairo_surface_set_error(&surface->base, status);
-        status = _cairo_gl_context_release (ctx, status);
-        return &surface->base;
-    }
 
-    status = _cairo_gl_context_release (ctx, status);
 	surface->external_tex = TRUE;
 	surface->owns_tex = FALSE;
 
@@ -975,6 +966,14 @@ cairo_gl_surface_create_for_texture (cairo_device_t	*abstract_device,
 	surface->mask_surface = NULL;
 	surface->parent_surface = NULL;
 	surface->bound_fbo = FALSE;
+    // we need to ensure FBO upfront
+    status = _cairo_gl_ensure_framebuffer (ctx, surface);
+    if (unlikely (status)) {
+        _cairo_surface_set_error(&surface->base, status);
+        status = _cairo_gl_context_release (ctx, status);
+        return &surface->base;
+    }
+    status = _cairo_gl_context_release (ctx, status);
     return &surface->base;
 }
 slim_hidden_def (cairo_gl_surface_create_for_texture);
