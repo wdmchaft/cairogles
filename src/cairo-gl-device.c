@@ -504,7 +504,7 @@ _cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
 }
 #endif
 
-cairo_status_t
+static cairo_status_t
 _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
                               cairo_gl_surface_t *surface)
 {
@@ -514,7 +514,6 @@ _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
     return _cairo_gl_ensure_framebuffer_for_gl (ctx, surface);
 #endif
 }
-#endif
 
 #if CAIRO_HAS_GLESV2_SURFACE
 static void
@@ -606,16 +605,6 @@ _cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
 }
 #endif
 
-static void
-_cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
-                              cairo_gl_surface_t *surface)
-{
-#if CAIRO_HAS_GLESV2_SURFACE
-    _cairo_gl_ensure_framebuffer_for_gles (ctx, surface);
-#elif CAIRO_HAS_GL_SURFACE
-    _cairo_gl_ensure_framebuffer_for_gl (ctx, surface);
-#endif
-}
 
 /*
  * Stores a parallel projection transformation in matrix 'm',
