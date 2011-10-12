@@ -271,20 +271,21 @@ _cairo_gl_context_activate (cairo_gl_context_t *ctx,
     }
 }
 
-static void
+cairo_status_t
 _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
                               cairo_gl_surface_t *surface)
 {
     GLenum status;
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    cairo_status_t state = CAIRO_STATUS_SUCCESS;
 
 	if(surface->parent_surface != NULL)
 	{
 		if(likely(surface->parent_surface->fb))
-			return;
+			return state;
 	}
 	else if(likely(surface->fb))
-		return;
+		return state;
 
     /* Create a framebuffer object wrapping the texture so that we can render
      * to it.
@@ -351,7 +352,10 @@ _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
 	fprintf (stderr,
 		 "destination is framebuffer incomplete: %s [%#x]\n",
 		 str, status);
+    return CAIRO_STATUS_NO_MEMORY;
+    
     }
+    return CAIRO_STATUS_SUCCESS;
 }
 
 /*
@@ -398,6 +402,7 @@ void
 _cairo_gl_context_set_destination (cairo_gl_context_t *ctx,
                                    cairo_gl_surface_t *surface)
 {
+    cairo_status_t status;
     //if (ctx->current_target == surface && ! surface->needs_update)
     //    return;
 
@@ -409,7 +414,7 @@ _cairo_gl_context_set_destination (cairo_gl_context_t *ctx,
 
     if (_cairo_gl_surface_is_texture (surface)) 
 	{
-        _cairo_gl_ensure_framebuffer (ctx, surface);
+        status = _cairo_gl_ensure_framebuffer (ctx, surface);
 		if(surface->parent_surface != NULL)
 		{
 			if(surface->bound_fbo == FALSE)

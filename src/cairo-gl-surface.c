@@ -759,6 +759,7 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
     cairo_gl_surface_t *surface;
     GLenum format;
     GLuint tex;
+    cairo_status_t status;
 
     glGenTextures (1, &tex);
     surface = (cairo_gl_surface_t *)
@@ -766,6 +767,12 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 						      tex, width, height);
     if (unlikely (surface->base.status))
 	return &surface->base;
+
+    status = _cairo_gl_ensure_framebuffer(ctx, surface);
+    if (unlikely (status)) {
+    _cairo_surface_set_error (&surface->base, status);
+    return &surface->base;
+    }
 
     surface->owns_tex = TRUE;
 
@@ -950,8 +957,15 @@ cairo_gl_surface_create_for_texture (cairo_device_t	*abstract_device,
     surface = (cairo_gl_surface_t *)
 	_cairo_gl_surface_create_scratch_for_texture (ctx, content,
 						      tex, width, height);
-    status = _cairo_gl_context_release (ctx, status);
+    // we need to ensure FBO upfront
+    status = _cairo_gl_ensure_framebuffer (ctx, surface);
+    if (unlikely (status)) {
+        _cairo_surface_set_error(&surface->base, status);
+        status = _cairo_gl_context_release (ctx, status);
+        return &surface->base;
+    }
 
+    status = _cairo_gl_context_release (ctx, status);
 	surface->external_tex = TRUE;
 	surface->owns_tex = FALSE;
 
