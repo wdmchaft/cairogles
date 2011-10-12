@@ -2617,7 +2617,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     cairo_gl_surface_t *clone = NULL;
     //cairo_surface_t *snapshot = NULL;
     int v;
-    cairo_bool_t has_alpha = TRUE;
     
     int extend = 0;
     cairo_clip_t *clip_pt = clip;
