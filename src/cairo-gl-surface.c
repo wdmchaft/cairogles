@@ -336,21 +336,18 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     if(surface->clip == clip) {
         glDepthMask (GL_TRUE);
         glEnable (GL_STENCIL_TEST);
-        if(!_cairo_gl_surface_is_texture (surface)) {
-            glClear (GL_STENCIL_BUFFER_BIT);
-            glStencilOp (GL_REPLACE,  GL_REPLACE, GL_REPLACE);
-            glStencilFunc (GL_ALWAYS, 1, 0xffffffff);
-            glColorMask (0, 0, 0, 0);
-            surface->clip_indices->setup = setup;
-            if (unlikely ((status = _cairo_gl_fill (surface->clip_indices))))
+        glClear (GL_STENCIL_BUFFER_BIT);
+        glStencilOp (GL_REPLACE,  GL_REPLACE, GL_REPLACE);
+        glStencilFunc (GL_ALWAYS, 1, 0xffffffff);
+        glColorMask (0, 0, 0, 0);
+        surface->clip_indices->setup = setup;
+        if (unlikely ((status = _cairo_gl_fill (surface->clip_indices))))
 	        goto FAIL;
-        }
 
         glColorMask (1, 1, 1, 1);
-        if(!_cairo_gl_surface_is_texture (surface)) {
-            glStencilOp (GL_KEEP, GL_KEEP, GL_KEEP);
-            glStencilFunc (GL_EQUAL, 1, 1);
-        }
+        glStencilOp (GL_KEEP, GL_KEEP, GL_KEEP);
+        glStencilFunc (GL_EQUAL, 1, 1);
+       
         return CAIRO_STATUS_SUCCESS;
     }
 
@@ -2420,7 +2417,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     cairo_gl_surface_t *clone = NULL;
     //cairo_surface_t *snapshot = NULL;
     int v;
-
+    cairo_bool_t has_alpha = TRUE;
+    
 	//cairo_rectangle_int_t *clip_extent, stroke_extent;
 
 	if(antialias != CAIRO_ANTIALIAS_NONE || clip != NULL)
@@ -2474,6 +2472,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 			return UNSUPPORTED("create_clone failed");
 		}
 	}
+    else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
+        has_alpha = ((cairo_solid_pattern_t *)source)->color.alpha == 1.0 ? FALSE : TRUE;
 	
 	setup = (cairo_gl_composite_t *)malloc(sizeof(cairo_gl_composite_t));
 	
@@ -2535,19 +2535,22 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	    status = _cairo_gl_context_release(ctx, status);
 	    return status;
 	}
-    } //else {
+    } else {
 	/* Enable the stencil buffer, even if we have no clip so that
 	   we can use it below to prevent overlapping shapes. We initialize
 	   it all to one here which represents infinite clip. */
-	/*glDepthMask (GL_TRUE);
+    if(has_alpha) {
+	glDepthMask (GL_TRUE);
 	glEnable (GL_STENCIL_TEST);
 	glClearStencil(1);
 	glClear (GL_STENCIL_BUFFER_BIT);
 	glStencilFunc (GL_EQUAL, 1, 1);
-    }*/
+    }
+    }
 
     /* This prevents shapes from _cairo_path_fixed_stroke_to_shaper from overlapping. */
-    //glStencilOp (GL_ZERO, GL_ZERO, GL_ZERO);
+    if(has_alpha)
+    glStencilOp (GL_ZERO, GL_ZERO, GL_ZERO);
 
 	status = _cairo_gl_tristrip_indices_init (&indices);
 	indices.setup = setup;
