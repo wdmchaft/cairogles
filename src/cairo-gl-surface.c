@@ -327,36 +327,12 @@ _cairo_gl_clip (cairo_clip_t		*clip,
 {
     cairo_status_t status = CAIRO_STATUS_SUCCESS;
 
-    cairo_clip_path_t *clip_path = clip->path;
-    int num_clip_boxes = clip->num_boxes;
-
-    if (clip_path == NULL && num_clip_boxes == 0)
+    if (clip->path == NULL && clip->num_boxes == 0)
 	return CAIRO_STATUS_SUCCESS;
-
-    if(surface->clip == clip) {
-        glDepthMask (GL_TRUE);
-        glEnable (GL_STENCIL_TEST);
-        glClear (GL_STENCIL_BUFFER_BIT);
-        glStencilOp (GL_REPLACE,  GL_REPLACE, GL_REPLACE);
-        glStencilFunc (GL_ALWAYS, 1, 0xffffffff);
-        glColorMask (0, 0, 0, 0);
-        surface->clip_indices->setup = setup;
-        if (unlikely ((status = _cairo_gl_fill (surface->clip_indices))))
-	        goto FAIL;
-
-        glColorMask (1, 1, 1, 1);
-        glStencilOp (GL_KEEP, GL_KEEP, GL_KEEP);
-        glStencilFunc (GL_EQUAL, 1, 1);
-       
-        return CAIRO_STATUS_SUCCESS;
-    }
 
     /* Operations on_triangle strip indices may end up flushing the surface
        triangle strip cache and doing the fill. In case that happens we prepare
        to update the stencil buffer now. */
-    surface->clip = clip;
-    _cairo_gl_tristrip_indices_destroy (surface->clip_indices);
-    _cairo_gl_tristrip_indices_init (surface->clip_indices);
     glDepthMask (GL_TRUE);
     glEnable (GL_STENCIL_TEST);
     glClear (GL_STENCIL_BUFFER_BIT);
@@ -364,18 +340,39 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     glStencilFunc (GL_ALWAYS, 1, 0xffffffff);
     glColorMask (0, 0, 0, 0);
 
-    surface->clip_indices->setup = setup;
-    if (clip_path != NULL) {
-	status = _cairo_gl_tristrip_indices_add_path (surface->clip_indices, 
-                                                  clip_path);
-    } else {
-	status = _cairo_gl_tristrip_indices_add_boxes (surface->clip_indices,
-							                       num_clip_boxes,
-							                       clip->boxes);
-    }
-    if (unlikely (status))
-	goto FAIL;
+    if (surface->clip != clip) { /* The cached clip is out of date. */
+	cairo_traps_t traps;
+	cairo_polygon_t polygon;
+	cairo_antialias_t antialias;
+	cairo_fill_rule_t fill_rule;
 
+	surface->clip = clip;
+	_cairo_gl_tristrip_indices_destroy (surface->clip_indices);
+
+	status = _cairo_gl_tristrip_indices_init (surface->clip_indices);
+	if (unlikely (status))
+	    goto FAIL;;
+
+	surface->clip_indices->setup = setup;
+	status = _cairo_clip_get_polygon (clip, &polygon, &fill_rule, &antialias);
+	if (unlikely (status))
+	    goto FAIL;
+
+	_cairo_traps_init (&traps);
+	status = _cairo_bentley_ottmann_tessellate_polygon (&traps,
+							    &polygon,
+							    fill_rule);
+	_cairo_polygon_fini (&polygon);
+	if (unlikely (status))
+	    goto FAIL;
+
+	status = _cairo_gl_tristrip_indices_add_traps (surface->clip_indices, &traps);
+	_cairo_traps_fini (&traps);
+	if (unlikely (status))
+	    goto FAIL;
+    }
+
+    surface->clip_indices->setup = setup;
     if (unlikely ((status = _cairo_gl_fill (surface->clip_indices))))
 	goto FAIL;
 
