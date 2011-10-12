@@ -762,7 +762,6 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
     cairo_gl_surface_t *surface;
     GLenum format;
     GLuint tex;
-    cairo_status_t status;
 
     glGenTextures (1, &tex);
     surface = (cairo_gl_surface_t *)
@@ -771,7 +770,10 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
     if (unlikely (surface->base.status))
 	return &surface->base;
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> parent of 1f12964... 1. add ensure_framebuffer() call during surface creation.  It is possible that
     surface->owns_tex = TRUE;
 
     /* adjust the texture size after setting our real extents */
@@ -959,6 +961,10 @@ cairo_gl_surface_create_for_texture (cairo_device_t	*abstract_device,
     surface = (cairo_gl_surface_t *)
 	_cairo_gl_surface_create_scratch_for_texture (ctx, content,
 						      tex, width, height);
+<<<<<<< HEAD
+=======
+    status = _cairo_gl_context_release (ctx, status);
+>>>>>>> parent of 1f12964... 1. add ensure_framebuffer() call during surface creation.  It is possible that
 
 	surface->external_tex = TRUE;
 	surface->owns_tex = FALSE;
