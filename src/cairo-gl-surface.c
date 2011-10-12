@@ -2621,6 +2621,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     
     int extend = 0;
     cairo_clip_t *clip_pt = clip;
+    cairo_bool_t has_alpha = TRUE;
 
     long now, whole_now;
 
