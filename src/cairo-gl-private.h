@@ -209,6 +209,7 @@ typedef struct _cairo_gl_surface {
 	cairo_bool_t bound_fbo;
     cairo_clip_t *clip;
     struct _cairo_gl_tristrip_indices *clip_indices;
+    cairo_bool_t stencil_buffer_changed;
 } cairo_gl_surface_t;
 
 typedef struct cairo_gl_operand {
