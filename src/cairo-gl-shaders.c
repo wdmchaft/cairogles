@@ -2363,8 +2363,8 @@ cairo_gl_shader_get_fragment_source (cairo_gl_context_t *ctx,
 
     _cairo_output_stream_printf (stream,
 	"#ifdef GL_ES\n"
-	//"precision highp float;\n"
-	"precision mediump float;\n"
+	"precision highp float;\n"
+	//"precision mediump float;\n"
 	"#endif\n");
 
     if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES) {

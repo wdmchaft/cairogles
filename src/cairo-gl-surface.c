@@ -414,6 +414,15 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     return CAIRO_STATUS_SUCCESS;
     }
 
+    if(surface->clip == clip && 
+       surface->stencil_buffer_changed == FALSE &&
+       _cairo_gl_surface_is_texture (surface)) {
+    glDepthMask (GL_TRUE);
+    glEnable (GL_STENCIL_TEST);
+    glColorMask (1, 1, 1, 1);
+    return CAIRO_STATUS_SUCCESS;
+    }
+
     /* Operations on_triangle strip indices may end up flushing the surface
        triangle strip cache and doing the fill. In case that happens we prepare
        to update the stencil buffer now. */
@@ -819,7 +828,7 @@ _cairo_gl_surface_init (cairo_device_t *device,
     surface->clip_indices = 
         (cairo_gl_tristrip_indices_t *)malloc(sizeof(cairo_gl_tristrip_indices_t));
     status = _cairo_gl_tristrip_indices_init(surface->clip_indices);
-    surface->stencil_buffer_changed = FALSE;
+    surface->stencil_buffer_changed = TRUE;
 }
 
 static cairo_surface_t *
