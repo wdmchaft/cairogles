@@ -2208,7 +2208,7 @@ _cairo_gl_surface_paint (void *abstract_surface,
 	//void *image_extra;
 
 	//cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
-    printf("in paint\n");
+    
     /* simplify the common case of clearing the surface */
     if (clip == NULL) {
         if (op == CAIRO_OPERATOR_CLEAR)
