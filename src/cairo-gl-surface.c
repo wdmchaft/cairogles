@@ -2208,7 +2208,7 @@ _cairo_gl_surface_paint (void *abstract_surface,
 	//void *image_extra;
 
 	//cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
-
+    printf("in paint\n");
     /* simplify the common case of clearing the surface */
     if (clip == NULL) {
         if (op == CAIRO_OPERATOR_CLEAR)
@@ -2846,7 +2846,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     cairo_gl_context_t *ctx = NULL;
     cairo_traps_t traps;
     cairo_gl_tristrip_indices_t indices;
-
+    
     cairo_clip_t *clip_pt = clip;  
 
     // When clip and path do not intersect,, return without actually drawing.
