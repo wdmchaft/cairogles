@@ -299,7 +299,7 @@ _cairo_gl_surface_generate_npot_surface(cairo_gl_surface_t *src)
 											   &out_size_y, 
 											   &extend_scale_y);
 	if(need_extend_x == FALSE && need_extend_y == FALSE)
-		return (cairo_gl_surface_t *)cairo_surface_reference(&src->base);
+		return src;
 	
 	extend_src = 
 		(cairo_gl_surface_t *)cairo_surface_create_similar(&src->base,
@@ -1152,7 +1152,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 
 				if(clone != src)
 					_cairo_surface_attach_snapshot(src, &clone->base, _cairo_gl_surface_remove_from_cache);
-				return (cairo_gl_surface_t *)cairo_surface_reference(snapshot);
+				return (cairo_gl_surface_t *)cairo_surface_reference(clone);
 			}
 		}
 	}
