@@ -1377,9 +1377,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 		status = _cairo_gl_surface_draw_image(clone, img_src, 0, 0,
 			img_src->width, img_src->height, 0, 0, FALSE);
         if(cairo_surface_get_type(src) != CAIRO_SURFACE_TYPE_IMAGE)
-		    cairo_surface_destroy(&img_src->base);
-		if(extra != NULL)
-			free(extra);
+            _cairo_surface_release_source_image(src, img_src, extra);
 		
         if(unlikely (status))
 		{
