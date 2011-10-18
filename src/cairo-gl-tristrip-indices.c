@@ -143,6 +143,71 @@ _cairo_gl_tristrip_indices_add_quad (cairo_gl_tristrip_indices_t	*indices,
 }
 
 cairo_status_t
+_cairo_gl_tristrip_indices_add_traps_with_mask (cairo_gl_tristrip_indices_t *indices,
+				      cairo_traps_t		  *traps,
+                      cairo_matrix_t *matrix,
+                      cairo_gl_surface_t     *mask)
+{
+    cairo_status_t status;
+    int i;
+    cairo_bool_t texture_surface = FALSE;
+    cairo_matrix_t m, m1;
+    cairo_matrix_init_scale(&m, 1.0, 1.0);
+    cairo_matrix_multiply(&m, &m, matrix);
+    cairo_matrix_init_scale(&m1, 1.0 / mask->orig_width,
+            1.0 / mask->orig_height);
+    cairo_matrix_multiply(&m, &m, &m1);
+
+    for (i = 0; i < traps->num_traps; i++) {
+	cairo_point_t quad[4];
+	cairo_trapezoid_t *trap = traps->traps + i;
+
+	quad[0].x = _cairo_edge_compute_intersection_x_for_y (&trap->left.p1, &trap->left.p2, trap->top);
+	quad[0].y = trap->top;
+	quad[1].x = _cairo_edge_compute_intersection_x_for_y (&trap->left.p1, &trap->left.p2, trap->bottom);
+	quad[1].y = trap->bottom;
+	quad[2].x = _cairo_edge_compute_intersection_x_for_y (&trap->right.p1, &trap->right.p2, trap->bottom);
+	quad[2].y = trap->bottom;
+	quad[3].x = _cairo_edge_compute_intersection_x_for_y (&trap->right.p1, &trap->right.p2, trap->top);
+	quad[3].y = trap->top;
+
+	status = _cairo_gl_tristrip_indices_add_quad (indices, quad);
+	if (unlikely (status))
+	    return status;
+    if(texture_surface == TRUE)
+    {
+        double x, y;
+        x = _cairo_fixed_to_double (quad[0].x);
+        y = _cairo_fixed_to_double (quad[0].y);
+        cairo_matrix_transform_point(&m, &x, &y);
+        float x1, y1;
+        x1 = x;
+        y1 = y;
+        _cairo_gl_tristrip_indices_add_mask_texture_coord (indices, x1, y1);
+        x = _cairo_fixed_to_double (quad[1].x);
+        y = _cairo_fixed_to_double (quad[1].y);
+        cairo_matrix_transform_point(&m, &x, &y);
+        x1 = x;
+        y1 = y;
+        _cairo_gl_tristrip_indices_add_mask_texture_coord (indices, x1, y1);
+        x = _cairo_fixed_to_double (quad[3].x);
+        y = _cairo_fixed_to_double (quad[3].y);
+        cairo_matrix_transform_point(&m, &x, &y);
+        x1 = x;
+        y1 = y;
+        _cairo_gl_tristrip_indices_add_mask_texture_coord (indices, x1, y1);
+        x = _cairo_fixed_to_double (quad[2].x);
+        y = _cairo_fixed_to_double (quad[2].y);
+        cairo_matrix_transform_point(&m, &x, &y);
+        x1 = x;
+        y1 = y;
+        _cairo_gl_tristrip_indices_add_mask_texture_coord (indices, x1, y1);
+    }
+    }
+    return CAIRO_STATUS_SUCCESS;
+}
+
+cairo_status_t
 _cairo_gl_tristrip_indices_add_traps (cairo_gl_tristrip_indices_t *indices,
 				      cairo_traps_t		  *traps)
 {

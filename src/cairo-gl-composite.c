@@ -1562,9 +1562,9 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
 		
     if(setup->mask.type == CAIRO_GL_OPERAND_CONSTANT)
 	{
-		ctx->dispatch.VertexAttribPointer(CAIRO_GL_COLOR_ATTRIB_INDEX, 4,
-							GL_FLOAT, GL_TRUE, 0, mask_color); 
-		ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
+//		ctx->dispatch.VertexAttribPointer(CAIRO_GL_COLOR_ATTRIB_INDEX, 4,
+//							GL_FLOAT, GL_TRUE, 0, mask_color); 
+//		ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
 	}
 	else if(setup->mask.type == CAIRO_GL_OPERAND_TEXTURE)
 	{

@@ -403,7 +403,7 @@ _cairo_gl_clip (cairo_clip_t		*clip,
 	return CAIRO_STATUS_SUCCESS;
     
     /* if stencil buffer not changed and clip equal */
-    if(surface->clip == clip && 
+    /*if(surface->clip == clip && 
        surface->stencil_buffer_changed == FALSE &&
         _cairo_gl_surface_is_texture (surface)) {
     glDepthMask (GL_TRUE);
@@ -412,7 +412,7 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     //glStencilOp (GL_KEEP, GL_KEEP, GL_KEEP);
     //glStencilFunc (GL_EQUAL, 1, 1);
     return CAIRO_STATUS_SUCCESS;
-    }
+    }*/
 
     if(surface->clip == clip && 
        surface->stencil_buffer_changed == FALSE &&
@@ -440,7 +440,7 @@ _cairo_gl_clip (cairo_clip_t		*clip,
 
     glColorMask (0, 0, 0, 0);
 
-    if (surface->clip != clip) { /* The cached clip is out of date. */
+    //if (surface->clip != clip) { /* The cached clip is out of date. */
 	cairo_traps_t traps;
 	cairo_polygon_t polygon;
 	cairo_antialias_t antialias;
@@ -470,7 +470,7 @@ _cairo_gl_clip (cairo_clip_t		*clip,
 	_cairo_traps_fini (&traps);
 	if (unlikely (status))
 	    goto FAIL;
-    }
+    //}
 
     surface->clip_indices->setup = setup;
     if (unlikely ((status = _cairo_gl_fill (surface->clip_indices))))
@@ -2386,11 +2386,11 @@ _cairo_gl_surface_mask (void *abstract_surface,
 
 	_cairo_gl_context_set_destination(ctx, surface);
 
-    if (clip != NULL) {
+    /*if (clip != NULL) {
 	status = _cairo_gl_clip(clip, setup, ctx, surface);
 	if (unlikely(status))
 		goto FINISH;
-    }
+    }*/
 
 	if (mask_clone != NULL) {
 		status = _cairo_gl_composite_set_mask(setup, mask, 
@@ -2439,6 +2439,59 @@ _cairo_gl_surface_mask (void *abstract_surface,
 		goto FINISH;
 	}
 
+    if(clip != NULL && clip->path != NULL && clip->num_boxes > 0)
+    {	
+        cairo_traps_t traps;
+	    cairo_polygon_t polygon;
+	    cairo_antialias_t antialias;
+	    cairo_fill_rule_t fill_rule;
+        cairo_gl_tristrip_indices_t indices;
+	
+        status = _cairo_gl_tristrip_indices_init (&indices);
+	    indices.setup = setup;
+	    if (unlikely (status))
+        {   
+	        _cairo_gl_tristrip_indices_destroy (&indices);
+            _cairo_polygon_fini(&polygon);
+	        _cairo_traps_fini (&traps);
+	        goto FINISH;
+        }
+    
+	    status = _cairo_clip_get_polygon (clip, &polygon, &fill_rule, &antialias);
+	    if (unlikely (status))
+        {
+	        _cairo_gl_tristrip_indices_destroy (&indices);
+            _cairo_polygon_fini(&polygon);
+	        _cairo_traps_fini (&traps);
+	        goto FINISH;
+        }
+	    _cairo_traps_init (&traps);
+	    status = _cairo_bentley_ottmann_tessellate_polygon (&traps,
+							    &polygon,
+							    fill_rule);
+	    _cairo_polygon_fini (&polygon);
+	    if (unlikely (status))
+        {
+	        _cairo_gl_tristrip_indices_destroy (&indices);
+	        _cairo_traps_fini (&traps);
+	        goto FINISH;
+        }
+        if(mask_clone == NULL)
+	        status = _cairo_gl_tristrip_indices_add_traps (&indices, &traps);
+        else
+	        status = _cairo_gl_tristrip_indices_add_traps_with_mask (&indices, &traps, &mask->matrix, mask_clone);
+	    _cairo_traps_fini (&traps);
+	    if (unlikely (status))
+        {
+	        _cairo_gl_tristrip_indices_destroy (&indices);
+	        goto FINISH;
+        }
+	    cairo_status_t status = _cairo_gl_fill(&indices);
+	    _cairo_gl_tristrip_indices_destroy (&indices);
+        
+    }
+    else
+    {
 	// we have the image uploaded, we need to setup vertices
 	vertices[0] = extents.bounded.x;
 	vertices[1] = extents.bounded.y;
@@ -2518,6 +2571,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 
 
     _cairo_gl_composite_fill_constant_color(ctx, 4, NULL);
+    }
     surface->needs_new_data_surface = TRUE;
 
 FINISH:
