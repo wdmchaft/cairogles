@@ -2701,6 +2701,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     //cairo_polygon_t polygon;
     cairo_status_t status;
     cairo_gl_tristrip_indices_t indices;
+    cairo_traps_t traps;
     // Henry Song
     cairo_gl_composite_t *setup = NULL;
     cairo_gl_context_t *ctx = NULL;
@@ -2712,7 +2713,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     cairo_clip_t *clip_pt = clip;
     cairo_bool_t has_alpha = TRUE;
     cairo_rectangle_int_t surface_rect;
-
+    cairo_bool_t is_rectilinear = FALSE;
     long now, whole_now;
 	//cairo_rectangle_int_t *clip_extent, stroke_extent;
     
@@ -2755,6 +2756,11 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
         clip_pt = NULL;
     
+    if(_cairo_path_fixed_stroke_is_rectilinear(path))
+        is_rectilinear = TRUE;
+    
+    if(is_rectilinear)
+        has_alpha = FALSE;
    
     // for stroke, it always bounded 
     //now = _get_tick();
@@ -2879,10 +2885,34 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     glStencilOp (GL_ZERO, GL_ZERO, GL_ZERO);
     surface->stencil_buffer_changed = TRUE;
     }
-
-	status = _cairo_gl_tristrip_indices_init (&indices);
+	
+    status = _cairo_gl_tristrip_indices_init (&indices);
 	indices.setup = setup;
-	status = _cairo_path_fixed_stroke_to_shaper (path,
+	
+// setup indices
+    if(is_rectilinear) {
+	    _cairo_traps_init(&traps);
+
+        status = _cairo_path_fixed_stroke_rectilinear_to_traps(path,
+                                                        style,
+                                                        ctm,
+                                                        antialias,
+                                                        &traps);
+        if (unlikely (status))
+        {
+            _cairo_traps_fini(&traps);
+            goto CLEANUP;
+        }
+        status = _cairo_gl_tristrip_indices_add_traps (&indices, &traps);
+        if (unlikely (status))
+        {
+            _cairo_traps_fini(&traps);
+            goto CLEANUP;
+        }
+        _cairo_traps_fini(&traps);
+    }
+    else {
+	    status = _cairo_path_fixed_stroke_to_shaper (path,
 						    style,
 						    ctm,
 						    ctm_inverse,
@@ -2895,8 +2925,10 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	//glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &v);
 	// fill it, we fix t later
     //now = _get_tick();
+    }
 	status = _cairo_gl_fill(&indices);
 	//printf("\tgl_fill %ld\n", _get_tick() - now);
+CLEANUP:
     if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
 	_cairo_gl_tristrip_indices_destroy (&indices);
@@ -3070,7 +3102,13 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	status = _cairo_gl_tristrip_indices_init (&indices);
 	indices.setup = setup;
 
-    status = _cairo_path_fixed_fill_to_traps(path, fill_rule, tolerance, &traps);
+    if(_cairo_path_fixed_fill_is_rectilinear(path))
+        status = _cairo_path_fixed_fill_rectilinear_to_traps(path,
+                                                        fill_rule,
+                                                        antialias,
+                                                        &traps);
+    else
+        status = _cairo_path_fixed_fill_to_traps(path, fill_rule, tolerance, &traps);
     if (unlikely (status))
 	goto CLEANUP_TRAPS_AND_GL;
 
