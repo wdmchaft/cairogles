@@ -2317,11 +2317,25 @@ _cairo_gl_surface_mask (void *abstract_surface,
     surface_rect.y = extents.bounded.y;
     surface_rect.width = extents.bounded.width;
     surface_rect.height = extents.bounded.height;
-    if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
+    if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
-        //printf("====clip contains source\n");   
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(clip_pt->extents.x, clip_pt->extents.y,
+              clip_pt->extents.width, clip_pt->extents.height);
         clip_pt = NULL;
     }
+    else
+    {
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(surface_rect.x, surface_rect.y,
+              surface_rect.width, surface_rect.height);
+    }
+        
+    //if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
+    //{
+        //printf("====clip contains source\n");   
+    //    clip_pt = NULL;
+    //}
 	//printf("get rectangle extents %ld usec\n", _get_tick() - now);
 	// upload image
 	// check has snapsot
@@ -2523,7 +2537,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	    _cairo_gl_tristrip_indices_destroy (&indices);
         
     }
-    else
+    else 
     {
 	// we have the image uploaded, we need to setup vertices
 	vertices[0] = extents.bounded.x;
@@ -2617,6 +2631,7 @@ FINISH:
     status = _cairo_gl_context_release(ctx, status);
 
     glDisable(GL_STENCIL_TEST);
+    glDisable(GL_SCISSOR_TEST);
     //glDepthMask(GL_FALSE);
 
     return status;
@@ -2749,13 +2764,32 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	    return status;
 	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
     }
-
+    
     surface_rect.x = extents.bounded.x;
     surface_rect.y = extents.bounded.y;
     surface_rect.width = extents.bounded.width;
     surface_rect.height = extents.bounded.height;
-    if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
+    if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
+    {
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(clip_pt->extents.x, clip_pt->extents.y,
+              clip_pt->extents.width, clip_pt->extents.height);
         clip_pt = NULL;
+    }
+    else
+    {
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(surface_rect.x, surface_rect.y,
+              surface_rect.width, surface_rect.height);
+    }
+    //if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
+    //if(clip_pt != NULL && _cairo_clip_contains_rectangle(clip_pt, &surface_rect))
+    //    clip_pt = NULL;
+    /*if(clip_pt != NULL && clip_pt->path == NULL) 
+    {
+        if(_cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
+            clip_pt = NULL;
+    }*/
     
     if(_cairo_path_fixed_stroke_is_rectilinear(path))
         is_rectilinear = TRUE;
@@ -2772,7 +2806,10 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     //now = _get_tick();
 	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 	if(unlikely(status))
+    {
+        glDisable(GL_SCISSOR_TEST);
 		return status;
+    }
 	//printf("\taquire context %ld\n", _get_tick() - now);
     // upload image
     //now = _get_tick();
@@ -2785,6 +2822,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		if(clone == NULL)
 		{
 			status = _cairo_gl_context_release(ctx, status);
+            glDisable(GL_SCISSOR_TEST);
 			return UNSUPPORTED("create_clone failed");
 		}
 	}
@@ -2803,6 +2841,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 			cairo_surface_destroy(&clone->base);
 		free(setup);
 		status = _cairo_gl_context_release(ctx, status);
+        glDisable(GL_SCISSOR_TEST);
 		return status;
 	}
     //printf("\tsetup init %ld\n", _get_tick() - now);
@@ -2832,6 +2871,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 			cairo_surface_destroy(&clone->base);
 		free(setup);
 		status = _cairo_gl_context_release(ctx, status);
+        glDisable(GL_SCISSOR_TEST);
 		return status;
 	}
 
@@ -2863,6 +2903,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	    _cairo_gl_composite_fini(setup);
 	    free(setup);
 	    glDisable(GL_STENCIL_TEST);
+        glDisable(GL_SCISSOR_TEST);
 	    //glDepthMask(GL_FALSE);
             surface->require_aa = FALSE;
 	    status = _cairo_gl_context_release(ctx, status);
@@ -2937,6 +2978,7 @@ CLEANUP:
 	free(setup);
     //now = _get_tick();
 	glDisable(GL_STENCIL_TEST);
+    glDisable(GL_SCISSOR_TEST);
 	//glDisable(GL_DEPTH_TEST);
 	//glDepthMask(GL_FALSE);
     //printf("\tdisable GL %ld\n", _get_tick() - now);
@@ -3001,8 +3043,22 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     surface_rect.y = extents.bounded.y;
     surface_rect.width = extents.bounded.width;
     surface_rect.height = extents.bounded.height;
-    if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
+    if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
+    {
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(clip_pt->extents.x, clip_pt->extents.y,
+                  clip_pt->extents.width, clip_pt->extents.height);
         clip_pt = NULL;
+    }
+    else
+    {
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(surface_rect.x, surface_rect.y,
+              surface_rect.width, surface_rect.height);
+    }
+    //if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
+    //if(clip_pt != NULL && _cairo_clip_contains_rectangle(clip_pt, &surface_rect))
+    //    clip_pt = NULL;
     // for fill, it is always bounded
     //if(!_cairo_gl_extents_within_clip (extents, TRUE, clip_pt))
     //    clip_pt = NULL;
@@ -3016,6 +3072,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
 		if(clone == NULL)
 		{
+            glDisable(GL_SCISSOR_TEST);
 			return UNSUPPORTED("create_clone failed");
 		}
 	}
@@ -3123,6 +3180,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 CLEANUP_TRAPS_AND_GL:
     _cairo_traps_fini(&traps);
     _cairo_gl_tristrip_indices_destroy (&indices);
+    glDisable(GL_SCISSOR_TEST);
 
 CLEANUP_STENCIL_AND_DEPTH_TESTING:
     glDisable(GL_STENCIL_TEST);
