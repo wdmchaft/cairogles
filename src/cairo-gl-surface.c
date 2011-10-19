@@ -104,6 +104,20 @@ _cairo_gl_surface_max_size(cairo_gl_surface_t *surface)
 	return ctx->max_texture_size;
 }
 
+static cairo_bool_t
+_cairo_gl_clip_contains_rectangle (cairo_clip_t *clip,
+                             cairo_rectangle_int_t *rect)
+{
+    if(clip->path == NULL && clip->num_boxes == 1) {
+    if(rect->x >= clip->extents.x &&
+       rect->y >= clip->extents.y &&
+       rect->x + rect->width <= clip->extents.x + clip->extents.width &&
+       rect->y + rect->height <= clip->extents.y + clip->extents.height)
+        return TRUE;
+    }
+    return _cairo_clip_contains_rectangle (clip, rect);
+}    
+
 // true means inner is within outer
 static cairo_bool_t 
 _cairo_gl_compare_region (int inner_x, int inner_y, 
@@ -2272,11 +2286,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
     cairo_bool_t done_clip = FALSE;
     cairo_rectangle_int_t surface_rect;
     
-    surface_rect.x = 0;
-    surface_rect.y = 0;
-    surface_rect.width = surface->width;
-    surface_rect.height = surface->height;
-
     if (mask == NULL)
 		status = _cairo_composite_rectangles_init_for_paint(&extents,
 			surface->width,
@@ -2302,8 +2311,14 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	
 	if (unlikely(status))
 		return status;
-    if(clip_pt != NULL &&_cairo_clip_contains_rectangle(clip_pt, &surface_rect))
+    
+    surface_rect.x = extents.bounded.x;
+    surface_rect.y = extents.bounded.y;
+    surface_rect.width = extents.bounded.width;
+    surface_rect.height = extents.bounded.height;
+    if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
     {
+        //printf("====clip contains source\n");   
         clip_pt = NULL;
     }
 	//printf("get rectangle extents %ld usec\n", _get_tick() - now);
@@ -2699,11 +2714,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     cairo_rectangle_int_t surface_rect;
 
     long now, whole_now;
-    surface_rect.x = 0;
-    surface_rect.y = 0;
-    surface_rect.width = surface->width;
-    surface_rect.height = surface->height;
-
 	//cairo_rectangle_int_t *clip_extent, stroke_extent;
     
     //now = _get_tick();
@@ -2738,8 +2748,13 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
     }
 
-    if(clip_pt != NULL && _cairo_clip_contains_rectangle(clip_pt, &surface_rect))
+    surface_rect.x = extents.bounded.x;
+    surface_rect.y = extents.bounded.y;
+    surface_rect.width = extents.bounded.width;
+    surface_rect.height = extents.bounded.height;
+    if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
         clip_pt = NULL;
+    
    
     // for stroke, it always bounded 
     //now = _get_tick();
@@ -2949,12 +2964,11 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
     }
     
-    surface_rect.x = 0;
-    surface_rect.y = 0;
-    surface_rect.width = surface->width;
-    surface_rect.height = surface->height;
-
-    if(clip_pt != NULL && _cairo_clip_contains_rectangle(clip_pt, &surface_rect))
+    surface_rect.x = extents.bounded.x;
+    surface_rect.y = extents.bounded.y;
+    surface_rect.width = extents.bounded.width;
+    surface_rect.height = extents.bounded.height;
+    if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
         clip_pt = NULL;
     // for fill, it is always bounded
     //if(!_cairo_gl_extents_within_clip (extents, TRUE, clip_pt))
