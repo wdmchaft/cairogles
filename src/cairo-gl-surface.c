@@ -417,6 +417,7 @@ _cairo_gl_clip (cairo_clip_t		*clip,
 	return CAIRO_STATUS_SUCCESS;
     
     /* if stencil buffer not changed and clip equal */
+    
     /*if(surface->clip == clip && 
        surface->stencil_buffer_changed == FALSE &&
         _cairo_gl_surface_is_texture (surface)) {
@@ -2616,7 +2617,7 @@ FINISH:
     status = _cairo_gl_context_release(ctx, status);
 
     glDisable(GL_STENCIL_TEST);
-    glDepthMask(GL_FALSE);
+    //glDepthMask(GL_FALSE);
 
     return status;
 }
@@ -2862,7 +2863,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	    _cairo_gl_composite_fini(setup);
 	    free(setup);
 	    glDisable(GL_STENCIL_TEST);
-	    glDepthMask(GL_FALSE);
+	    //glDepthMask(GL_FALSE);
             surface->require_aa = FALSE;
 	    status = _cairo_gl_context_release(ctx, status);
 	    return status;
@@ -2937,7 +2938,7 @@ CLEANUP:
     //now = _get_tick();
 	glDisable(GL_STENCIL_TEST);
 	//glDisable(GL_DEPTH_TEST);
-	glDepthMask(GL_FALSE);
+	//glDepthMask(GL_FALSE);
     //printf("\tdisable GL %ld\n", _get_tick() - now);
     surface->require_aa = FALSE;
     //now = _get_tick();
@@ -3005,7 +3006,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     // for fill, it is always bounded
     //if(!_cairo_gl_extents_within_clip (extents, TRUE, clip_pt))
     //    clip_pt = NULL;
-
 	// upload image
 	if(source->type == CAIRO_PATTERN_TYPE_SURFACE)
 	{
@@ -3126,7 +3126,7 @@ CLEANUP_TRAPS_AND_GL:
 
 CLEANUP_STENCIL_AND_DEPTH_TESTING:
     glDisable(GL_STENCIL_TEST);
-    glDepthMask(GL_FALSE);
+    //glDepthMask(GL_FALSE);
 
 CLEANUP_AND_RELEASE_DEVICE:
     if (setup != NULL) {
