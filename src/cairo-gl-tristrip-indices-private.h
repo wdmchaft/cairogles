@@ -64,6 +64,12 @@ cairo_private cairo_status_t
 _cairo_gl_tristrip_indices_add_boxes (cairo_gl_tristrip_indices_t *indices,
 				      int			  num_boxes,
 				      cairo_box_t		  *boxes);
+cairo_private cairo_status_t
+_cairo_gl_tristrip_indices_add_boxes_with_mask (cairo_gl_tristrip_indices_t *indices,
+				      int			  num_boxes,
+				      cairo_box_t		  *boxes,
+                      cairo_matrix_t *matrix,
+                      cairo_gl_surface_t     *mask);
 
 cairo_private cairo_status_t
 _cairo_gl_tristrip_indices_add_traps (cairo_gl_tristrip_indices_t *indices,

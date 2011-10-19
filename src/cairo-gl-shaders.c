@@ -2441,7 +2441,7 @@ _cairo_gl_shader_compile (cairo_gl_context_t *ctx,
 					  GL_VERTEX_SHADER,
 					  source);
 	// Henry Song
-	printf("vertex shader: ------------>\n%s\n", source);
+	//printf("vertex shader: ------------>\n%s\n", source);
         free (source);
     }
 
@@ -2449,7 +2449,7 @@ _cairo_gl_shader_compile (cairo_gl_context_t *ctx,
 				      GL_FRAGMENT_SHADER,
 				      fragment_text);
 	// Henry Song 
-	printf("fragment shader: -------------->\n%s\n", fragment_text);
+	//printf("fragment shader: -------------->\n%s\n", fragment_text);
 
     ctx->shader_impl->link_shader (ctx, &shader->program,
 				   ctx->vertex_shaders[vertex_shader],

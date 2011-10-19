@@ -235,6 +235,69 @@ _cairo_gl_tristrip_indices_add_traps (cairo_gl_tristrip_indices_t *indices,
 }
 
 cairo_status_t
+_cairo_gl_tristrip_indices_add_boxes_with_mask (cairo_gl_tristrip_indices_t *indices,
+				      int			  num_boxes,
+				      cairo_box_t		  *boxes,
+                    cairo_matrix_t *matrix, 
+                    cairo_gl_surface_t *mask)
+{
+    int i;
+    cairo_status_t status;
+    cairo_bool_t texture_surface = FALSE;
+    cairo_matrix_t m, m1;
+    cairo_matrix_init_scale(&m, 1.0, 1.0);
+    cairo_matrix_multiply(&m, &m, matrix);
+    cairo_matrix_init_scale(&m1, 1.0 / mask->orig_width,
+            1.0 / mask->orig_height);
+    cairo_matrix_multiply(&m, &m, &m1);
+
+    for (i = num_boxes - 1; i >= 0; i--) {
+	cairo_point_t quad_vertices[4];
+	quad_vertices[0].x = boxes[i].p1.x;
+	quad_vertices[0].y = boxes[i].p1.y;
+	quad_vertices[1].x = boxes[i].p1.x;
+	quad_vertices[1].y = boxes[i].p2.y;
+	quad_vertices[2].x = boxes[i].p2.x;
+	quad_vertices[2].y = boxes[i].p2.y;
+	quad_vertices[3].x = boxes[i].p2.x;
+	quad_vertices[3].y = boxes[i].p1.y;
+	status = _cairo_gl_tristrip_indices_add_quad (indices, quad_vertices);
+	if (unlikely (status))
+	    return status;
+    if(texture_surface == TRUE)
+    {
+        double x, y;
+        x = _cairo_fixed_to_double (quad_vertices[0].x);
+        y = _cairo_fixed_to_double (quad_vertices[0].y);
+        cairo_matrix_transform_point(&m, &x, &y);
+        float x1, y1;
+        x1 = x;
+        y1 = y;
+        _cairo_gl_tristrip_indices_add_mask_texture_coord (indices, x1, y1);
+        x = _cairo_fixed_to_double (quad_vertices[1].x);
+        y = _cairo_fixed_to_double (quad_vertices[1].y);
+        cairo_matrix_transform_point(&m, &x, &y);
+        x1 = x;
+        y1 = y;
+        _cairo_gl_tristrip_indices_add_mask_texture_coord (indices, x1, y1);
+        x = _cairo_fixed_to_double (quad_vertices[3].x);
+        y = _cairo_fixed_to_double (quad_vertices[3].y);
+        cairo_matrix_transform_point(&m, &x, &y);
+        x1 = x;
+        y1 = y;
+        _cairo_gl_tristrip_indices_add_mask_texture_coord (indices, x1, y1);
+        x = _cairo_fixed_to_double (quad_vertices[2].x);
+        y = _cairo_fixed_to_double (quad_vertices[2].y);
+        cairo_matrix_transform_point(&m, &x, &y);
+        x1 = x;
+        y1 = y;
+        _cairo_gl_tristrip_indices_add_mask_texture_coord (indices, x1, y1);
+    }
+    }
+    return CAIRO_STATUS_SUCCESS;
+}
+
+cairo_status_t
 _cairo_gl_tristrip_indices_add_boxes (cairo_gl_tristrip_indices_t *indices,
 				      int			  num_boxes,
 				      cairo_box_t		  *boxes)

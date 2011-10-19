@@ -2269,7 +2269,14 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	GLfloat texture_coordinates[8];
 	GLfloat mask_texture_coords[8];
     cairo_clip_t *clip_pt = clip;
-	
+    cairo_bool_t done_clip = FALSE;
+    cairo_rectangle_int_t surface_rect;
+    
+    surface_rect.x = 0;
+    surface_rect.y = 0;
+    surface_rect.width = surface->width;
+    surface_rect.height = surface->height;
+
     if (mask == NULL)
 		status = _cairo_composite_rectangles_init_for_paint(&extents,
 			surface->width,
@@ -2295,6 +2302,10 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	
 	if (unlikely(status))
 		return status;
+    if(clip_pt != NULL &&_cairo_clip_contains_rectangle(clip_pt, &surface_rect))
+    {
+        clip_pt = NULL;
+    }
 	//printf("get rectangle extents %ld usec\n", _get_tick() - now);
 	// upload image
 	// check has snapsot
@@ -2385,13 +2396,14 @@ _cairo_gl_surface_mask (void *abstract_surface,
 		surface->require_aa = TRUE;
 
 	_cairo_gl_context_set_destination(ctx, surface);
-
-    /*if (clip != NULL) {
+/*
+    if (clip != NULL && clip->path != NULL) {
 	status = _cairo_gl_clip(clip, setup, ctx, surface);
 	if (unlikely(status))
 		goto FINISH;
-    }*/
-
+    done_clip = TRUE;
+    }
+*/
 	if (mask_clone != NULL) {
 		status = _cairo_gl_composite_set_mask(setup, mask, 
 						      extents.bounded.x,
@@ -2439,12 +2451,8 @@ _cairo_gl_surface_mask (void *abstract_surface,
 		goto FINISH;
 	}
 
-    if(clip != NULL && clip->path != NULL && clip->num_boxes > 0)
-    {	
-        cairo_traps_t traps;
-	    cairo_polygon_t polygon;
-	    cairo_antialias_t antialias;
-	    cairo_fill_rule_t fill_rule;
+    if(clip_pt != NULL && (clip_pt->path != NULL || clip_pt->num_boxes > 0))
+    {
         cairo_gl_tristrip_indices_t indices;
 	
         status = _cairo_gl_tristrip_indices_init (&indices);
@@ -2452,11 +2460,19 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	    if (unlikely (status))
         {   
 	        _cairo_gl_tristrip_indices_destroy (&indices);
-            _cairo_polygon_fini(&polygon);
-	        _cairo_traps_fini (&traps);
 	        goto FINISH;
         }
-    
+        if(clip->path == NULL && clip->num_boxes == 1) {
+            if(mask_clone == NULL)
+                status = _cairo_gl_tristrip_indices_add_boxes(&indices, clip->num_boxes, clip->boxes);
+            else
+                status = _cairo_gl_tristrip_indices_add_boxes_with_mask(&indices, clip->num_boxes, clip->boxes, &mask->matrix, mask_clone);
+        }
+        else {
+        cairo_traps_t traps;
+	    cairo_polygon_t polygon;
+	    cairo_antialias_t antialias;
+	    cairo_fill_rule_t fill_rule;
 	    status = _cairo_clip_get_polygon (clip, &polygon, &fill_rule, &antialias);
 	    if (unlikely (status))
         {
@@ -2481,6 +2497,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
         else
 	        status = _cairo_gl_tristrip_indices_add_traps_with_mask (&indices, &traps, &mask->matrix, mask_clone);
 	    _cairo_traps_fini (&traps);
+        }
 	    if (unlikely (status))
         {
 	        _cairo_gl_tristrip_indices_destroy (&indices);
@@ -2504,12 +2521,10 @@ _cairo_gl_surface_mask (void *abstract_surface,
 
 	if (source->type == CAIRO_PATTERN_TYPE_SURFACE) {
 		map_vertices_to_surface_space (vertices, 4, clone, &source->matrix, texture_coordinates);
-
 		if (mask != NULL && mask_clone != NULL) {
 			map_vertices_to_surface_space (vertices, 4, mask_clone,
 						       &mask->matrix,
 						       mask_texture_coords);
-
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				4, 
 				vertices, 
@@ -2565,7 +2580,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 				ctx);
 		}
 	}
-
     if (unlikely(status))
 	goto FINISH;
 
@@ -2682,8 +2696,13 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     int extend = 0;
     cairo_clip_t *clip_pt = clip;
     cairo_bool_t has_alpha = TRUE;
+    cairo_rectangle_int_t surface_rect;
 
     long now, whole_now;
+    surface_rect.x = 0;
+    surface_rect.y = 0;
+    surface_rect.width = surface->width;
+    surface_rect.height = surface->height;
 
 	//cairo_rectangle_int_t *clip_extent, stroke_extent;
     
@@ -2718,6 +2737,9 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	    return status;
 	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
     }
+
+    if(clip_pt != NULL && _cairo_clip_contains_rectangle(clip_pt, &surface_rect))
+        clip_pt = NULL;
    
     // for stroke, it always bounded 
     //now = _get_tick();
@@ -2900,6 +2922,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     cairo_gl_tristrip_indices_t indices;
     
     cairo_clip_t *clip_pt = clip;  
+    cairo_rectangle_int_t surface_rect;
 
     // When clip and path do not intersect,, return without actually drawing.
     status = _cairo_composite_rectangles_init_for_fill (&extents,
@@ -2926,6 +2949,13 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
     }
     
+    surface_rect.x = 0;
+    surface_rect.y = 0;
+    surface_rect.width = surface->width;
+    surface_rect.height = surface->height;
+
+    if(clip_pt != NULL && _cairo_clip_contains_rectangle(clip_pt, &surface_rect))
+        clip_pt = NULL;
     // for fill, it is always bounded
     //if(!_cairo_gl_extents_within_clip (extents, TRUE, clip_pt))
     //    clip_pt = NULL;
