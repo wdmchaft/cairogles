@@ -542,7 +542,7 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	else
 		circle_2[1] = d / precision_scale;
 	circle_2[2] = radial->cd2.radius / precision_scale;
-		
+
 	for(i = 0; i < pattern->n_stops; i++)
 	{
 		colors[i*4] = pattern->stops[i].color.red;

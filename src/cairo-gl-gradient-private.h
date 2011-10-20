@@ -64,7 +64,7 @@
 
 #define CAIRO_GL_GRADIENT_CACHE_SIZE 4096
 
-#define CAIRO_GL_MAX_STOPS_SIZE 20
+#define CAIRO_GL_MAX_STOPS_SIZE 30
 
 /* XXX: Declare in a better place */
 typedef struct _cairo_gl_context cairo_gl_context_t;

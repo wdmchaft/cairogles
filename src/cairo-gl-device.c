@@ -188,6 +188,7 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
 	if(_cairo_gl_has_extension ("GL_ARB_framebuffer_object")) {
 	    glGetIntegerv(GL_MAX_SAMPLES_EXT, &ctx->max_sample_size);
 	    //ctx->msaa_extension = 1;
+        //ctx->max_sample_size = 1;
 	}
 #endif
 	}

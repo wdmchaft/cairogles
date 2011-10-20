@@ -1901,7 +1901,7 @@ _cairo_gl_surface_release_dest_image (void		      *abstract_surface,
 					   image->width, image->height,
 					   image_rect->x, image_rect->y, TRUE);
     /* as we created the image, its format should be directly applicable */
-    assert (status == CAIRO_STATUS_SUCCESS);
+    //assert (status == CAIRO_STATUS_SUCCESS);
 
     cairo_surface_destroy (&image->base);
 }
@@ -2494,7 +2494,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	    cairo_polygon_t polygon;
 	    cairo_antialias_t antialias;
 	    cairo_fill_rule_t fill_rule;
-	
+
         status = _cairo_gl_tristrip_indices_init (&indices);
 	    _cairo_traps_init (&traps);
 	    indices.setup = setup;
