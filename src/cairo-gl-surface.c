@@ -2320,15 +2320,21 @@ _cairo_gl_surface_mask (void *abstract_surface,
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
         glEnable(GL_SCISSOR_TEST);
+        if(_cairo_gl_surface_is_texture(surface))
         glScissor(clip_pt->extents.x, clip_pt->extents.y,
+              clip_pt->extents.width, clip_pt->extents.height);
+        else
+        glScissor(clip_pt->extents.x, 
+                surface->height - clip_pt->extents.y - clip_pt->extents.height,
               clip_pt->extents.width, clip_pt->extents.height);
         clip_pt = NULL;
     }
     else
     {
-        glEnable(GL_SCISSOR_TEST);
-        glScissor(surface_rect.x, surface_rect.y,
-              surface_rect.width, surface_rect.height);
+        //glEnable(GL_SCISSOR_TEST);
+        //glScissor(surface_rect.x, surface_rect.y,
+        //      surface_rect.width, surface_rect.height);
+        glDisable(GL_SCISSOR_TEST);
     }
         
     //if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
@@ -2772,15 +2778,22 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
         glEnable(GL_SCISSOR_TEST);
-        glScissor(clip_pt->extents.x, clip_pt->extents.y,
+        if(_cairo_gl_surface_is_texture(surface))
+            glScissor(clip_pt->extents.x, clip_pt->extents.y,
               clip_pt->extents.width, clip_pt->extents.height);
+        else
+            glScissor(clip_pt->extents.x, 
+                surface->height - clip_pt->extents.y - clip_pt->extents.height,
+              clip_pt->extents.width, clip_pt->extents.height);
+        
         clip_pt = NULL;
     }
     else
     {
-        glEnable(GL_SCISSOR_TEST);
-        glScissor(surface_rect.x, surface_rect.y,
-              surface_rect.width, surface_rect.height);
+        //glEnable(GL_SCISSOR_TEST);
+        //glScissor(surface_rect.x, surface_rect.y,
+        //      surface_rect.width, surface_rect.height);
+        glDisable(GL_SCISSOR_TEST);
     }
     //if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
     //if(clip_pt != NULL && _cairo_clip_contains_rectangle(clip_pt, &surface_rect))
@@ -3046,15 +3059,21 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
         glEnable(GL_SCISSOR_TEST);
+        if(_cairo_gl_surface_is_texture(surface))
         glScissor(clip_pt->extents.x, clip_pt->extents.y,
                   clip_pt->extents.width, clip_pt->extents.height);
+        else
+        glScissor(clip_pt->extents.x, 
+            surface->height - clip_pt->extents.y - clip_pt->extents.height,
+              clip_pt->extents.width, clip_pt->extents.height);
         clip_pt = NULL;
     }
     else
     {
-        glEnable(GL_SCISSOR_TEST);
-        glScissor(surface_rect.x, surface_rect.y,
-              surface_rect.width, surface_rect.height);
+        //glEnable(GL_SCISSOR_TEST);
+        //glScissor(surface_rect.x, surface_rect.y,
+        //      surface_rect.width, surface_rect.height);
+        glDisable(GL_SCISSOR_TEST);
     }
     //if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
     //if(clip_pt != NULL && _cairo_clip_contains_rectangle(clip_pt, &surface_rect))
