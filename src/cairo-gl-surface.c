@@ -2490,57 +2490,65 @@ _cairo_gl_surface_mask (void *abstract_surface,
     if(clip_pt != NULL && (clip_pt->path != NULL || clip_pt->num_boxes > 0))
     {
         cairo_gl_tristrip_indices_t indices;
-	
-        status = _cairo_gl_tristrip_indices_init (&indices);
-	    indices.setup = setup;
-	    if (unlikely (status))
-        {   
-	        _cairo_gl_tristrip_indices_destroy (&indices);
-	        goto FINISH;
-        }
-        if(clip->path == NULL && clip->num_boxes == 1) {
-            if(mask_clone == NULL)
-                status = _cairo_gl_tristrip_indices_add_boxes(&indices, clip->num_boxes, clip->boxes);
-            else
-                status = _cairo_gl_tristrip_indices_add_boxes_with_mask(&indices, clip->num_boxes, clip->boxes, &mask->matrix, mask_clone);
-        }
-        else {
         cairo_traps_t traps;
 	    cairo_polygon_t polygon;
 	    cairo_antialias_t antialias;
 	    cairo_fill_rule_t fill_rule;
-	    status = _cairo_clip_get_polygon (clip, &polygon, &fill_rule, &antialias);
+	
+        status = _cairo_gl_tristrip_indices_init (&indices);
+	    _cairo_traps_init (&traps);
+	    indices.setup = setup;
 	    if (unlikely (status))
-        {
+        {   
 	        _cairo_gl_tristrip_indices_destroy (&indices);
-            _cairo_polygon_fini(&polygon);
 	        _cairo_traps_fini (&traps);
 	        goto FINISH;
         }
-	    _cairo_traps_init (&traps);
-	    status = _cairo_bentley_ottmann_tessellate_polygon (&traps,
+        if(clip_pt->path == NULL && clip_pt->num_boxes == 1) 
+        {
+            if(mask_clone == NULL)
+                status = _cairo_gl_tristrip_indices_add_boxes(&indices, clip_pt->num_boxes, clip_pt->boxes);
+            else
+                status = _cairo_gl_tristrip_indices_add_boxes_with_mask(&indices, clip_pt->num_boxes, clip_pt->boxes, &mask->matrix, mask_clone);
+        }
+        else 
+        {
+	        status = _cairo_clip_get_polygon (clip, &polygon, &fill_rule, &antialias);
+	        if (unlikely (status))
+            {
+	            _cairo_gl_tristrip_indices_destroy (&indices);
+                _cairo_polygon_fini(&polygon);
+	            _cairo_traps_fini (&traps);
+	            goto FINISH;
+            }
+	        status = _cairo_bentley_ottmann_tessellate_polygon (&traps,
 							    &polygon,
 							    fill_rule);
-	    _cairo_polygon_fini (&polygon);
+	        _cairo_polygon_fini (&polygon);
+	        if (unlikely (status))
+            {
+	            _cairo_gl_tristrip_indices_destroy (&indices);
+	            _cairo_traps_fini (&traps);
+	            goto FINISH;
+            }
+            if(mask_clone == NULL)
+            {
+	            status = _cairo_gl_tristrip_indices_add_traps (&indices, &traps);
+            }
+            else
+            {
+	            status = _cairo_gl_tristrip_indices_add_traps_with_mask (&indices, &traps, &mask->matrix, mask_clone);
+            }
+        }
 	    if (unlikely (status))
         {
 	        _cairo_gl_tristrip_indices_destroy (&indices);
 	        _cairo_traps_fini (&traps);
-	        goto FINISH;
-        }
-        if(mask_clone == NULL)
-	        status = _cairo_gl_tristrip_indices_add_traps (&indices, &traps);
-        else
-	        status = _cairo_gl_tristrip_indices_add_traps_with_mask (&indices, &traps, &mask->matrix, mask_clone);
-	    _cairo_traps_fini (&traps);
-        }
-	    if (unlikely (status))
-        {
-	        _cairo_gl_tristrip_indices_destroy (&indices);
 	        goto FINISH;
         }
 	    cairo_status_t status = _cairo_gl_fill(&indices);
 	    _cairo_gl_tristrip_indices_destroy (&indices);
+	    _cairo_traps_fini (&traps);
         
     }
     else 
@@ -3051,7 +3059,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	    return status;
 	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
     }
-    
+        
     surface_rect.x = extents.bounded.x;
     surface_rect.y = extents.bounded.y;
     surface_rect.width = extents.bounded.width;
