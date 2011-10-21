@@ -807,7 +807,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"}\n"
 		"vec4 get_%s()\n"
 		"{\n"
-		"	return %s_get_color(gl_FragCoord.xy);\n"
+		"	vec4 color = %s_get_color(gl_FragCoord.xy);\n"
+        "   vec4 alpha = vec4(color.a, color.a, color.a, 1.0);\n" 
+        "   return color * alpha;\n"
 		"}\n",
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
@@ -882,7 +884,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"}\n"
 		"vec4 get_%s()\n"
 		"{\n"
-		"	return %s_get_color(gl_FragCoord.xy);\n"
+		"	vec4 color = %s_get_color(gl_FragCoord.xy);\n"
+        "   vec4 alpha = vec4(color.a, color.a, color.a, 1.0);\n" 
+        "   return color * alpha;\n"
 		"}\n",
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
@@ -968,7 +972,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"}\n"
 		"vec4 get_%s()\n"
 		"{\n"
-		"	return %s_get_color(gl_FragCoord.xy);\n"
+		"	vec4 color = %s_get_color(gl_FragCoord.xy);\n"
+        "   vec4 alpha = vec4(color.a, color.a, color.a, 1.0);\n" 
+        "   return color * alpha;\n"
 		"}\n",
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
@@ -1095,7 +1101,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"}\n"
 		"vec4 get_%s()\n"
 		"{\n"
-		"	return %s_get_color(gl_FragCoord.xy);\n"
+		"	vec4 color = %s_get_color(gl_FragCoord.xy);\n"
+        "   vec4 alpha = vec4(color.a, color.a, color.a, 1.0);\n" 
+        "   return color * alpha;\n"
 		"}\n",
 		namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr,
@@ -1356,7 +1364,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"}\n"
 		"vec4 get_%s()\n"
 		"{\n"
-		"	return %s_get_color(gl_FragCoord.xy);\n"
+		"	vec4 color = %s_get_color(gl_FragCoord.xy);\n"
+        "   vec4 alpha = vec4(color.a, color.a, color.a, 1.0);\n" 
+        "   return color * alpha;\n"
 		"}\n",
 		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
@@ -1618,7 +1628,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"}\n"
 		"vec4 get_%s()\n"
 		"{\n"
-		"	return %s_get_color(gl_FragCoord.xy);\n"
+		"	vec4 color = %s_get_color(gl_FragCoord.xy);\n"
+        "   vec4 alpha = vec4(color.a, color.a, color.a, 1.0);\n" 
+        "   return color * alpha;\n"
 		"}\n",
 		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
@@ -2233,7 +2245,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"}\n"
 		"vec4 get_%s()\n"
 		"{\n"
-		"	return %s_get_color(gl_FragCoord.xy);\n"
+		"	vec4 color = %s_get_color(gl_FragCoord.xy);\n"
+        "   vec4 alpha = vec4(color.a, color.a, color.a, 1.0);\n" 
+        "   return color * alpha;\n"
 		"}\n",
 		namestr, namestr, namestr, namestr, namestr, namestr, namestr,
 		namestr, namestr, namestr, namestr, namestr, namestr, namestr,

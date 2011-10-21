@@ -415,7 +415,6 @@ _cairo_gl_gradient_digest_linear_gradient(const cairo_gradient_pattern_t *patter
 {
 	double a, b, c, d;
 	unsigned int i;
-    float alpha;
 	cairo_status_t status;
         cairo_matrix_t matrix;
         cairo_linear_pattern_t *linear = NULL;
@@ -450,10 +449,9 @@ _cairo_gl_gradient_digest_linear_gradient(const cairo_gradient_pattern_t *patter
 	
 	for(i = 0; i < pattern->n_stops; i++)
 	{
-        alpha = pattern->stops[i].color.alpha;
-		colors[i*4] = pattern->stops[i].color.red * alpha;
- 		colors[i*4+1] = pattern->stops[i].color.green * alpha;
-		colors[i*4+2] = pattern->stops[i].color.blue * alpha;
+		colors[i*4] = pattern->stops[i].color.red;
+ 		colors[i*4+1] = pattern->stops[i].color.green;
+		colors[i*4+2] = pattern->stops[i].color.blue;
 		colors[i*4+3] = pattern->stops[i].color.alpha;
 		offsets[i] = pattern->stops[i].offset;
 		if(offsets[i] > 1.0)
@@ -495,7 +493,6 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	cairo_matrix_t temp_matrix;
 	double mx1, my1, mx2, my2;
 	unsigned int i;
-    float alpha;
 
 	cairo_bool_t parallel = TRUE;
     cairo_radial_pattern_t *radial = NULL;
@@ -548,11 +545,10 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 
 	for(i = 0; i < pattern->n_stops; i++)
 	{
-        alpha = pattern->stops[i].color.alpha;
-		colors[i*4] = pattern->stops[i].color.red * alpha;
-		colors[i*4+1] = pattern->stops[i].color.green * alpha;
-		colors[i*4+2] = pattern->stops[i].color.blue * alpha;
-		colors[i*4+3] = pattern->stops[i].color.alpha * alpha;
+		colors[i*4] = pattern->stops[i].color.red;
+		colors[i*4+1] = pattern->stops[i].color.green;
+		colors[i*4+2] = pattern->stops[i].color.blue;
+		colors[i*4+3] = pattern->stops[i].color.alpha;
 		offsets[i] = pattern->stops[i].offset;
 		if(offsets[i] > 1.0)
 			offsets[i] = 1.0;
