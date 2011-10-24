@@ -2428,11 +2428,11 @@ _cairo_gl_surface_mask (void *abstract_surface,
 
 	//surface->require_aa = FALSE;
 	// we set require_aa to false if multisample is resolved
-	/*if(surface->multisample_resolved == TRUE)
+	if(surface->multisample_resolved == TRUE)
 		surface->require_aa = FALSE;
 	else
 		surface->require_aa = TRUE;
-    */
+  
 	_cairo_gl_context_set_destination(ctx, surface);
 /*
     if (clip != NULL && clip->path != NULL) {
