@@ -409,6 +409,7 @@ _cairo_gl_ensure_framebuffer_for_gl (cairo_gl_context_t *ctx,
                                       GL_RENDERBUFFER, surface->rb);
 	// check status
 	status = _cairo_gl_check_framebuffer_status(dispatch);
+   
     return status;
 }
 #endif
@@ -506,7 +507,7 @@ _cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
 }
 #endif
 
-static cairo_status_t
+cairo_status_t
 _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
                               cairo_gl_surface_t *surface)
 {

@@ -800,6 +800,15 @@ _cairo_gl_operand_get_gl_filter (cairo_gl_operand_t *operand);
 cairo_private cairo_extend_t
 _cairo_gl_operand_get_extend (cairo_gl_operand_t *operand);
 
+cairo_private cairo_status_t
+_cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
+                              cairo_gl_surface_t *surface);
+
+cairo_surface_t *
+_cairo_gl_surface_create_no_multisample (cairo_device_t *abstract_device,
+                                    cairo_content_t content,
+                                    int width,
+                                    int height);
 slim_hidden_proto (cairo_gl_surface_create);
 slim_hidden_proto (cairo_gl_surface_create_for_texture);
 slim_hidden_proto (cairo_gl_surface_create_for_texture_with_internal_format);

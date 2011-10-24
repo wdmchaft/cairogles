@@ -877,11 +877,12 @@ static cairo_surface_t *
 _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 				  cairo_content_t	content,
 				  int			width,
-				  int			height)
+				  int			height) 
 {
     cairo_gl_surface_t *surface;
     GLenum format;
     GLuint tex;
+    cairo_status_t status;
 
     glGenTextures (1, &tex);
     surface = (cairo_gl_surface_t *)
@@ -974,6 +975,60 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
 	surface->needs_new_data_surface = TRUE;
     return _cairo_gl_context_release (ctx, status);
 }
+cairo_surface_t *
+_cairo_gl_surface_create (cairo_device_t		*abstract_device,
+			 cairo_content_t	 content,
+			 int			 width,
+			 int			 height)
+{
+    cairo_gl_context_t *ctx;
+    cairo_gl_surface_t *surface;
+    cairo_status_t status;
+
+    if (! CAIRO_CONTENT_VALID (content))
+	return _cairo_surface_create_in_error (_cairo_error (CAIRO_STATUS_INVALID_CONTENT));
+
+    if (abstract_device == NULL) {
+	return cairo_image_surface_create (_cairo_format_from_content (content),
+					   width, height);
+    }
+
+    if (abstract_device->status)
+	return _cairo_surface_create_in_error (abstract_device->status);
+
+    if (abstract_device->backend->type != CAIRO_DEVICE_TYPE_GL)
+	return _cairo_surface_create_in_error (_cairo_error (CAIRO_STATUS_SURFACE_TYPE_MISMATCH));
+
+    status = _cairo_gl_context_acquire (abstract_device, &ctx);
+    if (unlikely (status))
+	return _cairo_surface_create_in_error (status);
+
+    surface = (cairo_gl_surface_t *)
+	_cairo_gl_surface_create_scratch (ctx, content, width, height);
+    if (unlikely (surface->base.status)) {
+	status = _cairo_gl_context_release (ctx, surface->base.status);
+	cairo_surface_destroy (&surface->base);
+	return _cairo_surface_create_in_error (status);
+    }
+
+    /* Cairo surfaces start out initialized to transparent (black) */
+	//if(content != CAIRO_CONTENT_ALPHA)
+    	status = _cairo_gl_surface_clear (surface, CAIRO_COLOR_TRANSPARENT);
+    if(unlikely(status))
+    {
+        cairo_status_t state = _cairo_gl_context_release(ctx, status);
+        cairo_surface_destroy(&surface->base);
+        return _cairo_surface_create_in_error(status);
+    }
+    status = _cairo_gl_context_release (ctx, status);
+    if (unlikely (status)) {
+	cairo_surface_destroy (&surface->base);
+	return _cairo_surface_create_in_error (status);
+    }
+
+    return &surface->base;
+}
+
 
 cairo_surface_t *
 cairo_gl_surface_create (cairo_device_t		*abstract_device,
@@ -1014,7 +1069,12 @@ cairo_gl_surface_create (cairo_device_t		*abstract_device,
     /* Cairo surfaces start out initialized to transparent (black) */
 	if(content != CAIRO_CONTENT_ALPHA)
     	status = _cairo_gl_surface_clear (surface, CAIRO_COLOR_TRANSPARENT);
-
+    if(unlikely(status))
+    {
+        cairo_status_t state = _cairo_gl_context_release(ctx, status);
+        cairo_surface_destroy(&surface->base);
+        return _cairo_surface_create_in_error(status);
+    }
     status = _cairo_gl_context_release (ctx, status);
     if (unlikely (status)) {
 	cairo_surface_destroy (&surface->base);
@@ -1081,7 +1141,7 @@ cairo_gl_surface_create_for_texture (cairo_device_t	*abstract_device,
     surface = (cairo_gl_surface_t *)
 	_cairo_gl_surface_create_scratch_for_texture (ctx, content,
 						      tex, width, height);
-    status = _cairo_gl_context_release (ctx, status);
+
 
 	surface->external_tex = TRUE;
 	surface->owns_tex = FALSE;
@@ -1096,6 +1156,10 @@ cairo_gl_surface_create_for_texture (cairo_device_t	*abstract_device,
     // internal format default to GL_RGBA
     surface->internal_format = GL_RGBA;
     surface->tex_format = GL_RGBA;
+    status = _cairo_gl_ensure_framebuffer (ctx, surface);
+    if(status != CAIRO_STATUS_SUCCESS)
+        status = _cairo_surface_set_error(&surface->base, status);
+    status = _cairo_gl_context_release (ctx, status);
     return &surface->base;
 }
 slim_hidden_def (cairo_gl_surface_create_for_texture);
@@ -1269,6 +1333,13 @@ _cairo_gl_surface_create_similar (void		 *abstract_surface,
 			new_surface->external_tex = gl_surface->external_tex;
 		}
 	}
+  	status = _cairo_gl_surface_clear (surface, CAIRO_COLOR_TRANSPARENT);
+    if(status != CAIRO_STATUS_SUCCESS)
+    {
+        status = _cairo_gl_context_release(ctx, status);
+        cairo_surface_destroy(surface);
+        return _cairo_surface_create_in_error(status);
+    }
 
     status = _cairo_gl_context_release (ctx, status);
     if (unlikely (status)) {
@@ -2352,8 +2423,10 @@ _cairo_gl_surface_mask (void *abstract_surface,
 		cairo_bool_t extend = source->extend == CAIRO_EXTEND_REPEAT ||
 				      source->extend == CAIRO_EXTEND_REFLECT;
 		clone = _cairo_gl_generate_clone(surface, src, extend);
-		if (clone == NULL)
+		if (clone == NULL) {
+            _cairo_composite_rectangles_fini(&extents);
 			return UNSUPPORTED("create_clone failed");
+        }
         // for source to blit to texture
 	}
 
@@ -2635,6 +2708,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
     surface->needs_new_data_surface = TRUE;
 
 FINISH:
+    _cairo_composite_rectangles_fini(&extents);
     _cairo_gl_composite_fini(setup);
 
     surface->require_aa = FALSE;
@@ -2763,8 +2837,10 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     //printf("\tinit stroke %ld\n", _get_tick() - now);
     
     if (extents.is_bounded == 0) {
-	if (unlikely ((status = _cairo_gl_surface_prepare_mask_surface (surface))))
+	if (unlikely ((status = _cairo_gl_surface_prepare_mask_surface (surface)))) {
+        _cairo_composite_rectangles_fini(&extents);
 	    return status;
+    }
 
 	status = _cairo_gl_surface_stroke (surface->mask_surface,
 					   CAIRO_OPERATOR_OVER,
@@ -2776,6 +2852,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 					   tolerance,
 					   antialias,
 					   NULL);
+    _cairo_composite_rectangles_fini(&extents);
 	if (unlikely (status))
 	    return status;
 	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
@@ -2830,6 +2907,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 	if(unlikely(status))
     {
+        _cairo_composite_rectangles_fini(&extents);
         glDisable(GL_SCISSOR_TEST);
 		return status;
     }
@@ -2846,6 +2924,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		{
 			status = _cairo_gl_context_release(ctx, status);
             glDisable(GL_SCISSOR_TEST);
+            _cairo_composite_rectangles_fini(&extents);
 			return UNSUPPORTED("create_clone failed");
 		}
 	}
@@ -2865,6 +2944,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		free(setup);
 		status = _cairo_gl_context_release(ctx, status);
         glDisable(GL_SCISSOR_TEST);
+        _cairo_composite_rectangles_fini(&extents);
 		return status;
 	}
     //printf("\tsetup init %ld\n", _get_tick() - now);
@@ -2895,6 +2975,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		free(setup);
 		status = _cairo_gl_context_release(ctx, status);
         glDisable(GL_SCISSOR_TEST);
+        _cairo_composite_rectangles_fini(&extents);
 		return status;
 	}
 
@@ -2930,6 +3011,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	    //glDepthMask(GL_FALSE);
             surface->require_aa = FALSE;
 	    status = _cairo_gl_context_release(ctx, status);
+        _cairo_composite_rectangles_fini(&extents);
 	    return status;
 	}
     } else {
@@ -2965,6 +3047,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
                                                         &traps);
         if (unlikely (status))
         {
+            _cairo_composite_rectangles_fini(&extents);
             _cairo_traps_fini(&traps);
             goto CLEANUP;
         }
@@ -2994,6 +3077,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	status = _cairo_gl_fill(&indices);
 	//printf("\tgl_fill %ld\n", _get_tick() - now);
 CLEANUP:
+    _cairo_composite_rectangles_fini(&extents);
     if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
 	_cairo_gl_tristrip_indices_destroy (&indices);
@@ -3048,7 +3132,10 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
     if (extents.is_bounded == 0) {
 	if (unlikely ((status = _cairo_gl_surface_prepare_mask_surface (surface))))
+    {
+        _cairo_composite_rectangles_fini(&extents);
 	    return status;
+    }
 	status = _cairo_gl_surface_fill (surface->mask_surface,
 					 CAIRO_OPERATOR_OVER,
 					 source,
@@ -3057,6 +3144,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 					 tolerance,
 					 antialias,
 					 NULL);
+    _cairo_composite_rectangles_fini(&extents);
 	if (unlikely (status))
 	    return status;
 	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
@@ -3102,6 +3190,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 		if(clone == NULL)
 		{
             glDisable(GL_SCISSOR_TEST);
+            _cairo_composite_rectangles_fini(&extents);
 			return UNSUPPORTED("create_clone failed");
 		}
 	}
@@ -3226,6 +3315,7 @@ CLEANUP:
     if (clone != NULL)
 	cairo_surface_destroy (&clone->base);
     surface->require_aa = FALSE;
+    _cairo_composite_rectangles_fini(&extents);
     return status;
 }
 
