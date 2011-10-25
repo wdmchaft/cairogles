@@ -925,6 +925,7 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 
     glTexImage2D (ctx->tex_target, 0, format, width, height, 0,
 		  format, GL_UNSIGNED_BYTE, NULL);
+    //glGenerateMipmap(GL_TEXTURE_2D);
 	surface->data_surface = NULL;
 	surface->needs_new_data_surface = FALSE;
 
@@ -1156,9 +1157,10 @@ cairo_gl_surface_create_for_texture (cairo_device_t	*abstract_device,
     // internal format default to GL_RGBA
     surface->internal_format = GL_RGBA;
     surface->tex_format = GL_RGBA;
-    status = _cairo_gl_ensure_framebuffer (ctx, surface);
+    /*status = _cairo_gl_ensure_framebuffer (ctx, surface);
     if(status != CAIRO_STATUS_SUCCESS)
         status = _cairo_surface_set_error(&surface->base, status);
+    */
     status = _cairo_gl_context_release (ctx, status);
     return &surface->base;
 }
@@ -1178,6 +1180,10 @@ cairo_gl_surface_create_for_texture_with_internal_format(cairo_device_t *abstrac
 
 	surface->internal_format = internal_format;
     surface->tex_format = internal_format;
+    /*status = _cairo_gl_ensure_framebuffer (ctx, surface);
+    if(status != CAIRO_STATUS_SUCCESS)
+        status = _cairo_surface_set_error(&surface->base, status);
+    */
 	return &surface->base;
 }
 slim_hidden_def (cairo_gl_surface_create_for_texture_with_internal_format);
@@ -1624,6 +1630,7 @@ _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
             glTexImage2D (ctx->tex_target, 0, format, dst->width, 
                           dst->height, 0,
 		                  format, GL_UNSIGNED_BYTE, NULL);
+            //glGenerateMipmap(GL_TEXTURE_2D);
             dst->tex_format = format;
         }
     }
@@ -1651,7 +1658,7 @@ _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
 			 format, type,
 			 data_start_gles2 != NULL ? data_start_gles2 :
 						    data_start);
-
+    //glGenerateMipmap(GL_TEXTURE_2D);
 	if (data_start_gles2)
 	    free (data_start_gles2);
 
@@ -2390,6 +2397,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
     surface_rect.y = extents.bounded.y;
     surface_rect.width = extents.bounded.width;
     surface_rect.height = extents.bounded.height;
+    /*
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
         glEnable(GL_SCISSOR_TEST);
@@ -2408,12 +2416,12 @@ _cairo_gl_surface_mask (void *abstract_surface,
         //glScissor(surface_rect.x, surface_rect.y,
         //      surface_rect.width, surface_rect.height);
         glDisable(GL_SCISSOR_TEST);
-    }
+    }*/
         
-    //if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
+    if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
     //{
         //printf("====clip contains source\n");   
-    //    clip_pt = NULL;
+        clip_pt = NULL;
     //}
 	//printf("get rectangle extents %ld usec\n", _get_tick() - now);
 	// upload image
@@ -2862,6 +2870,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     surface_rect.y = extents.bounded.y;
     surface_rect.width = extents.bounded.width;
     surface_rect.height = extents.bounded.height;
+    /*
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
         glEnable(GL_SCISSOR_TEST);
@@ -2881,10 +2890,10 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
         //glScissor(surface_rect.x, surface_rect.y,
         //      surface_rect.width, surface_rect.height);
         glDisable(GL_SCISSOR_TEST);
-    }
-    //if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
+    }*/
+    if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
     //if(clip_pt != NULL && _cairo_clip_contains_rectangle(clip_pt, &surface_rect))
-    //    clip_pt = NULL;
+        clip_pt = NULL;
     /*if(clip_pt != NULL && clip_pt->path == NULL) 
     {
         if(_cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
@@ -3154,6 +3163,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     surface_rect.y = extents.bounded.y;
     surface_rect.width = extents.bounded.width;
     surface_rect.height = extents.bounded.height;
+    /*
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
         glEnable(GL_SCISSOR_TEST);
@@ -3172,10 +3182,10 @@ _cairo_gl_surface_fill (void			*abstract_surface,
         //glScissor(surface_rect.x, surface_rect.y,
         //      surface_rect.width, surface_rect.height);
         glDisable(GL_SCISSOR_TEST);
-    }
-    //if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
+    }*/
+    if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
     //if(clip_pt != NULL && _cairo_clip_contains_rectangle(clip_pt, &surface_rect))
-    //    clip_pt = NULL;
+        clip_pt = NULL;
     // for fill, it is always bounded
     //if(!_cairo_gl_extents_within_clip (extents, TRUE, clip_pt))
     //    clip_pt = NULL;
