@@ -374,9 +374,21 @@ use_program_core_2_0 (cairo_gl_context_t *ctx,
 		      cairo_gl_shader_t *shader)
 {
     if (shader)
-	ctx->dispatch.UseProgram (shader->program);
-    else
-	ctx->dispatch.UseProgram (0);
+    {
+        if(ctx->program_reset == TRUE)
+        {
+            ctx->program_reset = FALSE;
+	        ctx->dispatch.UseProgram (shader->program);
+            ctx->current_program = shader->program;
+        }
+        else if (ctx->current_program != shader->program)
+        {
+	        ctx->dispatch.UseProgram (shader->program);
+            ctx->current_program = shader->program;
+        }
+   }
+    //else
+	//ctx->dispatch.UseProgram (0);
 }
 
 static const cairo_gl_shader_impl_t shader_impl_core_2_0 = {
@@ -2502,7 +2514,20 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
      * be a performance issue, since this is only called once per compile.
      */
     //glGetIntegerv (GL_CURRENT_PROGRAM, &saved_program);
-    dispatch->UseProgram (shader->program);
+    if(ctx->program_reset = TRUE)
+    {
+        dispatch->UseProgram (shader->program);
+        ctx->current_program = shader->program;
+        ctx->program_reset = FALSE;
+    }  
+    else
+    {
+        if(ctx->current_program != shader->program) 
+        {
+            dispatch->UseProgram (shader->program);
+            ctx->current_program = shader->program;
+        }
+    }
 
     location = dispatch->GetUniformLocation (shader->program, "source_sampler");
     if (location != -1) {

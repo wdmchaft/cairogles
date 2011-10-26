@@ -173,6 +173,22 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     int n;
 
     ctx->bound_fb = 0;
+    ctx->current_program = -1;
+    ctx->active_texture = -9999;
+    ctx->src_factor = -9999;
+    ctx->dst_factor = -9999;
+    ctx->stencil_test_enabled = FALSE;
+    ctx->scissor_test_enabled = FALSE;
+    ctx->blend_enabled = FALSE;
+    ctx->multisample_enabled = FALSE;
+    
+    ctx->stencil_test_reset = TRUE;
+    ctx->scissor_test_reset = TRUE;
+    ctx->program_reset = TRUE;
+    ctx->source_texture_attrib_reset = TRUE;
+    ctx->mask_texture_attrib_reset = TRUE;
+    ctx->vertex_attrib_reset = TRUE;
+    
     _cairo_device_init (&ctx->base, &_cairo_gl_device_backend);
 
     memset (ctx->glyph_cache, 0, sizeof (ctx->glyph_cache));
