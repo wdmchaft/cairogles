@@ -152,9 +152,81 @@ typedef enum cairo_gl_operand_type {
 
 typedef struct cairo_gl_shader_impl cairo_gl_shader_impl_t;
 
+#define SOURCE_CONSTANT         "source_constant"
+#define MASK_CONSTANT           "mask_constant"
+
+#define SOURCE_COLORS           "source_colors"
+#define SOURCE_OFFSETS          "source_offsets"
+#define SOURCE_CIRCLE_1         "source_circle_1"
+#define SOURCE_CIRCLE_2         "source_circle_2"
+#define SOURCE_NSTOPS           "source_nstops"
+#define SOURCE_SCALES           "source_scales"
+#define SOURCE_PAD              "source_pad"
+#define SOURCE_MOVED_CENTER     "source_moved_center"
+#define SOURCE_ENDPOINT         "source_endpoint"
+#define SOURCE_MATRIX_1         "source_matrix_1"
+#define SOURCE_MATRIX_2         "source_matrix_2"
+#define SOURCE_TANGENTS_END     "source_tangents_end"
+#define SOURCE_STOPS            "source_stops"
+#define SOURCE_TOTAL_DIST       "source_total_dist"
+#define SOURCE_DELTA            "source_delta"
+
+#define MASK_COLORS             "mask_colors"
+#define MASK_OFFSETS            "mask_offsets"
+#define MASK_CIRCLE_1           "mask_circle_1"
+#define MASK_CIRCLE_2           "mask_circle_2"
+#define MASK_NSTOPS             "mask_nstops"
+#define MASK_SCALES             "mask_scales"
+#define MASK_PAD                "mask_pad"
+#define MASK_MOVED_CENTER       "mask_moved_center"
+#define MASK_ENDPOINT           "mask_endpoint"
+#define MASK_MATRIX_1           "mask_matrix_1"
+#define MASK_MATRIX_2           "mask_matrix_2"
+#define MASK_TANGENTS_END       "mask_tangents_end"
+#define MASK_STOPS              "mask_stops"
+#define MASK_TOTAL_DIST         "mask_total_dist"
+#define MASK_DELTA              "mask_delta"
+
 typedef struct cairo_gl_shader {
     GLuint fragment_shader;
     GLuint program;
+    GLint modelviewprojection_matrix;
+    GLint source_sampler;
+    GLint mask_sampler;
+    GLint source_constant;
+    GLint mask_constant;
+    
+    GLint source_colors;
+    GLint source_offsets;
+    GLint source_circle_1;
+    GLint source_circle_2;
+    GLint source_nstops;
+    GLint source_scales;
+    GLint source_pad;
+    GLint source_moved_center;
+    GLint source_endpoint;
+    GLint source_matrix_1;
+    GLint source_matrix_2;
+    GLint source_tangents_end;
+    GLint source_stops;
+    GLint source_total_dist;
+    GLint source_delta;
+
+    GLint mask_colors;
+    GLint mask_offsets;
+    GLint mask_circle_1;
+    GLint mask_circle_2;
+    GLint mask_nstops;
+    GLint mask_scales;
+    GLint mask_pad;
+    GLint mask_moved_center;
+    GLint mask_endpoint;
+    GLint mask_matrix_1;
+    GLint mask_matrix_2;
+    GLint mask_tangents_end;
+    GLint mask_stops;
+    GLint mask_total_dist;
+    GLint mask_delta;
 } cairo_gl_shader_t;
 
 typedef enum cairo_gl_shader_in {
@@ -398,6 +470,21 @@ struct _cairo_gl_context {
 	// Henry Song
 	//cairo_clip_t *clip;
     GLuint bound_fb;
+    GLint current_program;
+    int active_texture;
+    int src_factor;
+    int dst_factor;
+    cairo_bool_t stencil_test_enabled;
+    cairo_bool_t scissor_test_enabled;
+    cairo_bool_t blend_enabled;
+    cairo_bool_t multisample_enabled;
+
+    cairo_bool_t stencil_test_reset;
+    cairo_bool_t program_reset;
+    cairo_bool_t scissor_test_reset;
+    cairo_bool_t source_texture_attrib_reset;
+    cairo_bool_t mask_texture_attrib_reset;
+    cairo_bool_t vertex_attrib_reset;
 
     cairo_bool_t has_mesa_pack_invert;
     cairo_gl_dispatch_t dispatch;
@@ -529,7 +616,7 @@ _cairo_gl_context_acquire (cairo_device_t *device,
 	return status;
 
     /* clear potential previous GL errors */
-    _cairo_gl_get_error ();
+    //_cairo_gl_get_error ();
 
     *ctx = (cairo_gl_context_t *) device;
     return CAIRO_STATUS_SUCCESS;
@@ -538,6 +625,7 @@ _cairo_gl_context_acquire (cairo_device_t *device,
 static cairo_always_inline cairo_warn cairo_status_t
 _cairo_gl_context_release (cairo_gl_context_t *ctx, cairo_status_t status)
 {
+    /*
     GLenum err;
 
     err = _cairo_gl_get_error ();
@@ -548,8 +636,8 @@ _cairo_gl_context_release (cairo_gl_context_t *ctx, cairo_status_t status)
     //printf("gl error %x\n", err);
         if (status == CAIRO_STATUS_SUCCESS)
             status = new_status;
-    }
-
+    }*/
+    
     cairo_device_release (&(ctx)->base);
 
     return status;
