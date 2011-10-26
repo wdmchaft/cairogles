@@ -379,6 +379,12 @@ use_program_core_2_0 (cairo_gl_context_t *ctx,
 {
     if (shader)
     {
+        //if(shader->program != ctx->current_program)
+        {
+            ctx->dispatch.UseProgram (shader->program);
+            ctx->current_program = shader->program;
+        }
+        /*
         if(ctx->program_reset == TRUE)
         {
             ctx->program_reset = FALSE;
@@ -389,8 +395,10 @@ use_program_core_2_0 (cairo_gl_context_t *ctx,
         {
 	        ctx->dispatch.UseProgram (shader->program);
             ctx->current_program = shader->program;
-        }
+        }*/
    }
+    if(ctx->program_reset)
+        ctx->program_reset = FALSE;
     //else
 	//ctx->dispatch.UseProgram (0);
 }
@@ -2544,7 +2552,7 @@ _cairo_gl_shader_compile (cairo_gl_context_t *ctx,
  */
 static void
 _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
-			       cairo_gl_shader_t *shader)
+			       cairo_gl_shader_t *shader, cairo_bool_t has_samplers)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
     GLint location;
@@ -2555,7 +2563,15 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
      * be a performance issue, since this is only called once per compile.
      */
     //glGetIntegerv (GL_CURRENT_PROGRAM, &saved_program);
-    if(ctx->program_reset = TRUE)
+    //if(ctx->current_program != shader->program)
+    {
+        dispatch->UseProgram (shader->program);
+        ctx->current_program = shader->program;
+    }
+    if(ctx->program_reset)
+        ctx->program_reset = FALSE;
+    /*
+    if(ctx->program_reset == TRUE)
     {
         dispatch->UseProgram (shader->program);
         ctx->current_program = shader->program;
@@ -2568,16 +2584,28 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
             dispatch->UseProgram (shader->program);
             ctx->current_program = shader->program;
         }
-    }
+    }*/
+    if(has_samplers)
+    {
+        if(shader->source_sampler == -1)
+        {
+            shader->source_sampler = dispatch->GetUniformLocation (shader->program, "source_sampler");
+        }
+        location = shader->source_sampler;
+        if (location != -1) {
+	    dispatch->Uniform1i (location, CAIRO_GL_TEX_SOURCE);
+        }
 
-    location = dispatch->GetUniformLocation (shader->program, "source_sampler");
-    if (location != -1) {
-	dispatch->Uniform1i (location, CAIRO_GL_TEX_SOURCE);
-    }
-
-    location = dispatch->GetUniformLocation (shader->program, "mask_sampler");
-    if (location != -1) {
-	dispatch->Uniform1i (location, CAIRO_GL_TEX_MASK);
+        if(shader->mask_sampler == -1)
+        {
+            shader->mask_sampler = dispatch->GetUniformLocation(shader->program, "mask_sampler");
+            if(shader->mask_sampler == -1)
+                shader->mask_sampler = -9999;
+        }
+        location = shader->mask_sampler;
+        if (location != -1 && location != -9999) {
+	    dispatch->Uniform1i (location, CAIRO_GL_TEX_MASK);
+        }
     }
 
     //dispatch->UseProgram (saved_program);
@@ -2711,7 +2739,11 @@ _cairo_gl_get_shader_by_type (cairo_gl_context_t *ctx,
         assert (entry->shader.program);
         *shader = &entry->shader;
         //_cairo_gl_set_shader (ctx, *shader);
-    	_cairo_gl_shader_set_samplers (ctx, &entry->shader);
+        if(source->type == CAIRO_GL_OPERAND_TEXTURE || 
+           mask->type == CAIRO_GL_OPERAND_TEXTURE)
+    	    _cairo_gl_shader_set_samplers (ctx, &entry->shader, TRUE);
+        else
+    	    _cairo_gl_shader_set_samplers (ctx, &entry->shader, FALSE);
 	return CAIRO_STATUS_SUCCESS;
     }
 
@@ -2746,7 +2778,11 @@ _cairo_gl_get_shader_by_type (cairo_gl_context_t *ctx,
 	return status;
     }
 
-    _cairo_gl_shader_set_samplers (ctx, &entry->shader);
+    if(source->type == CAIRO_GL_OPERAND_TEXTURE || 
+       mask->type == CAIRO_GL_OPERAND_TEXTURE)
+        _cairo_gl_shader_set_samplers (ctx, &entry->shader, TRUE);
+    else
+        _cairo_gl_shader_set_samplers (ctx, &entry->shader, FALSE);
 
     status = _cairo_cache_insert (&ctx->shaders, &entry->base);
     if (unlikely (status)) {
