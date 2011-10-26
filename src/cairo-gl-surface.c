@@ -2397,6 +2397,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
     surface_rect.y = extents.bounded.y;
     surface_rect.width = extents.bounded.width;
     surface_rect.height = extents.bounded.height;
+    _cairo_composite_rectangles_fini(&extents);
     /*
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
@@ -2432,7 +2433,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 				      source->extend == CAIRO_EXTEND_REFLECT;
 		clone = _cairo_gl_generate_clone(surface, src, extend);
 		if (clone == NULL) {
-            _cairo_composite_rectangles_fini(&extents);
 			return UNSUPPORTED("create_clone failed");
         }
         // for source to blit to texture
@@ -2459,23 +2459,23 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	// set up source
 	if (clone == NULL) {
 		status = _cairo_gl_composite_set_source(setup, source,
-							extents.bounded.x,
-							extents.bounded.y,
-							extents.bounded.x,
-							extents.bounded.y, 
-							extents.bounded.width,
-							extents.bounded.height,
+                            surface_rect.x,
+                            surface_rect.y,
+                            surface_rect.x,
+                            surface_rect.y,
+                            surface_rect.width,
+                            surface_rect.height,
 							0, /* texture */
 							0, /* width */
 							0); /* height */
 	} else {
 		status = _cairo_gl_composite_set_source(setup, source,
-							extents.bounded.x,
-							extents.bounded.y,
-							extents.bounded.x,
-							extents.bounded.y, 
-							extents.bounded.width,
-							extents.bounded.height,
+                            surface_rect.x,
+                            surface_rect.y,
+                            surface_rect.x,
+                            surface_rect.y,
+                            surface_rect.width,
+                            surface_rect.height,
 							clone->tex,
 							(int) clone->orig_width,
 							(int) clone->orig_height);
@@ -2509,11 +2509,12 @@ _cairo_gl_surface_mask (void *abstract_surface,
 
 	//surface->require_aa = FALSE;
 	// we set require_aa to false if multisample is resolved
+    /*
 	if(surface->multisample_resolved == TRUE)
 		surface->require_aa = FALSE;
 	else
 		surface->require_aa = TRUE;
-  
+    */
 	_cairo_gl_context_set_destination(ctx, surface);
 /*
     if (clip != NULL && clip->path != NULL) {
@@ -2525,23 +2526,23 @@ _cairo_gl_surface_mask (void *abstract_surface,
 */
 	if (mask_clone != NULL) {
 		status = _cairo_gl_composite_set_mask(setup, mask, 
-						      extents.bounded.x,
-						      extents.bounded.y,
-						      extents.bounded.x,
-						      extents.bounded.y, 
-						      extents.bounded.width,
-						      extents.bounded.height,
+                            surface_rect.x,
+                            surface_rect.y,
+                            surface_rect.x,
+                            surface_rect.y,
+                            surface_rect.width,
+                            surface_rect.height,
 						      mask_clone->tex,
 						      (int) mask_clone->orig_width,
 						      (int) mask_clone->orig_height);
 	} else {
 		status = _cairo_gl_composite_set_mask(setup, mask, 
-						      extents.bounded.x,
-						      extents.bounded.y,
-						      extents.bounded.x,
-						      extents.bounded.y, 
-						      extents.bounded.width,
-						      extents.bounded.height,
+                            surface_rect.x,
+                            surface_rect.y,
+                            surface_rect.x,
+                            surface_rect.y,
+                            surface_rect.width,
+                            surface_rect.height,
 						      0, /* texture */
 						      0, /* width */
 						      0); /* height */
@@ -2637,14 +2638,14 @@ _cairo_gl_surface_mask (void *abstract_surface,
     else 
     {
 	// we have the image uploaded, we need to setup vertices
-	vertices[0] = extents.bounded.x;
-	vertices[1] = extents.bounded.y;
-	vertices[2] = extents.bounded.x + extents.bounded.width;
-	vertices[3] = extents.bounded.y;
-	vertices[4] = extents.bounded.x + extents.bounded.width;
-	vertices[5] = extents.bounded.y + extents.bounded.height;
-	vertices[6] = extents.bounded.x;
-	vertices[7] = extents.bounded.y + extents.bounded.height;
+	vertices[0] = surface_rect.x;
+	vertices[1] = surface_rect.y;
+	vertices[2] = surface_rect.x + surface_rect.width;
+	vertices[3] = surface_rect.y;
+	vertices[4] = surface_rect.x + surface_rect.width;
+	vertices[5] = surface_rect.y + surface_rect.height;
+	vertices[6] = surface_rect.x;
+	vertices[7] = surface_rect.y + surface_rect.height;
 
 	if (source->type == CAIRO_PATTERN_TYPE_SURFACE) {
 		map_vertices_to_surface_space (vertices, 4, clone, &source->matrix, texture_coordinates);
@@ -2716,7 +2717,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
     surface->needs_new_data_surface = TRUE;
 
 FINISH:
-    _cairo_composite_rectangles_fini(&extents);
     _cairo_gl_composite_fini(setup);
 
     surface->require_aa = FALSE;
@@ -2843,10 +2843,14 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     if (unlikely (status))
 		return status;
     //printf("\tinit stroke %ld\n", _get_tick() - now);
+    surface_rect.x = extents.bounded.x;
+    surface_rect.y = extents.bounded.y;
+    surface_rect.width = extents.bounded.width;
+    surface_rect.height = extents.bounded.height;
+    _cairo_composite_rectangles_fini(&extents);
     
     if (extents.is_bounded == 0) {
 	if (unlikely ((status = _cairo_gl_surface_prepare_mask_surface (surface)))) {
-        _cairo_composite_rectangles_fini(&extents);
 	    return status;
     }
 
@@ -2860,16 +2864,11 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 					   tolerance,
 					   antialias,
 					   NULL);
-    _cairo_composite_rectangles_fini(&extents);
 	if (unlikely (status))
 	    return status;
 	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
     }
     
-    surface_rect.x = extents.bounded.x;
-    surface_rect.y = extents.bounded.y;
-    surface_rect.width = extents.bounded.width;
-    surface_rect.height = extents.bounded.height;
     /*
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
@@ -2916,7 +2915,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 	if(unlikely(status))
     {
-        _cairo_composite_rectangles_fini(&extents);
         glDisable(GL_SCISSOR_TEST);
 		return status;
     }
@@ -2933,7 +2931,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		{
 			status = _cairo_gl_context_release(ctx, status);
             glDisable(GL_SCISSOR_TEST);
-            _cairo_composite_rectangles_fini(&extents);
 			return UNSUPPORTED("create_clone failed");
 		}
 	}
@@ -2953,26 +2950,25 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		free(setup);
 		status = _cairo_gl_context_release(ctx, status);
         glDisable(GL_SCISSOR_TEST);
-        _cairo_composite_rectangles_fini(&extents);
 		return status;
 	}
     //printf("\tsetup init %ld\n", _get_tick() - now);
 
 	setup->source = (cairo_pattern_t*)source;
 	if(clone == NULL)
-		status = _cairo_gl_composite_set_source(setup,
-			source, extents.bounded.x, extents.bounded.y,
-			extents.bounded.x, extents.bounded.y, 
-			extents.bounded.width, extents.bounded.height,
+		status = _cairo_gl_composite_set_source(setup, source,
+            surface_rect.x, surface_rect.y,
+            surface_rect.x, surface_rect.y,
+            surface_rect.width, surface_rect.height,
 			0, 0, 0);
 	else
 	{
             float temp_width = clone->orig_width;
             float temp_height = clone->orig_height;
-		status = _cairo_gl_composite_set_source(setup,
-			source, extents.bounded.x, extents.bounded.y,
-			extents.bounded.x, extents.bounded.y, 
-			extents.bounded.width, extents.bounded.height,
+		status = _cairo_gl_composite_set_source(setup, source,
+            surface_rect.x, surface_rect.y,
+            surface_rect.x, surface_rect.y,
+            surface_rect.width, surface_rect.height,
 			clone->tex, (int)temp_width, (int)temp_height); 
 	}
 
@@ -2984,7 +2980,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		free(setup);
 		status = _cairo_gl_context_release(ctx, status);
         glDisable(GL_SCISSOR_TEST);
-        _cairo_composite_rectangles_fini(&extents);
 		return status;
 	}
 
@@ -3020,7 +3015,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	    //glDepthMask(GL_FALSE);
             surface->require_aa = FALSE;
 	    status = _cairo_gl_context_release(ctx, status);
-        _cairo_composite_rectangles_fini(&extents);
 	    return status;
 	}
     } else {
@@ -3056,7 +3050,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
                                                         &traps);
         if (unlikely (status))
         {
-            _cairo_composite_rectangles_fini(&extents);
             _cairo_traps_fini(&traps);
             goto CLEANUP;
         }
@@ -3086,7 +3079,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	status = _cairo_gl_fill(&indices);
 	//printf("\tgl_fill %ld\n", _get_tick() - now);
 CLEANUP:
-    _cairo_composite_rectangles_fini(&extents);
     if(clone != NULL)
 		cairo_surface_destroy(&clone->base);
 	_cairo_gl_tristrip_indices_destroy (&indices);
@@ -3138,11 +3130,16 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 							clip);
     if (unlikely (status))
 	return status;
+    
+    surface_rect.x = extents.bounded.x;
+    surface_rect.y = extents.bounded.y;
+    surface_rect.width = extents.bounded.width;
+    surface_rect.height = extents.bounded.height;
+    _cairo_composite_rectangles_fini(&extents);
 
     if (extents.is_bounded == 0) {
 	if (unlikely ((status = _cairo_gl_surface_prepare_mask_surface (surface))))
     {
-        _cairo_composite_rectangles_fini(&extents);
 	    return status;
     }
 	status = _cairo_gl_surface_fill (surface->mask_surface,
@@ -3153,16 +3150,11 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 					 tolerance,
 					 antialias,
 					 NULL);
-    _cairo_composite_rectangles_fini(&extents);
 	if (unlikely (status))
 	    return status;
 	return _cairo_gl_surface_paint_back_mask_surface (surface, op, clip);
     }
         
-    surface_rect.x = extents.bounded.x;
-    surface_rect.y = extents.bounded.y;
-    surface_rect.width = extents.bounded.width;
-    surface_rect.height = extents.bounded.height;
     /*
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
@@ -3200,7 +3192,6 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 		if(clone == NULL)
 		{
             glDisable(GL_SCISSOR_TEST);
-            _cairo_composite_rectangles_fini(&extents);
 			return UNSUPPORTED("create_clone failed");
 		}
 	}
@@ -3217,19 +3208,19 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
 	setup->source = source;
 	if(clone == NULL)
-		status = _cairo_gl_composite_set_source(setup,
-			source, extents.bounded.x, extents.bounded.y,
-			extents.bounded.x, extents.bounded.y, 
-			extents.bounded.width, extents.bounded.height,
+		status = _cairo_gl_composite_set_source(setup, source,
+            surface_rect.x, surface_rect.y,
+            surface_rect.x, surface_rect.y,
+            surface_rect.width, surface_rect.height,
 			0, 0, 0);
 	else
 	{
             float temp_width = clone->orig_width;
             float temp_height = clone->orig_height;
-		status = _cairo_gl_composite_set_source(setup,
-			source, extents.bounded.x, extents.bounded.y,
-			extents.bounded.x, extents.bounded.y, 
-			extents.bounded.width, extents.bounded.height,
+		status = _cairo_gl_composite_set_source(setup, source,
+            surface_rect.x, surface_rect.y,
+            surface_rect.x, surface_rect.y,
+            surface_rect.width, surface_rect.height,
 			clone->tex, (int)temp_width, (int)temp_height); 
 	}
     if (unlikely(status))
@@ -3325,7 +3316,6 @@ CLEANUP:
     if (clone != NULL)
 	cairo_surface_destroy (&clone->base);
     surface->require_aa = FALSE;
-    _cairo_composite_rectangles_fini(&extents);
     return status;
 }
 

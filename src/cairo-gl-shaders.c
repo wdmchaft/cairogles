@@ -279,7 +279,27 @@ bind_vec4_core_2_0 (cairo_gl_context_t *ctx,
 		    float value3)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
+    GLint location = -1;
+    if(strcmp(name, SOURCE_CONSTANT) == 0)
+    {
+        if(shader->source_constant == -1) 
+        {
+            shader->source_constant = dispatch->GetUniformLocation(shader->program, name);
+        }
+        location = shader->source_constant;
+    }
+    else if(strcmp(name, MASK_CONSTANT) == 0)
+    {
+        if(shader->mask_constant == -1)
+        {
+            shader->mask_constant = dispatch->GetUniformLocation(shader->program, name);
+        }
+        location = shader->mask_constant;
+    }
+    else
+    {
+        location = dispatch->GetUniformLocation (shader->program, name);
+    }
     assert (location != -1);
     dispatch->Uniform4f (location, value0, value1, value2, value3);
 }
