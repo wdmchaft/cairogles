@@ -364,9 +364,13 @@ bind_matrix4f_core_2_0 (cairo_gl_context_t *ctx,
 		        GLfloat* gl_m)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
-    assert (location != -1);
-    dispatch->UniformMatrix4fv (location, 1, GL_FALSE, gl_m);
+    if(shader->modelviewprojection_matrix == -1)
+    {
+        shader->modelviewprojection_matrix = 
+            dispatch->GetUniformLocation (shader->program, name);
+    }
+    assert (shader->modelviewprojection_matrix != -1);
+    dispatch->UniformMatrix4fv (shader->modelviewprojection_matrix, 1, GL_FALSE, gl_m);
 }
 
 static void
@@ -482,6 +486,43 @@ _cairo_gl_shader_init (cairo_gl_shader_t *shader)
 {
     shader->fragment_shader = 0;
     shader->program = 0;
+    shader->modelviewprojection_matrix = -1;
+    shader->source_sampler = -1;
+    shader->mask_sampler = -1;
+    shader->source_constant = -1;
+    shader->mask_constant = -1;
+
+    shader->source_colors = -1;
+    shader->source_offsets = -1;
+    shader->source_circle_1 = -1;
+    shader->source_circle_2 = -1;
+    shader->source_nstops = -1;
+    shader->source_scales = -1;
+    shader->source_pad = -1;
+    shader->source_moved_center = -1;
+    shader->source_endpoint = -1;
+    shader->source_matrix_1 = -1;
+    shader->source_matrix_2 = -1;
+    shader->source_tangents_end = -1;
+    shader->source_stops = -1;
+    shader->source_total_dist = -1;
+    shader->source_delta = -1;
+    
+    shader->mask_colors = -1;
+    shader->mask_offsets = -1;
+    shader->mask_circle_1 = -1;
+    shader->mask_circle_2 = -1;
+    shader->mask_nstops = -1;
+    shader->mask_scales = -1;
+    shader->mask_pad = -1;
+    shader->mask_moved_center = -1;
+    shader->mask_endpoint = -1;
+    shader->mask_matrix_1 = -1;
+    shader->mask_matrix_2 = -1;
+    shader->mask_tangents_end = -1;
+    shader->mask_stops = -1;
+    shader->mask_total_dist = -1;
+    shader->mask_delta = -1;
 }
 
 cairo_status_t
