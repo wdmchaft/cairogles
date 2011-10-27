@@ -474,6 +474,10 @@ struct _cairo_gl_context {
     int active_texture;
     int src_factor;
     int dst_factor;
+    float clear_red;
+    float clear_green;
+    float clear_blue;
+    float clear_alpha;
     cairo_bool_t stencil_test_enabled;
     cairo_bool_t scissor_test_enabled;
     cairo_bool_t blend_enabled;

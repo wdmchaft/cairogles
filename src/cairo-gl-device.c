@@ -177,6 +177,11 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     ctx->active_texture = -9999;
     ctx->src_factor = -9999;
     ctx->dst_factor = -9999;
+    ctx->clear_red = -1;
+    ctx->clear_green = -1;
+    ctx->clear_blue = -1;
+    ctx->clear_alpha = -1;
+
     ctx->stencil_test_enabled = FALSE;
     ctx->scissor_test_enabled = FALSE;
     ctx->blend_enabled = FALSE;

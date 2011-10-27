@@ -1043,7 +1043,17 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
         a = 1.0;
     }
     _cairo_gl_disable_scissor_test(ctx);
-    glClearColor (r, g, b, a);
+    if(ctx->clear_red != r ||
+       ctx->clear_green != g ||
+       ctx->clear_blue != b ||
+       ctx->clear_alpha != a)
+    {
+        glClearColor (r, g, b, a);
+        ctx->clear_red = r;
+        ctx->clear_green = g;
+        ctx->clear_blue = b;
+        ctx->clear_alpha = a;
+    }
     glClear (GL_COLOR_BUFFER_BIT);
 	surface->needs_new_data_surface = TRUE;
     return _cairo_gl_context_release (ctx, status);
@@ -3465,6 +3475,11 @@ void cairo_gl_reset_device(cairo_device_t *device)
     ctx->scissor_test_enabled = FALSE;
     ctx->blend_enabled = FALSE;
     ctx->multisample_enabled = FALSE;
+    
+    ctx->clear_red = -1;
+    ctx->clear_green = -1; 
+    ctx->clear_blue = -1;
+    ctx->clear_alpha = -1;
 
     ctx->stencil_test_reset = TRUE;
     ctx->scissor_test_reset = TRUE;
