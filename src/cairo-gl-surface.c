@@ -3469,8 +3469,10 @@ void cairo_gl_reset_device(cairo_device_t *device)
     ctx->bound_fb = 0;
     ctx->current_program = -1;
     ctx->active_texture = -9999;
-    ctx->src_factor = -9999;
-    ctx->dst_factor = -9999;
+    ctx->src_color_factor = -9999;
+    ctx->dst_color_factor = -9999;
+    ctx->src_alpha_factor = -9999;
+    ctx->dst_alpha_factor = -9999;
     ctx->stencil_test_enabled = FALSE;
     ctx->scissor_test_enabled = FALSE;
     ctx->blend_enabled = FALSE;

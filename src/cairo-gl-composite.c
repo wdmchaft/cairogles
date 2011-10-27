@@ -1262,15 +1262,38 @@ _cairo_gl_set_operator (cairo_gl_context_t *ctx,
     }
 
     if (ctx->current_target->base.content == CAIRO_CONTENT_ALPHA) {
-        glBlendFuncSeparate (GL_ZERO, GL_ZERO, src_factor, dst_factor);
+        if(ctx->src_color_factor != GL_ZERO ||
+           ctx->dst_color_factor != GL_ZERO ||
+           ctx->src_alpha_factor != src_factor ||
+           ctx->dst_alpha_factor != dst_factor)
+        {
+            glBlendFuncSeparate (GL_ZERO, GL_ZERO, src_factor, dst_factor);
+            ctx->src_color_factor = GL_ZERO;
+            ctx->dst_color_factor = GL_ZERO;
+            ctx->src_alpha_factor = src_factor;
+            ctx->dst_alpha_factor = dst_factor;
+        }
     } else if (ctx->current_target->base.content == CAIRO_CONTENT_COLOR) {
-        glBlendFuncSeparate (src_factor, dst_factor, GL_ONE, GL_ONE);
+        if(ctx->src_color_factor != src_factor ||
+           ctx->dst_color_factor != src_factor ||
+           ctx->src_alpha_factor != GL_ONE ||
+           ctx->dst_alpha_factor != GL_ONE)
+        {
+            glBlendFuncSeparate (src_factor, dst_factor, GL_ONE, GL_ONE);
+            ctx->src_color_factor = src_factor;
+            ctx->dst_color_factor = dst_factor;
+            ctx->src_alpha_factor = GL_ONE;
+            ctx->dst_alpha_factor = GL_ONE;
+        }
     } else {
-        if(ctx->src_factor != src_factor || ctx->dst_factor != dst_factor)
+        if(ctx->src_color_factor != src_factor || 
+           ctx->dst_color_factor != dst_factor ||
+           ctx->src_alpha_factor != src_factor ||
+           ctx->dst_alpha_factor != dst_factor)
         {
             glBlendFunc (src_factor, dst_factor);
-            ctx->src_factor = src_factor;
-            ctx->dst_factor = dst_factor;
+            ctx->src_color_factor = ctx->src_alpha_factor = src_factor;
+            ctx->dst_color_factor = ctx->dst_alpha_factor = dst_factor;
         }
     }
 }
