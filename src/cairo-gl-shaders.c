@@ -2718,7 +2718,7 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
     }  
     else */
     {
-        //if(ctx->current_program != shader->program) 
+        if(ctx->current_program != shader->program) 
         {
             dispatch->UseProgram (shader->program);
             ctx->current_program = shader->program;
