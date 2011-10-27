@@ -1115,7 +1115,11 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
     case CAIRO_GL_OPERAND_CONSTANT:
         break;
     case CAIRO_GL_OPERAND_TEXTURE:
-        glActiveTexture (GL_TEXTURE0 + tex_unit);
+        if(ctx->active_texture != GL_TEXTURE0 + tex_unit)
+        {
+            glActiveTexture (GL_TEXTURE0 + tex_unit);
+            ctx->active_texture = GL_TEXTURE0 + tex_unit;
+        }
 	//GLenum error = glGetError();
         glBindTexture (ctx->tex_target, operand->texture.tex);
 	//error = glGetError();
@@ -1144,7 +1148,11 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
         _cairo_gl_gradient_reference (operand->gradient.gradient);
-        glActiveTexture (GL_TEXTURE0 + tex_unit);
+        if(ctx->active_texture != GL_TEXTURE0 + tex_unit)
+        {
+            glActiveTexture (GL_TEXTURE0 + tex_unit);
+            ctx->active_texture = GL_TEXTURE0 + tex_unit;
+        }
         glBindTexture (ctx->tex_target, operand->gradient.gradient->tex);
         _cairo_gl_texture_set_extend (ctx, ctx->tex_target, operand->gradient.extend);
         _cairo_gl_texture_set_filter (ctx, ctx->tex_target, CAIRO_FILTER_BILINEAR);
@@ -1584,7 +1592,11 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
 	if(setup->src.type == CAIRO_GL_OPERAND_TEXTURE)
 	{
         //glActiveTexture (GL_TEXTURE0 + CAIRO_GL_TEX_SOURCE);
-        glActiveTexture (GL_TEXTURE0 + CAIRO_GL_TEX_SOURCE);
+        if(ctx->active_texture != GL_TEXTURE0 + CAIRO_GL_TEX_SOURCE)
+        {
+            glActiveTexture (GL_TEXTURE0 + CAIRO_GL_TEX_SOURCE);
+            ctx->active_texture = GL_TEXTURE0 + CAIRO_GL_TEX_SOURCE;
+        }
 		//GLenum error = glGetError();
         glBindTexture (ctx->tex_target, setup->src.texture.tex);
 		//error = glGetError();
@@ -1607,7 +1619,11 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
 	else if(setup->mask.type == CAIRO_GL_OPERAND_TEXTURE)
 	{
         //glActiveTexture (GL_TEXTURE0 + CAIRO_GL_TEX_SOURCE);
-        glActiveTexture (GL_TEXTURE0 + CAIRO_GL_TEX_MASK);
+        if(ctx->active_texture != GL_TEXTURE0 + CAIRO_GL_TEX_MASK)
+        {
+            glActiveTexture (GL_TEXTURE0 + CAIRO_GL_TEX_MASK);
+            ctx->active_texture = GL_TEXTURE0 + CAIRO_GL_TEX_MASK;
+        }
 		//GLenum error = glGetError();
         glBindTexture (ctx->tex_target, setup->mask.texture.tex);
 		//error = glGetError();

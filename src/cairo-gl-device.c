@@ -316,9 +316,17 @@ _cairo_gl_context_activate (cairo_gl_context_t *ctx,
             _cairo_gl_composite_flush (ctx);
             _cairo_gl_context_destroy_operand (ctx, ctx->max_textures - 1);   
         }
-        glActiveTexture (ctx->max_textures - 1);
+        if(ctx->active_texture != ctx->max_textures - 1)
+        {
+            glActiveTexture (ctx->max_textures - 1);
+            ctx->active_texture = ctx->max_textures - 1;
+        }
     } else {
-        glActiveTexture (GL_TEXTURE0 + tex_unit);
+        if(ctx->active_texture != GL_TEXTURE0 + tex_unit)
+        {
+            glActiveTexture (GL_TEXTURE0 + tex_unit);
+            ctx->active_texture = GL_TEXTURE0 + tex_unit;
+        }
     }
 }
 
