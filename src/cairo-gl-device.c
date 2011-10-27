@@ -188,7 +188,7 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     ctx->source_texture_attrib_reset = TRUE;
     ctx->mask_texture_attrib_reset = TRUE;
     ctx->vertex_attrib_reset = TRUE;
-    
+
     _cairo_device_init (&ctx->base, &_cairo_gl_device_backend);
 
     memset (ctx->glyph_cache, 0, sizeof (ctx->glyph_cache));
@@ -375,7 +375,12 @@ _cairo_gl_ensure_framebuffer_for_gl (cairo_gl_context_t *ctx,
 
 	// first create color renderbuffer
     if(sample_size > 1) {
-        glEnable(GL_MULTISAMPLE);
+        
+        //if(ctx->multisample_enabled == FALSE)
+        //{
+            //glEnable(GL_MULTISAMPLE);
+        //    ctx->multisample_enabled = TRUE;
+        //}
 
 	    dispatch->GenFramebuffers (1, &(surface->ms_fb));
 	    dispatch->BindFramebuffer (GL_FRAMEBUFFER, surface->ms_fb);
@@ -602,10 +607,23 @@ _cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
     if (_cairo_gl_surface_is_texture (surface)) {
         // we ensure framebuffer and renderbuffer are created
         _cairo_gl_ensure_framebuffer (ctx, surface);
+        /*
         if(surface->require_aa == TRUE && sample_size > 1)
-            glEnable(GL_MULTISAMPLE);
+        {
+            //if(ctx->multisample_enabled == FALSE)
+            //{
+                glEnable(GL_MULTISAMPLE);
+                ctx->multisample_enabled = TRUE;
+            //}
+        }
         else
-            glDisable(GL_MULTISAMPLE);
+        {
+            //if(ctx->multisample_enabled == TRUE)
+            //{
+                glDisable(GL_MULTISAMPLE);
+                ctx->multisample_enabled = FALSE;
+            //}
+        }*/
         
         if(surface->require_aa && sample_size > 1) {
             // set up draw buffer
@@ -655,13 +673,25 @@ _cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
 		    glReadBuffer (GL_COLOR_ATTACHMENT0);
         }
     } else {
-        ctx->make_current (ctx, surface);
+        if(ctx->bound_fb != 0)
+            ctx->make_current (ctx, surface);
         surface->multisample_resolved = TRUE;
 		if(surface->require_aa)
-			glEnable(GL_MULTISAMPLE);
+        {
+            if(ctx->multisample_enabled == FALSE)
+            {
+			    glEnable(GL_MULTISAMPLE);
+                ctx->multisample_enabled = TRUE;
+            }
+        }
 		else
-			glDisable(GL_MULTISAMPLE);
-        
+        {   
+            if(ctx->multisample_enabled == TRUE)
+            {
+			    glDisable(GL_MULTISAMPLE);
+                ctx->multisample_enabled = FALSE;   
+            }
+        }
         if(ctx->bound_fb != 0)
             ctx->dispatch.BindFramebuffer (GL_FRAMEBUFFER, 0);
         else
@@ -672,7 +702,7 @@ _cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
             glReadBuffer (GL_BACK_LEFT);
         }
     }
-
+    if(bounded == FALSE)
     glViewport (0, 0, surface->width, surface->height);
 
     if (_cairo_gl_surface_is_texture (surface))
@@ -706,7 +736,8 @@ _cairo_gl_context_set_destination_for_gles (cairo_gl_context_t *ctx,
         ctx->bound_fb = surface->fb;
 	}
     else {
-        ctx->make_current (ctx, surface);
+        if(ctx->bound_fb != 0)
+            ctx->make_current (ctx, surface);
         surface->multisample_resolved = TRUE;
         
         if(ctx->bound_fb != 0)
@@ -715,7 +746,7 @@ _cairo_gl_context_set_destination_for_gles (cairo_gl_context_t *ctx,
             bounded = TRUE;
         ctx->bound_fb = 0;
     }
-
+    if(bounded == FALSE)
     glViewport (0, 0, surface->width, surface->height);
 
     if (_cairo_gl_surface_is_texture (surface))

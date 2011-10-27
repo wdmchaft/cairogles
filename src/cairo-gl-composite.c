@@ -1179,12 +1179,12 @@ _cairo_gl_context_destroy_operand (cairo_gl_context_t *ctx,
     case CAIRO_GL_OPERAND_NONE:
         break;
     case CAIRO_GL_OPERAND_SPANS:
-        dispatch->DisableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
+        //dispatch->DisableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
         /* fall through */
     case CAIRO_GL_OPERAND_CONSTANT:
         break;
     case CAIRO_GL_OPERAND_TEXTURE:
-        dispatch->DisableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
+        //dispatch->DisableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
         break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_NONE:
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT_EXT_PAD:
@@ -1199,7 +1199,7 @@ _cairo_gl_context_destroy_operand (cairo_gl_context_t *ctx,
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REPEAT_CIRCLE_NOT_IN_CIRCLE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT_REFLECT_CIRCLE_NOT_IN_CIRCLE:
         _cairo_gl_gradient_destroy (ctx->operands[tex_unit].gradient.gradient);
-        dispatch->DisableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
+        //dispatch->DisableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
         break;
     }
 
@@ -1420,7 +1420,7 @@ _cairo_gl_composite_begin (cairo_gl_composite_t *setup,
     status = _cairo_gl_context_acquire (setup->dst->base.device, &ctx);
     if (unlikely (status))
 	return status;
-
+    
     //if(ctx->blend_enabled == FALSE)
     {
         glEnable (GL_BLEND);
@@ -1547,6 +1547,7 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
         glEnable (GL_BLEND);
         ctx->blend_enabled = TRUE; 
     }
+
     component_alpha = ((setup->mask.type == CAIRO_GL_OPERAND_TEXTURE) &&
                        setup->mask.texture.attributes.has_component_alpha);
 
@@ -1593,10 +1594,13 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
     if (_cairo_gl_context_is_flushed (ctx)) 
 	{
         //ctx->dispatch.BindBuffer (GL_ARRAY_BUFFER, ctx->vbo);
-
 		ctx->dispatch.VertexAttribPointer (CAIRO_GL_VERTEX_ATTRIB_INDEX, 2,
 					   GL_FLOAT, GL_FALSE, 0, vertices);
-		ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_VERTEX_ATTRIB_INDEX);
+        if(ctx->vertex_attrib_reset == TRUE)
+        {
+		    ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_VERTEX_ATTRIB_INDEX);
+            ctx->vertex_attrib_reset = FALSE;
+        }
 	}
 
 	// Henry Song
@@ -1619,7 +1623,11 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
 
 		ctx->dispatch.VertexAttribPointer(CAIRO_GL_TEXCOORD0_ATTRIB_INDEX, 2,
 							GL_FLOAT, GL_FALSE, 0, color); 
-		ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX);
+        //if(ctx->source_texture_attrib_reset == TRUE)
+        //{
+		    ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX);
+            ctx->source_texture_attrib_reset = FALSE;
+        //}
 	}
 		
     if(setup->mask.type == CAIRO_GL_OPERAND_CONSTANT)
@@ -1646,7 +1654,11 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
 
 		ctx->dispatch.VertexAttribPointer(CAIRO_GL_TEXCOORD1_ATTRIB_INDEX, 2,
 							GL_FLOAT, GL_FALSE, 0, mask_color); 
-		ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_TEXCOORD1_ATTRIB_INDEX);
+        //if(ctx->mask_texture_attrib_reset == TRUE)
+        //{
+		    ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_TEXCOORD1_ATTRIB_INDEX);
+            ctx->mask_texture_attrib_reset = FALSE;
+        //}
 	}
 
     //_cairo_gl_context_setup_operand (ctx, CAIRO_GL_TEX_SOURCE, &setup->src, vertex_size, dst_size);
