@@ -532,13 +532,15 @@ use_program_core_2_0 (cairo_gl_context_t *ctx,
 {
     if (shader)
     {
-        if(ctx->program_reset == TRUE)
+        /*if(ctx->program_reset == TRUE)
         {
             ctx->program_reset = FALSE;
 	        ctx->dispatch.UseProgram (shader->program);
             ctx->current_program = shader->program;
         }
         else if (ctx->current_program != shader->program)
+        */
+        if(ctx->current_program != shader->program)
         {
 	        ctx->dispatch.UseProgram (shader->program);
             ctx->current_program = shader->program;
@@ -2708,15 +2710,15 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
      * be a performance issue, since this is only called once per compile.
      */
     //glGetIntegerv (GL_CURRENT_PROGRAM, &saved_program);
-    if(ctx->program_reset = TRUE)
+    /*if(ctx->program_reset == TRUE)
     {
         dispatch->UseProgram (shader->program);
         ctx->current_program = shader->program;
         ctx->program_reset = FALSE;
     }  
-    else
+    else */
     {
-        if(ctx->current_program != shader->program) 
+        //if(ctx->current_program != shader->program) 
         {
             dispatch->UseProgram (shader->program);
             ctx->current_program = shader->program;

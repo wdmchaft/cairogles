@@ -1421,7 +1421,7 @@ _cairo_gl_composite_begin (cairo_gl_composite_t *setup,
     if (unlikely (status))
 	return status;
     
-    //if(ctx->blend_enabled == FALSE)
+    if(ctx->blend_enabled == FALSE)
     {
         glEnable (GL_BLEND);
         ctx->blend_enabled = TRUE;
