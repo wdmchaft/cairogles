@@ -1266,7 +1266,12 @@ _cairo_gl_set_operator (cairo_gl_context_t *ctx,
     } else if (ctx->current_target->base.content == CAIRO_CONTENT_COLOR) {
         glBlendFuncSeparate (src_factor, dst_factor, GL_ONE, GL_ONE);
     } else {
-        glBlendFunc (src_factor, dst_factor);
+        if(ctx->src_factor != src_factor || ctx->dst_factor != dst_factor)
+        {
+            glBlendFunc (src_factor, dst_factor);
+            ctx->src_factor = src_factor;
+            ctx->dst_factor = dst_factor;
+        }
     }
 }
 
