@@ -43,6 +43,7 @@
 #include "cairo-gl-private.h"
 #include "cairo-error-private.h"
 #include "cairo-output-stream-private.h"
+#include <string.h>
 
 typedef struct cairo_gl_shader_impl {
     void
@@ -312,8 +313,22 @@ bind_floatv_core_2_0 (cairo_gl_context_t *ctx,
 	int count,
 	float *values)
 {
+   GLint location;
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
+    if(strcmp(name, SOURCE_OFFSETS) == 0)
+    {
+        if(shader->source_offsets == -1)
+            shader->source_offsets = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->source_offsets;
+    }
+    else if(strcmp(name, MASK_OFFSETS) == 0)
+    {
+        if(shader->mask_offsets == -1)
+            shader->mask_offsets = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->mask_offsets;
+    }
+    else
+        location = dispatch->GetUniformLocation (shader->program, name);
     assert (location != -1);
     dispatch->Uniform1fv (location, count, values);
 }
@@ -325,8 +340,82 @@ bind_vec2v_core_2_0 (cairo_gl_context_t *ctx,
 	int count,
 	float *values)
 {
+    GLint location;
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
+    if(strcmp(name, SOURCE_SCALES) == 0)
+    {
+        if(shader->source_scales == -1)
+            shader->source_scales = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->source_scales;
+    }
+    else if(strcmp(name, SOURCE_ENDPOINT) == 0)
+    {
+        if(shader->source_endpoint == -1)
+            shader->source_endpoint = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->source_endpoint;
+    }
+    else if(strcmp(name, SOURCE_MATRIX_1) == 0)
+    {
+        if(shader->source_matrix_1 == -1)
+            shader->source_matrix_1 = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->source_matrix_1;
+    }
+    else if(strcmp(name, SOURCE_MATRIX_2) == 0)
+    {
+        if(shader->source_matrix_2 == -1)
+            shader->source_matrix_2 = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->source_matrix_2;
+    }
+    else if(strcmp(name, SOURCE_TANGENTS_END) == 0)
+    {
+        if(shader->source_tangents_end == -1)
+            shader->source_tangents_end = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->source_tangents_end;
+    }
+    else if(strcmp(name, SOURCE_STOPS) == 0)
+    {
+        if(shader->source_stops == -1)
+            shader->source_stops = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->source_stops;
+    }
+    else if(strcmp(name, MASK_SCALES) == 0)
+    {
+        if(shader->mask_scales == -1)
+            shader->mask_scales = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->mask_scales;
+    }
+    else if(strcmp(name, MASK_ENDPOINT) == 0)
+    {
+        if(shader->mask_endpoint == -1)
+            shader->mask_endpoint = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->mask_endpoint;
+    }
+    else if(strcmp(name, MASK_MATRIX_1) == 0)
+    {
+        if(shader->mask_matrix_1 == -1)
+            shader->source_matrix_1 = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->mask_matrix_1;
+    }
+    else if(strcmp(name, MASK_MATRIX_2) == 0)
+    {
+        if(shader->mask_matrix_2 == -1)
+            shader->mask_matrix_2 = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->mask_matrix_2;
+    }
+    else if(strcmp(name, MASK_TANGENTS_END) == 0)
+    {
+        if(shader->mask_tangents_end == -1)
+            shader->mask_tangents_end = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->mask_tangents_end;
+    }
+    else if(strcmp(name, MASK_STOPS) == 0)
+    {
+        if(shader->mask_stops == -1)
+            shader->mask_stops = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->mask_stops;
+    }
+    else
+        location = dispatch->GetUniformLocation (shader->program, name);
     assert (location != -1);
     dispatch->Uniform2fv (location, count, values);
 	//GLenum error = glGetError();
@@ -339,8 +428,34 @@ bind_vec3v_core_2_0 (cairo_gl_context_t *ctx,
 	int count,
 	float *values)
 {
+    GLint location;
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
+    if(strcmp(name, SOURCE_CIRCLE_1) == 0)
+    {
+        if(shader->source_circle_1 == -1)
+            shader->source_circle_1 = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->source_circle_1;
+    }
+    else if(strcmp(name, SOURCE_CIRCLE_2) == 0)
+    {
+        if(shader->source_circle_2 == -1)
+            shader->source_circle_2 = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->source_circle_2;
+    }
+    else if(strcmp(name, MASK_CIRCLE_1) == 0)
+    {
+        if(shader->mask_circle_1 == -1)
+            shader->mask_circle_1 = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->mask_circle_1;
+    }
+    else if(strcmp(name, MASK_CIRCLE_2) == 0)
+    {
+        if(shader->mask_circle_2 == -1)
+            shader->mask_circle_2 = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->mask_circle_2;
+    }
+    else
+        location = dispatch->GetUniformLocation (shader->program, name);
     assert (location != -1);
     dispatch->Uniform3fv (location, count, values);
 	//GLenum error = glGetError();
@@ -353,8 +468,26 @@ bind_vec4v_core_2_0 (cairo_gl_context_t *ctx,
 	int count,
 	float *values)
 {
+    GLint location;
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
+    if(strcmp(name, SOURCE_COLORS) == 0)
+    {
+        if(shader->source_colors == -1)
+        {
+            shader->source_colors = dispatch->GetUniformLocation(shader->program, name);
+        }
+        location = shader->source_colors;
+    }
+    else if(strcmp(name, MASK_COLORS) == 0)
+    {
+        if(shader->mask_colors == -1)
+        {
+            shader->mask_colors = dispatch->GetUniformLocation(shader->program, name);
+        }
+        location = shader->mask_colors;
+    }
+    else
+        location = dispatch->GetUniformLocation (shader->program, name);
     assert (location != -1);
     dispatch->Uniform4fv (location, count, values);
 	//GLenum error = glGetError();
