@@ -78,10 +78,10 @@ _glx_acquire (void *abstract_ctx)
 	GLXContext current_co;
 
     cairo_glx_surface_t *surface = (cairo_glx_surface_t *) ctx->base.current_target;
-	current_dr = glXGetCurrentDrawable();
+	/*current_dr = glXGetCurrentDrawable();
 	current_di = glXGetCurrentDisplay();
 	current_co = glXGetCurrentContext();
-
+    */
 // we must switch context
 	if(surface == NULL || _cairo_gl_surface_is_texture(ctx->base.current_target))
 	{
@@ -103,14 +103,14 @@ _glx_acquire (void *abstract_ctx)
 			current_drawable = ctx->dummy_window;
     }
 */
-	if(ctx->display != current_di ||
-	   current_drawable != current_dr ||
-	   ctx->context != current_co)
+	if(ctx->display != ctx->target_display ||
+	   current_drawable != ctx->target_window ||
+	   ctx->context != ctx->target_context)
 	{
-/*		ctx->target_display = ctx->display;
+		ctx->target_display = ctx->display;
 		ctx->target_window = current_drawable;
 		ctx->target_context = ctx->context;
-*/
+
     	//glXMakeCurrent (ctx->display, current_drawable, ctx->context);
     	//Bool result = glXMakeContextCurrent (ctx->display, current_drawable, current_drawable, ctx->context);
     	glXMakeContextCurrent (ctx->display, current_drawable, current_drawable, ctx->context);
@@ -132,11 +132,11 @@ _glx_make_current (void *abstract_ctx, cairo_gl_surface_t *abstract_surface)
 	GLXDrawable current_dr, prev_dr;
 	Display *current_di = NULL;
 	GLXContext current_co;
-
+/*
 	current_dr = glXGetCurrentDrawable();
 	current_di = glXGetCurrentDisplay();
 	current_co = glXGetCurrentContext();
-
+*/
 	if(surface == NULL || _cairo_gl_surface_is_texture(ctx->base.current_target))
 	{
 		prev_dr = ctx->dummy_window;
@@ -146,17 +146,15 @@ _glx_make_current (void *abstract_ctx, cairo_gl_surface_t *abstract_surface)
 
 
     /* Set the window as the target of our context. */
-	if(ctx->display != current_di ||
-	   prev_dr != current_dr ||
-	   ctx->context != current_co)
+	if(ctx->display != ctx->target_display ||
+	   prev_dr != ctx->target_window ||
+	   ctx->context != ctx->target_context)
 	{
-	/*
+	
 		ctx->target_display = ctx->display;
-		ctx->target_window = surface->win;
+		ctx->target_window = prev_dr;
 		ctx->target_context = ctx->context;
-		if(ctx->target_window == 0)
-			ctx->target_window = ctx->dummy_window;
-	*/
+
     	//glXMakeCurrent (ctx->display, surface->win, ctx->context);
     	glXMakeContextCurrent (ctx->display, prev_dr, prev_dr, ctx->context);
 	}

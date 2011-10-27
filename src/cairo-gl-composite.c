@@ -1421,7 +1421,11 @@ _cairo_gl_composite_begin (cairo_gl_composite_t *setup,
     if (unlikely (status))
 	return status;
 
-    glEnable (GL_BLEND);
+    //if(ctx->blend_enabled == FALSE)
+    {
+        glEnable (GL_BLEND);
+        ctx->blend_enabled = TRUE;
+    }
 
     component_alpha = ((setup->mask.type == CAIRO_GL_OPERAND_TEXTURE) &&
                        setup->mask.texture.attributes.has_component_alpha);
@@ -1538,8 +1542,11 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
 	//return status;
     //_cairo_gl_context_set_destination (ctx, setup->dst);
 
-    glEnable (GL_BLEND);
-
+    //if(ctx->blend_enabled == FALSE)
+    {
+        glEnable (GL_BLEND);
+        ctx->blend_enabled = TRUE; 
+    }
     component_alpha = ((setup->mask.type == CAIRO_GL_OPERAND_TEXTURE) &&
                        setup->mask.texture.attributes.has_component_alpha);
 

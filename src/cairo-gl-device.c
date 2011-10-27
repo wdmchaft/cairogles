@@ -99,7 +99,7 @@ _gl_flush (void *device)
     ctx->dispatch.BindBuffer (GL_ARRAY_BUFFER, 0);
 
     glDisable (GL_SCISSOR_TEST);
-    glDisable (GL_BLEND);
+    //glDisable (GL_BLEND);
 
     return _cairo_gl_context_release (ctx, status);
 }
