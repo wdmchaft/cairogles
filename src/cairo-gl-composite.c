@@ -1619,11 +1619,11 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
 
 		ctx->dispatch.VertexAttribPointer(CAIRO_GL_TEXCOORD0_ATTRIB_INDEX, 2,
 							GL_FLOAT, GL_FALSE, 0, color); 
-        //if(ctx->source_texture_attrib_reset == TRUE)
-        //{
+        if(ctx->source_texture_attrib_reset == TRUE)
+        {
 		    ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX);
             ctx->source_texture_attrib_reset = FALSE;
-        //}
+        }
 	}
 		
     if(setup->mask.type == CAIRO_GL_OPERAND_CONSTANT)
@@ -1650,11 +1650,11 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
 
 		ctx->dispatch.VertexAttribPointer(CAIRO_GL_TEXCOORD1_ATTRIB_INDEX, 2,
 							GL_FLOAT, GL_FALSE, 0, mask_color); 
-        //if(ctx->mask_texture_attrib_reset == TRUE)
-        //{
+        if(ctx->mask_texture_attrib_reset == TRUE)
+        {
 		    ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_TEXCOORD1_ATTRIB_INDEX);
             ctx->mask_texture_attrib_reset = FALSE;
-        //}
+        }
 	}
 
     //_cairo_gl_context_setup_operand (ctx, CAIRO_GL_TEX_SOURCE, &setup->src, vertex_size, dst_size);
