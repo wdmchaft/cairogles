@@ -237,8 +237,22 @@ bind_float_core_2_0 (cairo_gl_context_t *ctx,
 		     const char *name,
 		     float value)
 {
+    GLuint location;
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
+    if(strcmp(name, SOURCE_TOTAL_DIST) == 0)
+    {
+        if(shader->source_total_dist == -1)
+            shader->source_total_dist = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->source_total_dist;
+    }
+    else if(strcmp(name, MASK_TOTAL_DIST) == 0)
+    {
+        if(shader->mask_total_dist == -1)
+            shader->mask_total_dist = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->mask_total_dist;
+    }
+    else
+        location = dispatch->GetUniformLocation (shader->program, name);
     assert (location != -1);
     dispatch->Uniform1f (location, value);
 }
@@ -378,6 +392,12 @@ bind_vec2v_core_2_0 (cairo_gl_context_t *ctx,
             shader->source_stops = dispatch->GetUniformLocation (shader->program, name);
         location = shader->source_stops;
     }
+    else if(strcmp(name, SOURCE_DELTA) == 0)
+    {
+        if(shader->source_delta == -1)
+            shader->source_delta = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->source_delta;
+    }
     else if(strcmp(name, MASK_SCALES) == 0)
     {
         if(shader->mask_scales == -1)
@@ -413,6 +433,12 @@ bind_vec2v_core_2_0 (cairo_gl_context_t *ctx,
         if(shader->mask_stops == -1)
             shader->mask_stops = dispatch->GetUniformLocation (shader->program, name);
         location = shader->mask_stops;
+    }
+    else if(strcmp(name, MASK_DELTA) == 0)
+    {
+        if(shader->mask_delta == -1)
+            shader->mask_delta = dispatch->GetUniformLocation (shader->program, name);
+        location = shader->mask_delta;
     }
     else
         location = dispatch->GetUniformLocation (shader->program, name);

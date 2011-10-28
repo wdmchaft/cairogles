@@ -1131,8 +1131,8 @@ _cairo_gl_surface_show_glyphs_via_mask (cairo_gl_surface_t	*dst,
     }
 
     //cairo_surface_destroy (mask);
-    if(clip != NULL && clip->path != NULL)
-        printf("glyph clip path ref count %d\n", clip->path->ref_count);
+    //if(clip != NULL && clip->path != NULL)
+    //    printf("glyph clip path ref count %d\n", clip->path->ref_count);
 
     return status;
 }

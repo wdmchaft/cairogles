@@ -2590,11 +2590,11 @@ _cairo_gl_surface_mask (void *abstract_surface,
 
 	//surface->require_aa = FALSE;
 	// we set require_aa to false if multisample is resolved
-	if(surface->multisample_resolved == TRUE)
+	/*if(surface->multisample_resolved == TRUE)
 		surface->require_aa = FALSE;
 	else
 		surface->require_aa = TRUE;
-    
+    */
 	_cairo_gl_context_set_destination(ctx, surface);
 /*
     if (clip != NULL && clip->path != NULL) {
@@ -3489,6 +3489,8 @@ void cairo_gl_reset_device(cairo_device_t *device)
     ctx->source_texture_attrib_reset = TRUE;
     ctx->mask_texture_attrib_reset = TRUE;
     ctx->vertex_attrib_reset = TRUE;
+
+    ctx->current_target = NULL;
 
 	ctx->reset(ctx);
 }

@@ -649,7 +649,6 @@ _cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
             else {
                 if(ctx->bound_fb != surface->ms_fb)
                 {
-                    //printf("rebind multisample framebuffer 1\n");
 			        dispatch->BindFramebuffer (GL_FRAMEBUFFER, 
                                                surface->ms_fb);
                 }
