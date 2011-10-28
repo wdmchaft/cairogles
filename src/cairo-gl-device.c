@@ -183,6 +183,13 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     ctx->clear_green = -1;
     ctx->clear_blue = -1;
     ctx->clear_alpha = -1;
+    
+    ctx->scissor_box.x = 0;
+    ctx->scissor_box.y = 0;
+    ctx->scissor_box.width = 0;
+    ctx->scissor_box.height = 0;
+
+    ctx->draw_buffer = GL_NONE;
 
     ctx->stencil_test_enabled = FALSE;
     ctx->scissor_test_enabled = FALSE;
@@ -675,8 +682,12 @@ _cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
             ctx->bound_fb = surface->fb;
 		}
         if(bounded == FALSE) {
-		    glDrawBuffer (GL_COLOR_ATTACHMENT0);
-		    glReadBuffer (GL_COLOR_ATTACHMENT0);
+            if(ctx->draw_buffer != GL_COLOR_ATTACHMENT0)
+            {
+		        glDrawBuffer (GL_COLOR_ATTACHMENT0);
+		        glReadBuffer (GL_COLOR_ATTACHMENT0);
+                ctx->draw_buffer = GL_COLOR_ATTACHMENT0;
+            }
         }
     } else {
         if(ctx->bound_fb != 0)
@@ -704,8 +715,12 @@ _cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
             bounded = TRUE;
         ctx->bound_fb = 0;
         if(bounded == FALSE) {
-            glDrawBuffer (GL_BACK_LEFT);
-            glReadBuffer (GL_BACK_LEFT);
+            if(ctx->draw_buffer != GL_BACK_LEFT)
+            {
+                glDrawBuffer (GL_BACK_LEFT);
+                glReadBuffer (GL_BACK_LEFT);
+                ctx->draw_buffer = GL_BACK_LEFT;
+            }
         }
     }
     if(bounded == FALSE)

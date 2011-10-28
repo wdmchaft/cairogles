@@ -159,7 +159,9 @@ _cairo_gl_enable_stencil_test(cairo_gl_context_t *ctx)
 }
 
 static void
-_cairo_gl_enable_scissor_test (cairo_gl_context_t *ctx)
+_cairo_gl_enable_scissor_test (cairo_gl_context_t *ctx, 
+			       cairo_gl_surface_t *surface, 
+			       cairo_rectangle_int_t rect)
 {
     if(ctx->scissor_test_reset == TRUE)
     {
@@ -171,6 +173,37 @@ _cairo_gl_enable_scissor_test (cairo_gl_context_t *ctx)
     {
         glEnable (GL_SCISSOR_TEST);
         ctx->scissor_test_enabled = TRUE;
+    }
+    if(_cairo_gl_surface_is_texture(surface))
+    {
+        if(ctx->scissor_box.x != rect.x ||
+           ctx->scissor_box.y != rect.y ||
+           ctx->scissor_box.width != rect.width ||
+           ctx->scissor_box.height != rect.height)
+        {
+            glScissor(rect.x, rect.y,
+                      rect.width, rect.height);
+            ctx->scissor_box.x = rect.x;
+            ctx->scissor_box.y = rect.y;
+            ctx->scissor_box.width = rect.width;
+            ctx->scissor_box.height = rect.height;
+        }
+    }
+    else
+    {
+        if(ctx->scissor_box.x != rect.x ||
+           ctx->scissor_box.y != surface->height - rect.y - rect.height ||
+           ctx->scissor_box.width != rect.width ||
+           ctx->scissor_box.height != rect.height)
+        {
+            glScissor(rect.x, 
+                      surface->height - rect.y - rect.height,
+                      rect.width, rect.height);
+            ctx->scissor_box.x = rect.x;
+            ctx->scissor_box.y = surface->height - rect.y - rect.height;
+            ctx->scissor_box.width = rect.width;
+            ctx->scissor_box.height = rect.height;
+        }
     }
 }
 
@@ -2571,14 +2604,15 @@ _cairo_gl_surface_mask (void *abstract_surface,
     
     if(clip_pt != NULL && clip_pt->path != NULL && clip_pt->num_boxes == 1)
     {
-        _cairo_gl_enable_scissor_test (ctx);
-        if(_cairo_gl_surface_is_texture(surface))
+        _cairo_gl_enable_scissor_test (ctx, surface, clip_pt->extents);
+        /*if(_cairo_gl_surface_is_texture(surface))
         glScissor(clip_pt->extents.x, clip_pt->extents.y,
               clip_pt->extents.width, clip_pt->extents.height);
         else
         glScissor(clip_pt->extents.x, 
                 surface->height - clip_pt->extents.y - clip_pt->extents.height,
               clip_pt->extents.width, clip_pt->extents.height);
+	*/
         clip_pt = NULL;
     }
 
@@ -2982,7 +3016,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
-        _cairo_gl_enable_scissor_test(ctx);
+        _cairo_gl_enable_scissor_test(ctx, surface, clip_pt->extents);
+	/*
         if(_cairo_gl_surface_is_texture(surface))
             glScissor(clip_pt->extents.x, clip_pt->extents.y,
               clip_pt->extents.width, clip_pt->extents.height);
@@ -2990,7 +3025,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
             glScissor(clip_pt->extents.x, 
                 surface->height - clip_pt->extents.y - clip_pt->extents.height,
               clip_pt->extents.width, clip_pt->extents.height);
-        
+        */
         clip_pt = NULL;
     }
     else
@@ -3275,7 +3310,8 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     }
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
-        _cairo_gl_enable_scissor_test(ctx);
+        _cairo_gl_enable_scissor_test(ctx, surface, clip_pt->extents);
+	/*
         if(_cairo_gl_surface_is_texture(surface))
         glScissor(clip_pt->extents.x, clip_pt->extents.y,
                   clip_pt->extents.width, clip_pt->extents.height);
@@ -3283,6 +3319,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
         glScissor(clip_pt->extents.x, 
             surface->height - clip_pt->extents.y - clip_pt->extents.height,
               clip_pt->extents.width, clip_pt->extents.height);
+	*/
         clip_pt = NULL;
     }
     else
@@ -3490,6 +3527,14 @@ void cairo_gl_reset_device(cairo_device_t *device)
     ctx->dst_color_factor = -9999;
     ctx->src_alpha_factor = -9999;
     ctx->dst_alpha_factor = -9999;
+    
+    ctx->scissor_box.x = 0;
+    ctx->scissor_box.y = 0;
+    ctx->scissor_box.width = 0;
+    ctx->scissor_box.height = 0;
+
+    ctx->draw_buffer = GL_NONE;
+
     ctx->stencil_test_enabled = FALSE;
     ctx->scissor_test_enabled = FALSE;
     ctx->blend_enabled = FALSE;
