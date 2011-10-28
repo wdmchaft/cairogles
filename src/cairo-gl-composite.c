@@ -1287,9 +1287,7 @@ _cairo_gl_set_operator (cairo_gl_context_t *ctx,
         }
     } else {
         if(ctx->src_color_factor != src_factor || 
-           ctx->dst_color_factor != dst_factor ||
-           ctx->src_alpha_factor != src_factor ||
-           ctx->dst_alpha_factor != dst_factor)
+           ctx->dst_color_factor != dst_factor)
         {
             glBlendFunc (src_factor, dst_factor);
             ctx->src_color_factor = src_factor;

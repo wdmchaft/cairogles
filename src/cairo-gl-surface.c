@@ -2472,7 +2472,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	
 	if (unlikely(status))
 		return status;
-    
+   
     if(source->matrix.xy == 0)
         surface->require_aa = FALSE;
     surface_rect.x = extents.bounded.x;
@@ -2505,6 +2505,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
     {
         clip_pt = NULL;
     }
+
 	//printf("get rectangle extents %ld usec\n", _get_tick() - now);
 	// upload image
 	// check has snapsot
@@ -2567,6 +2568,22 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 	if (unlikely(status))
 		goto FINISH;
+    
+    if(clip_pt != NULL && clip_pt->path != NULL && clip_pt->num_boxes == 1)
+    {
+        _cairo_gl_enable_scissor_test (ctx);
+        if(_cairo_gl_surface_is_texture(surface))
+        glScissor(clip_pt->extents.x, clip_pt->extents.y,
+              clip_pt->extents.width, clip_pt->extents.height);
+        else
+        glScissor(clip_pt->extents.x, 
+                surface->height - clip_pt->extents.y - clip_pt->extents.height,
+              clip_pt->extents.width, clip_pt->extents.height);
+        clip_pt = NULL;
+    }
+
+    if(clip_pt == NULL)
+        _cairo_gl_disable_scissor_test (ctx);
 
 	setup->ctx = ctx;
     
