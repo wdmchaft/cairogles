@@ -2546,6 +2546,12 @@ _cairo_gl_surface_mask (void *abstract_surface,
         //      surface_rect.width, surface_rect.height);
         glDisable(GL_SCISSOR_TEST);
     }*/
+    if(clip_pt != NULL && 
+       clip_pt->path != NULL && 
+       clip_pt->path->antialias != CAIRO_ANTIALIAS_NONE)
+        surface->require_aa = TRUE;
+    else
+        surface->require_aa = FALSE;
         
     if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
     {
@@ -2615,7 +2621,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	if (unlikely(status))
 		goto FINISH;
     
-    if(clip_pt != NULL && clip_pt->path != NULL && clip_pt->num_boxes == 1)
+    if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
         _cairo_gl_enable_scissor_test (ctx, surface, clip_pt->extents);
         /*if(_cairo_gl_surface_is_texture(surface))
@@ -2644,13 +2650,13 @@ _cairo_gl_surface_mask (void *abstract_surface,
     //now = _get_tick();
     //if(!_cairo_gl_extents_within_clip (extents, extents.is_bounded, clip_pt))
     //    clip_pt = NULL;
-
+    /*
     if(clip_pt != NULL && clip_pt->path != NULL) {
         if(clip_pt->path->antialias != CAIRO_ANTIALIAS_NONE)
             surface->require_aa = TRUE;
         else
             surface->require_aa = FALSE;
-    }
+    }*/
 
 	//surface->require_aa = FALSE;
 	// we set require_aa to false if multisample is resolved
