@@ -482,6 +482,7 @@ struct _cairo_gl_context {
     float clear_alpha;
     cairo_rectangle_int_t scissor_box;
     cairo_rectangle_int_t viewport_box;
+    cairo_bool_t depthmask_enabled;
 
     GLenum draw_buffer;
     cairo_bool_t stencil_test_enabled;

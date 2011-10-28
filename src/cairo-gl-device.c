@@ -193,9 +193,11 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     ctx->viewport_box.y = 0;
     ctx->viewport_box.width = 0;
     ctx->viewport_box.height = 0;
+    
 
     ctx->draw_buffer = GL_NONE;
 
+    ctx->depthmask_enabled = FALSE;
     ctx->stencil_test_enabled = FALSE;
     ctx->scissor_test_enabled = FALSE;
     ctx->blend_enabled = FALSE;

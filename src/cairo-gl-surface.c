@@ -104,6 +104,16 @@ _cairo_gl_surface_max_size(cairo_gl_surface_t *surface)
 	return ctx->max_texture_size;
 }
 
+void 
+_cairo_gl_enable_depthmask (cairo_gl_context_t *ctx)
+{
+    if(ctx->depthmask_enabled == FALSE)
+    {
+        glDepthMask(GL_TRUE);
+        ctx->depthmask_enabled = TRUE;
+    }
+}
+
 void
 _cairo_gl_disable_stencil_test(cairo_gl_context_t *ctx)
 {
@@ -537,7 +547,8 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     if(surface->clip == clip && 
        surface->stencil_buffer_changed == FALSE &&
        _cairo_gl_surface_is_texture (surface)) {
-    glDepthMask (GL_TRUE);
+    _cairo_gl_enable_depthmask (ctx);
+    //glDepthMask (GL_TRUE);
     _cairo_gl_enable_stencil_test(ctx);
             
     glColorMask (1, 1, 1, 1);
@@ -547,7 +558,8 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     /* Operations on_triangle strip indices may end up flushing the surface
        triangle strip cache and doing the fill. In case that happens we prepare
        to update the stencil buffer now. */
-    glDepthMask (GL_TRUE);
+    _cairo_gl_enable_depthmask (ctx);
+    //glDepthMask (GL_TRUE);
     //printf("\tdepth mask enable %ld usec\n", _get_tick() - now);
     //now = _get_tick();
     _cairo_gl_enable_stencil_test(ctx);
@@ -3170,7 +3182,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	   we can use it below to prevent overlapping shapes. We initialize
 	   it all to one here which represents infinite clip. */
     if(has_alpha) {
-	glDepthMask (GL_TRUE);
+    _cairo_gl_enable_depthmask (ctx);
+	//glDepthMask (GL_TRUE);
     _cairo_gl_enable_stencil_test(ctx);
 	glClearStencil(1);
 	glClear (GL_STENCIL_BUFFER_BIT);
@@ -3543,6 +3556,7 @@ void cairo_gl_reset_device(cairo_device_t *device)
 
     ctx->draw_buffer = GL_NONE;
 
+    ctx->depthmask_enabled = FALSE;
     ctx->stencil_test_enabled = FALSE;
     ctx->scissor_test_enabled = FALSE;
     ctx->blend_enabled = FALSE;
