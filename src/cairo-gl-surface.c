@@ -3069,7 +3069,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		if(clone == NULL)
 		{
             _cairo_gl_disable_stencil_test(ctx);
-            _cairo_gl_disable_scissor_test(ctx);
+            //_cairo_gl_disable_scissor_test(ctx);
 			status = _cairo_gl_context_release(ctx, status);
             //glDisable(GL_SCISSOR_TEST);
 			return UNSUPPORTED("create_clone failed");
@@ -3090,7 +3090,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 			cairo_surface_destroy(&clone->base);
 		free(setup);
         _cairo_gl_disable_stencil_test(ctx);
-        _cairo_gl_disable_scissor_test(ctx);
+        //_cairo_gl_disable_scissor_test(ctx);
 		status = _cairo_gl_context_release(ctx, status);
         //glDisable(GL_SCISSOR_TEST);
 		return status;
@@ -3122,7 +3122,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 			cairo_surface_destroy(&clone->base);
 		free(setup);
         _cairo_gl_disable_stencil_test(ctx);
-        _cairo_gl_disable_scissor_test(ctx);
+        //_cairo_gl_disable_scissor_test(ctx);
 		status = _cairo_gl_context_release(ctx, status);
         //glDisable(GL_SCISSOR_TEST);
 		return status;
@@ -3156,7 +3156,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	    _cairo_gl_composite_fini(setup);
 	    free(setup);
         _cairo_gl_disable_stencil_test(ctx);
-        _cairo_gl_disable_stencil_test(ctx);
+        //_cairo_gl_disable_stencil_test(ctx);
         //glDisable(GL_SCISSOR_TEST);
 	    //glDepthMask(GL_FALSE);
             surface->require_aa = FALSE;
@@ -3231,7 +3231,7 @@ CLEANUP:
 	_cairo_gl_composite_fini(setup);
 	free(setup);
     _cairo_gl_disable_stencil_test(ctx);
-    _cairo_gl_disable_scissor_test(ctx);
+    //_cairo_gl_disable_scissor_test(ctx);
     //now = _get_tick();
           
     //glDisable(GL_SCISSOR_TEST);
@@ -3346,7 +3346,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 		if(clone == NULL)
 		{
             _cairo_gl_disable_stencil_test(ctx);
-            _cairo_gl_disable_scissor_test(ctx);
+            //_cairo_gl_disable_scissor_test(ctx);
             status = _cairo_gl_context_release(ctx, status);
 			return UNSUPPORTED("create_clone failed");
 		}
@@ -3451,11 +3451,11 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 CLEANUP_TRAPS_AND_GL:
     _cairo_traps_fini(&traps);
     _cairo_gl_tristrip_indices_destroy (&indices);
-    glDisable(GL_SCISSOR_TEST);
+    //glDisable(GL_SCISSOR_TEST);
 
 CLEANUP_STENCIL_AND_DEPTH_TESTING:
     _cairo_gl_disable_stencil_test(ctx);
-    _cairo_gl_disable_scissor_test(ctx);
+    //_cairo_gl_disable_scissor_test(ctx);
     //glDepthMask(GL_FALSE);
 
 CLEANUP_AND_RELEASE_DEVICE:
