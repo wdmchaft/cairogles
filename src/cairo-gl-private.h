@@ -481,6 +481,8 @@ struct _cairo_gl_context {
     float clear_blue;
     float clear_alpha;
     cairo_rectangle_int_t scissor_box;
+    cairo_rectangle_int_t viewport_box;
+
     GLenum draw_buffer;
     cairo_bool_t stencil_test_enabled;
     cairo_bool_t scissor_test_enabled;

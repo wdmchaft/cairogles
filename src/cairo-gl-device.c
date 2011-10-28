@@ -188,6 +188,11 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     ctx->scissor_box.y = 0;
     ctx->scissor_box.width = 0;
     ctx->scissor_box.height = 0;
+    
+    ctx->viewport_box.x = 0;
+    ctx->viewport_box.y = 0;
+    ctx->viewport_box.width = 0;
+    ctx->viewport_box.height = 0;
 
     ctx->draw_buffer = GL_NONE;
 
@@ -723,8 +728,13 @@ _cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
             }
         }
     }
-    if(bounded == FALSE)
-    glViewport (0, 0, surface->width, surface->height);
+    if(ctx->viewport_box.width != surface->width || 
+       ctx->viewport_box.height != surface->height)
+    {
+        glViewport (0, 0, surface->width, surface->height);
+        ctx->viewport_box.width = surface->width;
+        ctx->viewport_box.height = surface->height;
+    }
 
     if (_cairo_gl_surface_is_texture (surface))
 	_gl_identity_ortho (ctx->modelviewprojection_matrix,
@@ -767,8 +777,13 @@ _cairo_gl_context_set_destination_for_gles (cairo_gl_context_t *ctx,
             bounded = TRUE;
         ctx->bound_fb = 0;
     }
-    if(bounded == FALSE)
-    glViewport (0, 0, surface->width, surface->height);
+    if(ctx->viewport_box.width != surface->width || 
+       ctx->viewport_box.height != surface->height)
+    {
+        glViewport (0, 0, surface->width, surface->height);
+        ctx->viewport_box.width = surface->width;
+        ctx->viewport_box.height = surface->height;
+    }
 
     if (_cairo_gl_surface_is_texture (surface))
 	_gl_identity_ortho (ctx->modelviewprojection_matrix,

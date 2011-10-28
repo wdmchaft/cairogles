@@ -3535,6 +3535,11 @@ void cairo_gl_reset_device(cairo_device_t *device)
     ctx->scissor_box.y = 0;
     ctx->scissor_box.width = 0;
     ctx->scissor_box.height = 0;
+    
+    //ctx->viewport_box.x = 0;
+    //ctx->viewport_box.y = 0;
+    ctx->viewport_box.width = 0;
+    ctx->viewport_box.height = 0;
 
     ctx->draw_buffer = GL_NONE;
 
