@@ -435,6 +435,9 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 		return status;
 	}
 
+    _cairo_gl_disable_stencil_test (ctx);
+    _cairo_gl_disable_scissor_test (ctx);
+
     // we alway paint to texture, so force blit to texture
     // if default or grey, if multisample not resolve, we set antialias
     // to be NONE

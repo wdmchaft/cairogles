@@ -104,7 +104,7 @@ _cairo_gl_surface_max_size(cairo_gl_surface_t *surface)
 	return ctx->max_texture_size;
 }
 
-static void
+void
 _cairo_gl_disable_stencil_test(cairo_gl_context_t *ctx)
 {
     if(ctx->stencil_test_reset)
@@ -123,7 +123,7 @@ _cairo_gl_disable_stencil_test(cairo_gl_context_t *ctx)
     }
 }
 
-static void 
+void 
 _cairo_gl_disable_scissor_test(cairo_gl_context_t *ctx)
 {
     if(ctx->scissor_test_reset == TRUE)
@@ -139,7 +139,7 @@ _cairo_gl_disable_scissor_test(cairo_gl_context_t *ctx)
     }
 }
 
-static void
+void
 _cairo_gl_enable_stencil_test(cairo_gl_context_t *ctx)
 {
     if(ctx->stencil_test_reset)
@@ -158,7 +158,7 @@ _cairo_gl_enable_stencil_test(cairo_gl_context_t *ctx)
     }
 }
 
-static void
+void
 _cairo_gl_enable_scissor_test (cairo_gl_context_t *ctx, 
 			       cairo_gl_surface_t *surface, 
 			       cairo_rectangle_int_t rect)
@@ -1075,6 +1075,7 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
     } else {
         a = 1.0;
     }
+    _cairo_gl_disable_stencil_test(ctx);
     _cairo_gl_disable_scissor_test(ctx);
     if(ctx->clear_red != r ||
        ctx->clear_green != g ||
@@ -3017,6 +3018,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
         _cairo_gl_enable_scissor_test(ctx, surface, clip_pt->extents);
+        _cairo_gl_disable_stencil_test(ctx);
 	/*
         if(_cairo_gl_surface_is_texture(surface))
             glScissor(clip_pt->extents.x, clip_pt->extents.y,
@@ -3068,7 +3070,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		clone = _cairo_gl_generate_clone(surface, src, extend);
 		if(clone == NULL)
 		{
-            _cairo_gl_disable_stencil_test(ctx);
+            //_cairo_gl_disable_stencil_test(ctx);
             //_cairo_gl_disable_scissor_test(ctx);
 			status = _cairo_gl_context_release(ctx, status);
             //glDisable(GL_SCISSOR_TEST);
@@ -3089,7 +3091,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		if(clone != NULL)
 			cairo_surface_destroy(&clone->base);
 		free(setup);
-        _cairo_gl_disable_stencil_test(ctx);
+        //_cairo_gl_disable_stencil_test(ctx);
         //_cairo_gl_disable_scissor_test(ctx);
 		status = _cairo_gl_context_release(ctx, status);
         //glDisable(GL_SCISSOR_TEST);
@@ -3121,7 +3123,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		if(clone != NULL)
 			cairo_surface_destroy(&clone->base);
 		free(setup);
-        _cairo_gl_disable_stencil_test(ctx);
+        //_cairo_gl_disable_stencil_test(ctx);
         //_cairo_gl_disable_scissor_test(ctx);
 		status = _cairo_gl_context_release(ctx, status);
         //glDisable(GL_SCISSOR_TEST);
@@ -3155,7 +3157,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 
 	    _cairo_gl_composite_fini(setup);
 	    free(setup);
-        _cairo_gl_disable_stencil_test(ctx);
+        //_cairo_gl_disable_stencil_test(ctx);
         //_cairo_gl_disable_stencil_test(ctx);
         //glDisable(GL_SCISSOR_TEST);
 	    //glDepthMask(GL_FALSE);
@@ -3230,7 +3232,7 @@ CLEANUP:
 	_cairo_gl_tristrip_indices_destroy (&indices);
 	_cairo_gl_composite_fini(setup);
 	free(setup);
-    _cairo_gl_disable_stencil_test(ctx);
+    //_cairo_gl_disable_stencil_test(ctx);
     //_cairo_gl_disable_scissor_test(ctx);
     //now = _get_tick();
           
@@ -3311,6 +3313,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
         _cairo_gl_enable_scissor_test(ctx, surface, clip_pt->extents);
+        _cairo_gl_disable_stencil_test (ctx);
 	/*
         if(_cairo_gl_surface_is_texture(surface))
         glScissor(clip_pt->extents.x, clip_pt->extents.y,
@@ -3345,7 +3348,7 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 
 		if(clone == NULL)
 		{
-            _cairo_gl_disable_stencil_test(ctx);
+            //_cairo_gl_disable_stencil_test(ctx);
             //_cairo_gl_disable_scissor_test(ctx);
             status = _cairo_gl_context_release(ctx, status);
 			return UNSUPPORTED("create_clone failed");
@@ -3454,7 +3457,7 @@ CLEANUP_TRAPS_AND_GL:
     //glDisable(GL_SCISSOR_TEST);
 
 CLEANUP_STENCIL_AND_DEPTH_TESTING:
-    _cairo_gl_disable_stencil_test(ctx);
+    //_cairo_gl_disable_stencil_test(ctx);
     //_cairo_gl_disable_scissor_test(ctx);
     //glDepthMask(GL_FALSE);
 

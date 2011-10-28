@@ -724,6 +724,20 @@ cairo_private cairo_status_t
 _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices);
 
 cairo_private void
+_cairo_gl_disable_scissor_test (cairo_gl_context_t *ctx);
+
+cairo_private void
+_cairo_gl_disable_stencil_test (cairo_gl_context_t *ctx);
+
+cairo_private void
+_cairo_gl_enable_stencil_test (cairo_gl_context_t *ctx);
+
+cairo_private void
+_cairo_gl_enable_scissor_test (cairo_gl_context_t *ctx,
+                               cairo_gl_surface_t *surface,
+                               cairo_rectangle_int_t rect);
+
+cairo_private void
 _cairo_gl_composite_emit_rect (cairo_gl_context_t *ctx,
                                GLfloat x1,
                                GLfloat y1,
