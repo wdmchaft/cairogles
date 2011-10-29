@@ -845,17 +845,26 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	if(parallel == FALSE)
 	{
 		dx = tangent_3_x - end_x;
-		dy = -tangent_3_y + end_y;
+        if(upsidedown)
+		    dy = -tangent_3_y + end_y;
+        else
+            dy = tangent_3_y - end_y;
 		if(dx == 0.0 && dy == 0.0)
 		{
 			dx = tangent_1_x - end_x;
-			dy = -tangent_1_y + end_y;
+            if(upsidedown)
+			    dy = -tangent_1_y + end_y;
+            else
+                dy = tangent_1_y - end_y;
 		}
 	}
 	else
 	{
 		dx = tangent_3_x - tangent_1_x;
-		dy = -tangent_3_y + tangent_1_y;
+        if(upsidedown)
+		    dy = -tangent_3_y + tangent_1_y;
+        else
+            dy = tangent_3_y - tangent_1_y;
 	}
 	if(dy >= 0)
 	{
@@ -897,17 +906,26 @@ _cairo_gl_gradient_digest_radial_gradient(const cairo_gradient_pattern_t *patter
 	if(parallel == FALSE)
 	{
 		dx = tangent_4_x - end_x;
-		dy = -tangent_4_y + end_y;
+        if(upsidedown)
+		    dy = -tangent_4_y + end_y;
+        else
+            dy = tangent_4_y - end_y;
 		if(dy == 0.0 && dx == 0.0)
 		{
 			dx = tangent_2_x - end_x;
-			dy = -tangent_2_y + end_y;
+            if(upsidedown)
+			    dy = -tangent_2_y + end_y;
+            else
+                dy = tangent_2_y - end_y;
 		}
 	}
 	else
 	{
 		dx = tangent_4_x - tangent_2_x;
-		dy = -tangent_4_y + tangent_2_y;
+        if(upsidedown)
+		    dy = -tangent_4_y + tangent_2_y;
+        else
+            dy = tangent_4_y - tangent_2_y;
 	}
 	if(dy >= 0)
 	{
