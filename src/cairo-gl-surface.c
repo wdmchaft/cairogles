@@ -602,9 +602,9 @@ _cairo_gl_clip (cairo_clip_t		*clip,
 	status = _cairo_bentley_ottmann_tessellate_polygon (&traps,
 							    &polygon,
 							    fill_rule);
-	_cairo_polygon_fini (&polygon);
 	if (unlikely (status))
 	    goto FAIL;
+	_cairo_polygon_fini (&polygon);
 
 	status = _cairo_gl_tristrip_indices_add_traps (surface->clip_indices, &traps);
 	_cairo_traps_fini (&traps);
@@ -2758,20 +2758,20 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	        if (unlikely (status))
             {
 	            _cairo_gl_tristrip_indices_destroy (&indices);
-                _cairo_polygon_fini(&polygon);
+                //_cairo_polygon_fini(&polygon);
 	            _cairo_traps_fini (&traps);
 	            goto FINISH;
             }
 	        status = _cairo_bentley_ottmann_tessellate_polygon (&traps,
 							    &polygon,
 							    fill_rule);
-	        _cairo_polygon_fini (&polygon);
 	        if (unlikely (status))
             {
 	            _cairo_gl_tristrip_indices_destroy (&indices);
 	            _cairo_traps_fini (&traps);
 	            goto FINISH;
             }
+	        _cairo_polygon_fini (&polygon);
             if(mask_clone == NULL)
             {
 	            status = _cairo_gl_tristrip_indices_add_traps (&indices, &traps);
