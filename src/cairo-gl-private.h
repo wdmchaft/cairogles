@@ -78,6 +78,7 @@
 #include "cairo-gl-ext-def-private.h"
 
 #define DEBUG_GL 0
+#define MAX_INDEX 10000
 
 #if DEBUG_GL && __GNUC__
 #define UNSUPPORTED(reason) ({ \
@@ -483,6 +484,9 @@ struct _cairo_gl_context {
     cairo_rectangle_int_t scissor_box;
     cairo_rectangle_int_t viewport_box;
     cairo_bool_t depthmask_enabled;
+    GLfloat vertices[MAX_INDEX + 10];
+    GLfloat tex_vertices[MAX_INDEX + 10];
+    GLfloat mask_tex_vertices[MAX_INDEX + 10];
 
     GLenum draw_buffer;
     cairo_bool_t stencil_test_enabled;

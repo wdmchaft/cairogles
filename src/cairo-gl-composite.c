@@ -1611,10 +1611,10 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
     if (_cairo_gl_context_is_flushed (ctx)) 
 	{
         //ctx->dispatch.BindBuffer (GL_ARRAY_BUFFER, ctx->vbo);
-		ctx->dispatch.VertexAttribPointer (CAIRO_GL_VERTEX_ATTRIB_INDEX, 2,
-					   GL_FLOAT, GL_FALSE, 0, vertices);
-        if(ctx->vertex_attrib_reset == TRUE)
+        if(ctx->vertex_attrib_reset)
         {
+		    ctx->dispatch.VertexAttribPointer (CAIRO_GL_VERTEX_ATTRIB_INDEX, 2,
+					   GL_FLOAT, GL_FALSE, 0, ctx->vertices);
 		    ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_VERTEX_ATTRIB_INDEX);
             ctx->vertex_attrib_reset = FALSE;
         }
@@ -1638,10 +1638,10 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
         _cairo_gl_texture_set_filter (ctx, ctx->tex_target,
                                       setup->src.texture.attributes.filter);
 
-		ctx->dispatch.VertexAttribPointer(CAIRO_GL_TEXCOORD0_ATTRIB_INDEX, 2,
-							GL_FLOAT, GL_FALSE, 0, color); 
         if(ctx->source_texture_attrib_reset == TRUE)
         {
+		ctx->dispatch.VertexAttribPointer(CAIRO_GL_TEXCOORD0_ATTRIB_INDEX, 2,
+							GL_FLOAT, GL_FALSE, 0, ctx->tex_vertices); 
 		    ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX);
             ctx->source_texture_attrib_reset = FALSE;
         }
@@ -1669,10 +1669,10 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
         _cairo_gl_texture_set_filter (ctx, ctx->tex_target,
                                       setup->mask.texture.attributes.filter);
 
-		ctx->dispatch.VertexAttribPointer(CAIRO_GL_TEXCOORD1_ATTRIB_INDEX, 2,
-							GL_FLOAT, GL_FALSE, 0, mask_color); 
         if(ctx->mask_texture_attrib_reset == TRUE)
         {
+		    ctx->dispatch.VertexAttribPointer(CAIRO_GL_TEXCOORD1_ATTRIB_INDEX, 2,
+							GL_FLOAT, GL_FALSE, 0, ctx->mask_tex_vertices); 
 		    ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_TEXCOORD1_ATTRIB_INDEX);
             ctx->mask_texture_attrib_reset = FALSE;
         }

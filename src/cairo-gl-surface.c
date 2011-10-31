@@ -321,35 +321,42 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 	int number_of_indices = 0;
 	unsigned short *gl_indices = NULL;
 
+	number_of_vertices = _cairo_array_num_elements (&indices->vertices) / 2;
 	GLfloat *mask_texture_coords = NULL;
 	if (_cairo_array_num_elements (&indices->mask_texture_coords) > 0)
+    {
 		mask_texture_coords = _cairo_array_index (&indices->mask_texture_coords, 0);
+        memcpy(ctx->mask_tex_vertices, mask_texture_coords, sizeof(GLfloat) * (number_of_vertices) *2);
+    } 
 
-	number_of_vertices = _cairo_array_num_elements (&indices->vertices) / 2;
 	vertices = _cairo_array_index (&indices->vertices, 0);
 
 	number_of_indices = _cairo_array_num_elements (&indices->indices);
 	gl_indices = _cairo_array_index (&indices->indices, 0);
 
+    // copy vertices to ctx->vertices
+    memcpy(ctx->vertices, vertices, sizeof(GLfloat) * number_of_vertices *2);
+
 	if(setup->src.type == CAIRO_GL_OPERAND_TEXTURE)
 	{
 		cairo_matrix_t m, m1;
 		GLfloat *st = NULL;
-		src_v = (double *)malloc(sizeof(double)*number_of_vertices*2);
-		src_colors = (char *)malloc(sizeof(GLfloat)*2*number_of_vertices);
+        double x, y;
+		//src_v = (double *)malloc(sizeof(double)*number_of_vertices*2);
+		//src_colors = (char *)malloc(sizeof(GLfloat)*2*number_of_vertices);
 		cairo_matrix_init_scale(&m, 1.0, 1.0);
 		cairo_matrix_multiply(&m, &m, &(setup->source->matrix));
 		cairo_matrix_init_scale(&m1, 1.0 / setup->src.texture.width,
 			1.0 / setup->src.texture.height);
 		cairo_matrix_multiply(&m, &m, &m1);
-		st = (GLfloat*)src_colors;
+		//st = (GLfloat*)src_colors;
 		for(index = 0; index < number_of_vertices; index++)
 		{
-			src_v[index*2] = vertices[index*2];
-			src_v[index*2+1] = vertices[index*2+1];
-			cairo_matrix_transform_point(&m, &src_v[index*2], &src_v[index*2+1]); 
-			st[index*2] = src_v[index*2];
-			st[index*2+1] = src_v[index*2+1];
+			x = ctx->vertices[index*2];
+			y = ctx->vertices[index*2+1];
+			cairo_matrix_transform_point(&m, &x, &y); 
+            ctx->tex_vertices[index*2] = x;
+            ctx->tex_vertices[index*2+1] = y;
 		}
 	}
     //printf("\tcopy color %ld\n", _get_tick() - now);
@@ -2788,7 +2795,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
     else 
     {
 	// we have the image uploaded, we need to setup vertices
-	vertices[0] = surface_rect.x;
+	/*vertices[0] = surface_rect.x;
 	vertices[1] = surface_rect.y;
 	vertices[2] = surface_rect.x + surface_rect.width;
 	vertices[3] = surface_rect.y;
@@ -2796,13 +2803,22 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	vertices[5] = surface_rect.y + surface_rect.height;
 	vertices[6] = surface_rect.x;
 	vertices[7] = surface_rect.y + surface_rect.height;
+    */
+	ctx->vertices[0] = surface_rect.x;
+	ctx->vertices[1] = surface_rect.y;
+	ctx->vertices[2] = surface_rect.x + surface_rect.width;
+	ctx->vertices[3] = surface_rect.y;
+	ctx->vertices[4] = surface_rect.x + surface_rect.width;
+	ctx->vertices[5] = surface_rect.y + surface_rect.height;
+	ctx->vertices[6] = surface_rect.x;
+	ctx->vertices[7] = surface_rect.y + surface_rect.height;
 
 	if (source->type == CAIRO_PATTERN_TYPE_SURFACE) {
-		map_vertices_to_surface_space (vertices, 4, clone, &source->matrix, texture_coordinates);
+		map_vertices_to_surface_space (ctx->vertices, 4, clone, &source->matrix, ctx->tex_vertices);
 		if (mask != NULL && mask_clone != NULL) {
-			map_vertices_to_surface_space (vertices, 4, mask_clone,
+			map_vertices_to_surface_space (ctx->vertices, 4, mask_clone,
 						       &mask->matrix,
-						       mask_texture_coords);
+						       ctx->mask_tex_vertices);
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				4, 
 				vertices, 
@@ -2820,9 +2836,9 @@ _cairo_gl_surface_mask (void *abstract_surface,
 
 	} else if (source->type == CAIRO_PATTERN_TYPE_SOLID) {
 		if (mask != NULL && mask_clone != NULL) {
-			map_vertices_to_surface_space (vertices, 4, mask_clone,
+			map_vertices_to_surface_space (ctx->vertices, 4, mask_clone,
 						       &mask->matrix,
-						       mask_texture_coords);
+						       ctx->mask_tex_vertices);
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				4, 
 				vertices, 
@@ -2840,9 +2856,9 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	} else if (source->type == CAIRO_PATTERN_TYPE_LINEAR ||
 		source->type == CAIRO_PATTERN_TYPE_RADIAL) {
 		if (mask != NULL && mask_clone != NULL) {
-			map_vertices_to_surface_space (vertices, 4, mask_clone,
+			map_vertices_to_surface_space (ctx->vertices, 4, mask_clone,
 						       &mask->matrix,
-						       mask_texture_coords);
+						       ctx->mask_tex_vertices);
 			status = _cairo_gl_composite_begin_constant_color(setup, 
 				4, 
 				vertices, 
