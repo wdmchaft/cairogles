@@ -413,7 +413,7 @@ bind_vec2v_core_2_0 (cairo_gl_context_t *ctx,
     else if(strcmp(name, MASK_MATRIX_1) == 0)
     {
         if(shader->mask_matrix_1 == -1)
-            shader->source_matrix_1 = dispatch->GetUniformLocation (shader->program, name);
+            shader->mask_matrix_1 = dispatch->GetUniformLocation (shader->program, name);
         location = shader->mask_matrix_1;
     }
     else if(strcmp(name, MASK_MATRIX_2) == 0)
