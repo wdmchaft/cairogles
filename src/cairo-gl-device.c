@@ -234,7 +234,7 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
 	if(_cairo_gl_has_extension ("GL_IMG_multisampled_render_to_texture")) {
 	    glGetIntegerv(GL_MAX_SAMPLES_IMG, &ctx->max_sample_size);
 		//ctx->msaa-extension = 2;
-        ctx->max_sample_size = 1;
+        //ctx->max_sample_size = 1;
 	}
 #endif
 	}
@@ -470,12 +470,11 @@ _cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
                               cairo_gl_surface_t *surface)
 {
     cairo_status_t status = CAIRO_STATUS_SUCCESS;
-/*    cairo_status_t status = CAIROSTATUS_SUCCESS;
     PFNGLRENDERBUFFERSTORAGEMULTISAMPLEIMGPROC
         pglRenderbufferStorageMultisampleIMG;
     PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEIMGPROC 
         pglFramebufferTexture2DMultisampleIMG;
-*/    
+    
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
 	int sample_size = ctx->max_sample_size > SAMPLE_SIZE ? SAMPLE_SIZE : ctx->max_sample_size;
 	
@@ -488,7 +487,7 @@ _cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
 	//GLenum err;
 
 	// first create color renderbuffer
-  /*  if(sample_size > 1) {
+    if(sample_size > 1) {
 	    dispatch->GenFramebuffers (1, &(surface->fb));
 	    dispatch->BindFramebuffer (GL_FRAMEBUFFER, surface->fb);
         pglFramebufferTexture2DMultisampleIMG = 
@@ -527,7 +526,7 @@ _cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
                                               surface->rb);
         }
     }
-    else*/ {
+    else{
 	// create single sample buffer
 	    dispatch->GenFramebuffers (1, &(surface->fb));
         dispatch->BindFramebuffer(GL_FRAMEBUFFER, surface->fb);

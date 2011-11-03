@@ -1080,7 +1080,12 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
         surface->require_aa = TRUE;
     else
         surface->require_aa = FALSE;
-    _cairo_gl_context_set_destination (ctx, surface);
+    status = _cairo_gl_context_set_destination (ctx, surface);
+    if(unlikely(status))
+    {
+        _cairo_gl_context_release (ctx, status);
+        return status;
+    }
 
     if (surface->base.content & CAIRO_CONTENT_COLOR) {
         r = color->red   * color->alpha;
@@ -1148,10 +1153,10 @@ _cairo_gl_surface_create (cairo_device_t		*abstract_device,
     }
 
     /* Cairo surfaces start out initialized to transparent (black) */
-	if(content != CAIRO_CONTENT_ALPHA)
+	//if(content != CAIRO_CONTENT_ALPHA)
     	status = _cairo_gl_surface_clear (surface, CAIRO_COLOR_TRANSPARENT);
-    else
-        status = _cairo_gl_ensure_framebuffer (ctx, surface);
+    //else
+    //    status = _cairo_gl_ensure_framebuffer (ctx, surface);
     if(unlikely(status))
     {
         cairo_status_t state = _cairo_gl_context_release(ctx, status);
@@ -1476,7 +1481,8 @@ _cairo_gl_surface_create_similar (void		 *abstract_surface,
 			new_surface->external_tex = gl_surface->external_tex;
 		}
 	}
-    status = _cairo_gl_ensure_framebuffer (ctx, surface);
+    //status = _cairo_gl_ensure_framebuffer (ctx, surface);
+   	//status = _cairo_gl_surface_clear (surface, CAIRO_COLOR_TRANSPARENT);
     if(status != CAIRO_STATUS_SUCCESS)
     {
         status = _cairo_gl_context_release(ctx, status);
