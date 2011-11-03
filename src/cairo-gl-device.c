@@ -234,7 +234,7 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
 	if(_cairo_gl_has_extension ("GL_IMG_multisampled_render_to_texture")) {
 	    glGetIntegerv(GL_MAX_SAMPLES_IMG, &ctx->max_sample_size);
 		//ctx->msaa-extension = 2;
-        //ctx->max_sample_size = 1;
+        ctx->max_sample_size = 1;
 	}
 #endif
 	}
