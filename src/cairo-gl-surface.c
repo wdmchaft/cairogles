@@ -1080,12 +1080,13 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
         surface->require_aa = TRUE;
     else
         surface->require_aa = FALSE;
-    status = _cairo_gl_context_set_destination (ctx, surface);
+    status = _cairo_gl_ensure_framebuffer (ctx, surface);
     if(unlikely(status))
     {
         _cairo_gl_context_release (ctx, status);
         return status;
     }
+    _cairo_gl_context_set_destination(ctx, surface);
 
     if (surface->base.content & CAIRO_CONTENT_COLOR) {
         r = color->red   * color->alpha;
