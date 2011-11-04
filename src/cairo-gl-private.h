@@ -696,7 +696,7 @@ _cairo_gl_composite_set_source (cairo_gl_composite_t *setup,
                                 int src_x, int src_y,
                                 int dst_x, int dst_y,
                                 int width, int height,
-								GLuint tex, int tex_width, int tex_height);
+                                cairo_gl_surface_t *surface);
 
 cairo_private cairo_int_status_t
 _cairo_gl_composite_set_mask (cairo_gl_composite_t *setup,
@@ -704,7 +704,7 @@ _cairo_gl_composite_set_mask (cairo_gl_composite_t *setup,
                               int src_x, int src_y,
                               int dst_x, int dst_y,
                               int width, int height,
-							  GLuint tex, int tex_width, int tex_height);
+                              cairo_gl_surface_t *surface);
 
 cairo_private void
 _cairo_gl_composite_set_mask_spans (cairo_gl_composite_t *setup);

@@ -76,7 +76,7 @@ _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
 				 int src_x, int src_y,
 				 int dst_x, int dst_y,
 				 int width, int height,
-				 GLuint tex, int tex_width, int tex_height)
+                 cairo_gl_surface_t *surface)
 {
     //cairo_status_t status;
     //cairo_matrix_t m;
@@ -84,17 +84,15 @@ _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
     //cairo_surface_attributes_t *attributes;
 
 	// we use 
-    cairo_surface_t *abstract_surface = ((cairo_surface_pattern_t *)src)->surface;
-    cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
     operand->surface = surface;
 	operand->type = CAIRO_GL_OPERAND_TEXTURE;
-	operand->texture.tex = tex;
+	operand->texture.tex = surface->tex;
 	operand->texture.attributes.extend = src->extend;
 	operand->texture.attributes.extra = 0;
 	operand->texture.attributes.filter = src->filter;
 	operand->texture.attributes.has_component_alpha = src->has_component_alpha;
-    operand->texture.width = tex_width;
-	operand->texture.height = tex_height;
+    operand->texture.width = surface->orig_width;
+	operand->texture.height = surface->orig_height;
 	//attributes = &operand->texture.attributes;
 
     /*status = _cairo_pattern_acquire_surface (src, &dst->base,
@@ -382,7 +380,7 @@ _cairo_gl_operand_init (cairo_gl_operand_t *operand,
 		        int src_x, int src_y,
 		        int dst_x, int dst_y,
 		        int width, int height,
-				GLuint tex, int tex_width, int tex_height)
+                cairo_gl_surface_t *surface)
 {
     cairo_int_status_t status;
 
@@ -409,7 +407,7 @@ _cairo_gl_operand_init (cairo_gl_operand_t *operand,
 						src_x, src_y,
 						dst_x, dst_y,
 						width, height,
-						tex, tex_width, tex_height);
+                        surface);
     }
 }
 
@@ -492,15 +490,15 @@ _cairo_gl_composite_set_source (cairo_gl_composite_t *setup,
                                 int src_x, int src_y,
                                 int dst_x, int dst_y,
                                 int width, int height,
-								GLuint tex, int tex_width, int tex_height)
+                                cairo_gl_surface_t *surface)
 {
     _cairo_gl_operand_destroy (&setup->src);
     return _cairo_gl_operand_init (&setup->src, pattern,
                                    setup->dst,
                                    src_x, src_y,
                                    dst_x, dst_y,
-                                   width, height, 
-								   tex, tex_width, tex_height);
+                                   width, height,
+                                   surface);
 }
 
 cairo_int_status_t
@@ -509,7 +507,7 @@ _cairo_gl_composite_set_mask (cairo_gl_composite_t *setup,
                               int src_x, int src_y,
                               int dst_x, int dst_y,
                               int width, int height,
-							  GLuint tex, int tex_width, int tex_height)
+                              cairo_gl_surface_t *surface)
 {
     _cairo_gl_operand_destroy (&setup->mask);
     if (pattern == NULL)
@@ -520,7 +518,7 @@ _cairo_gl_composite_set_mask (cairo_gl_composite_t *setup,
                                    src_x, src_y,
                                    dst_x, dst_y,
                                    width, height,
-								   tex, tex_width, tex_height);
+                                   surface);
 }
 
 void

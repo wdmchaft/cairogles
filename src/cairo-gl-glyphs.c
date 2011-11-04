@@ -419,7 +419,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 	}
 	setup.source = source;
 	status = _cairo_gl_composite_set_source(&setup, source, 0, 0, 0, 0, 
-		dst->width, dst->height, 0, 0, 0);
+		dst->width, dst->height, NULL);
 	if(unlikely(status))
 	{
 		//scaled_font->options.antialias = current_antialias;
@@ -525,7 +525,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 	}*/
 	setup.source = source;
 	status = _cairo_gl_composite_set_source(&setup, source, 0, 0, 0, 0, 
-		dst->width, dst->height, 0, 0, 0);
+		dst->width, dst->height, NULL);
 	if(unlikely(status))
 	{
 		//scaled_font->options.antialias = current_antialias;
@@ -650,10 +650,10 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 
 	if(dst->tex != 0)
 		status = _cairo_gl_composite_set_source(&setup, source, 0, 0, 0, 0,
-			0, 0, dst->tex, dst->width, dst->height);
+			0, 0, dst);
 	else
 		status = _cairo_gl_composite_set_source(&setup, source, 0, 0, 0, 0,
-			0, 0, 0, 0, 0);
+			0, 0, NULL);
 	if(unlikely(status))
 	{
 		_cairo_gl_composite_fini(&setup);
@@ -807,7 +807,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 				if(mask != NULL)
 				{
 					cairo_gl_surface_t *gl_mask = (cairo_gl_surface_t *)mask;
-					status = _cairo_gl_composite_set_mask(&setup, &cache->pattern.base, 0, 0, 0, 0, 0, 0, gl_mask->tex, gl_mask->width, gl_mask->height);
+					status = _cairo_gl_composite_set_mask(&setup, &cache->pattern.base, 0, 0, 0, 0, 0, 0, gl_mask);
 					if(unlikely(status))
 					{
 						_cairo_gl_composite_fini(&setup);

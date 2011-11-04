@@ -999,7 +999,7 @@ _cairo_gl_surface_create_scratch_for_texture (cairo_gl_context_t   *ctx,
     ctx->bounded_texture = surface->tex;
     glTexParameteri (ctx->tex_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    surface->extend = CAIRO_FILTER_NEAREST;
+    surface->filter = CAIRO_FILTER_NEAREST;
 
     return &surface->base;
 }
@@ -1086,12 +1086,15 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
         surface->require_aa = TRUE;
     else
         surface->require_aa = FALSE;
-    /*status = _cairo_gl_ensure_framebuffer (ctx, surface);
-    if(unlikely(status))
+    if(_cairo_gl_surface_is_texture(surface))
     {
-        _cairo_gl_context_release (ctx, status);
-        return status;
-    }*/
+        status = _cairo_gl_ensure_framebuffer (ctx, surface);
+        if(unlikely(status))
+        {
+            _cairo_gl_context_release (ctx, status);
+            return status;
+        }
+    }
     _cairo_gl_context_set_destination(ctx, surface);
 
     if (surface->base.content & CAIRO_CONTENT_COLOR) {
@@ -1160,10 +1163,10 @@ _cairo_gl_surface_create (cairo_device_t		*abstract_device,
     }
 
     /* Cairo surfaces start out initialized to transparent (black) */
-	if(content != CAIRO_CONTENT_ALPHA)
+	//if(content != CAIRO_CONTENT_ALPHA)
     	status = _cairo_gl_surface_clear (surface, CAIRO_COLOR_TRANSPARENT);
-    else
-        status = _cairo_gl_ensure_framebuffer (ctx, surface);
+    //else
+    //    status = _cairo_gl_ensure_framebuffer (ctx, surface);
     if(unlikely(status))
     {
         cairo_status_t state = _cairo_gl_context_release(ctx, status);
@@ -1488,7 +1491,7 @@ _cairo_gl_surface_create_similar (void		 *abstract_surface,
 			new_surface->external_tex = gl_surface->external_tex;
 		}
 	}
-    status = _cairo_gl_ensure_framebuffer (ctx, surface);
+    //status = _cairo_gl_ensure_framebuffer (ctx, surface);
    	//status = _cairo_gl_surface_clear (surface, CAIRO_COLOR_TRANSPARENT);
     if(status != CAIRO_STATUS_SUCCESS)
     {
@@ -2248,7 +2251,7 @@ _cairo_gl_surface_composite (cairo_operator_t		  op,
                                              src_x, src_y,
                                              dst_x, dst_y,
                                              width, height,
-											 0, 0, 0);
+                                             NULL);
     if (unlikely (status))
         goto CLEANUP;
 
@@ -2256,7 +2259,7 @@ _cairo_gl_surface_composite (cairo_operator_t		  op,
                                            mask_x, mask_y,
                                            dst_x, dst_y,
                                            width, height,
-										   0, 0, 0);
+                                           NULL);
     if (unlikely (status))
         goto CLEANUP;
 
@@ -2335,7 +2338,7 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
                                              0, 0,
                                              0, 0,
                                              0, 0, 
-											 0, 0, 0);
+                                             NULL);
     if (unlikely (status))
         goto CLEANUP;
 
@@ -2343,7 +2346,7 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
                                            0, 0,
                                            0, 0,
                                            0, 0, 
-										   0, 0, 0);
+                                           NULL);
     if (unlikely (status))
         goto CLEANUP;
 
@@ -2617,29 +2620,14 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	setup->source = (cairo_pattern_t*)source;
 
 	// set up source
-	if (clone == NULL) {
-		status = _cairo_gl_composite_set_source(setup, source,
+	status = _cairo_gl_composite_set_source(setup, source,
                             surface_rect.x,
                             surface_rect.y,
                             surface_rect.x,
                             surface_rect.y,
                             surface_rect.width,
                             surface_rect.height,
-							0, /* texture */
-							0, /* width */
-							0); /* height */
-	} else {
-		status = _cairo_gl_composite_set_source(setup, source,
-                            surface_rect.x,
-                            surface_rect.y,
-                            surface_rect.x,
-                            surface_rect.y,
-                            surface_rect.width,
-                            surface_rect.height,
-							clone->tex,
-							(int) clone->orig_width,
-							(int) clone->orig_height);
-	}
+                            clone);
 	if (unlikely(status))
 		goto FINISH;
 
@@ -2700,29 +2688,14 @@ _cairo_gl_surface_mask (void *abstract_surface,
     done_clip = TRUE;
     }
 */
-	if (mask_clone != NULL) {
-		status = _cairo_gl_composite_set_mask(setup, mask, 
+	status = _cairo_gl_composite_set_mask(setup, mask, 
                             surface_rect.x,
                             surface_rect.y,
                             surface_rect.x,
                             surface_rect.y,
                             surface_rect.width,
                             surface_rect.height,
-						      mask_clone->tex,
-						      (int) mask_clone->orig_width,
-						      (int) mask_clone->orig_height);
-	} else {
-		status = _cairo_gl_composite_set_mask(setup, mask, 
-                            surface_rect.x,
-                            surface_rect.y,
-                            surface_rect.x,
-                            surface_rect.y,
-                            surface_rect.width,
-                            surface_rect.height,
-						      0, /* texture */
-						      0, /* width */
-						      0); /* height */
-	}
+                            mask_clone);
 	if (unlikely (status))
 		goto FINISH;
 
@@ -3153,23 +3126,11 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     //printf("\tsetup init %ld\n", _get_tick() - now);
 
 	setup->source = (cairo_pattern_t*)source;
-	if(clone == NULL)
-		status = _cairo_gl_composite_set_source(setup,
+	status = _cairo_gl_composite_set_source(setup,
             source, surface_rect.x, surface_rect.y,
             surface_rect.x, surface_rect.y,
             surface_rect.width, surface_rect.height,
-			0, 0, 0);
-	else
-	{
-            float temp_width = clone->orig_width;
-            float temp_height = clone->orig_height;
-		status = _cairo_gl_composite_set_source(setup,
-            source, surface_rect.x, surface_rect.y,
-            surface_rect.x, surface_rect.y,
-            surface_rect.width, surface_rect.height,
-			clone->tex, (int)temp_width, (int)temp_height); 
-	}
-
+			clone);
 	if(unlikely(status))
 	{
 		_cairo_gl_composite_fini(setup);
@@ -3416,22 +3377,11 @@ _cairo_gl_surface_fill (void			*abstract_surface,
 	goto CLEANUP_AND_RELEASE_DEVICE;
 
 	setup->source = source;
-	if(clone == NULL)
-		status = _cairo_gl_composite_set_source(setup,
+    status = _cairo_gl_composite_set_source(setup,
             source, surface_rect.x, surface_rect.y,
             surface_rect.x, surface_rect.y,
             surface_rect.width, surface_rect.height,
-			0, 0, 0);
-	else
-	{
-            float temp_width = clone->orig_width;
-            float temp_height = clone->orig_height;
-		status = _cairo_gl_composite_set_source(setup,
-            source, surface_rect.x, surface_rect.y,
-            surface_rect.x, surface_rect.y,
-            surface_rect.width, surface_rect.height,
-			clone->tex, (int)temp_width, (int)temp_height); 
-	}
+			clone);
     if (unlikely(status))
 	goto CLEANUP_AND_RELEASE_DEVICE;
 
