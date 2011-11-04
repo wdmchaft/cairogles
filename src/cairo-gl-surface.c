@@ -1309,10 +1309,10 @@ cairo_gl_surface_create_for_texture (cairo_device_t	*abstract_device,
     // internal format default to GL_RGBA
     surface->internal_format = GL_RGBA;
     surface->tex_format = GL_RGBA;
-    /*status = _cairo_gl_ensure_framebuffer (ctx, surface);
+    status = _cairo_gl_ensure_framebuffer (ctx, surface);
     if(status != CAIRO_STATUS_SUCCESS)
         status = _cairo_surface_set_error(&surface->base, status);
-    */
+    
     status = _cairo_gl_context_release (ctx, status);
     return &surface->base;
 }
@@ -3528,7 +3528,7 @@ void cairo_gl_reset_device(cairo_device_t *device)
 		return;
 	ctx = (cairo_gl_context_t *)device;
     ctx->bound_fb = 0;
-    ctx->current_program = -1;
+    /*ctx->current_program = -1;
     ctx->active_texture = -9999;
     ctx->bounded_texture = -9999;
     ctx->src_color_factor = -9999;
@@ -3565,7 +3565,7 @@ void cairo_gl_reset_device(cairo_device_t *device)
     ctx->source_texture_attrib_reset = TRUE;
     ctx->mask_texture_attrib_reset = TRUE;
     ctx->vertex_attrib_reset = TRUE;
-
+    */
     ctx->current_target = NULL;
 
 	ctx->reset(ctx);
