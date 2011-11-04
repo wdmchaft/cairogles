@@ -952,6 +952,10 @@ _cairo_gl_surface_init (cairo_device_t *device,
 	surface->ms_fb = 0;
 	surface->require_aa = FALSE;
     surface->multisample_resolved = TRUE;
+    
+    surface->extend = -9999;
+    surface->filter = -9999;
+
     status = _cairo_gl_context_acquire (device, &ctx);
     if (unlikely (status))
 	return;
@@ -995,6 +999,7 @@ _cairo_gl_surface_create_scratch_for_texture (cairo_gl_context_t   *ctx,
     ctx->bounded_texture = surface->tex;
     glTexParameteri (ctx->tex_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    surface->extend = CAIRO_FILTER_NEAREST;
 
     return &surface->base;
 }
@@ -1776,6 +1781,7 @@ _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
             glTexImage2D (ctx->tex_target, 0, format, dst->width, 
                           dst->height, 0,
 		                  format, GL_UNSIGNED_BYTE, NULL);
+            dst->filter = CAIRO_FILTER_NEAREST;
             //glGenerateMipmap(GL_TEXTURE_2D);
             dst->tex_format = format;
         }
@@ -1800,6 +1806,7 @@ _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
     ctx->bounded_texture = dst->tex;
 	glTexParameteri (ctx->tex_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    dst->filter = CAIRO_FILTER_NEAREST;
 	glTexSubImage2D (ctx->tex_target, 0,
 			 dst_x, dst_y, width, height,
 			 format, type,

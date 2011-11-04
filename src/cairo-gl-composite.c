@@ -84,6 +84,9 @@ _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
     //cairo_surface_attributes_t *attributes;
 
 	// we use 
+    cairo_surface_t *abstract_surface = ((cairo_surface_pattern_t *)src)->surface;
+    cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
+    operand->surface = surface;
 	operand->type = CAIRO_GL_OPERAND_TEXTURE;
 	operand->texture.tex = tex;
 	operand->texture.attributes.extend = src->extend;
@@ -1645,11 +1648,18 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
             }
         }
 		//error = glGetError();
-        _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
+        if(setup->src.texture.attributes.extend != setup->src.surface->extend)
+        {
+            _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
                                       setup->src.texture.attributes.extend);
-        _cairo_gl_texture_set_filter (ctx, ctx->tex_target,
+            setup->src.surface->extend = setup->src.texture.attributes.extend;
+        }
+        if(setup->src.texture.attributes.filter != setup->src.surface->filter)
+        {
+            _cairo_gl_texture_set_filter (ctx, ctx->tex_target,
                                       setup->src.texture.attributes.filter);
-
+            setup->src.surface->filter = setup->src.texture.attributes.filter;
+        }
         if(ctx->source_texture_attrib_reset == TRUE)
         {
 		ctx->dispatch.VertexAttribPointer(CAIRO_GL_TEXCOORD0_ATTRIB_INDEX, 2,
@@ -1684,11 +1694,18 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
             }
         }
 		//error = glGetError();
-        _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
+        if(setup->mask.surface->extend != setup->mask.texture.attributes.extend)
+        {
+            _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
                                       setup->mask.texture.attributes.extend);
-        _cairo_gl_texture_set_filter (ctx, ctx->tex_target,
+            setup->mask.surface->extend = setup->mask.texture.attributes.extend;
+        }
+        if(setup->mask.surface->filter != setup->mask.texture.attributes.filter)
+        {
+            _cairo_gl_texture_set_filter (ctx, ctx->tex_target,
                                       setup->mask.texture.attributes.filter);
-
+            setup->mask.surface->filter = setup->mask.texture.attributes.filter;
+        }
         if(ctx->mask_texture_attrib_reset == TRUE)
         {
 		    ctx->dispatch.VertexAttribPointer(CAIRO_GL_TEXCOORD1_ATTRIB_INDEX, 2,
