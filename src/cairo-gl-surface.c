@@ -992,6 +992,7 @@ _cairo_gl_surface_create_scratch_for_texture (cairo_gl_context_t   *ctx,
     /* Create the texture used to store the surface's data. */
     _cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
     glBindTexture (ctx->tex_target, surface->tex);
+    ctx->bounded_texture = surface->tex;
     glTexParameteri (ctx->tex_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
@@ -1767,6 +1768,7 @@ _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
             glGenTextures(1, &dst->tex);
             _cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
             glBindTexture (ctx->tex_target, dst->tex);
+            ctx->bounded_texture = dst->tex;
             glTexParameteri (ctx->tex_target, GL_TEXTURE_MIN_FILTER, 
                              GL_NEAREST);
             glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, 
@@ -1795,6 +1797,7 @@ _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
 	}
     _cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
 	glBindTexture (ctx->tex_target, dst->tex);
+    ctx->bounded_texture = dst->tex;
 	glTexParameteri (ctx->tex_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexSubImage2D (ctx->tex_target, 0,
@@ -3570,6 +3573,7 @@ void cairo_gl_reset_device(cairo_device_t *device)
     ctx->bound_fb = 0;
     ctx->current_program = -1;
     ctx->active_texture = -9999;
+    ctx->bounded_texture = -9999;
     ctx->src_color_factor = -9999;
     ctx->dst_color_factor = -9999;
     ctx->src_alpha_factor = -9999;

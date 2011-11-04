@@ -1119,9 +1119,11 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
         {
             glActiveTexture (GL_TEXTURE0 + tex_unit);
             ctx->active_texture = GL_TEXTURE0 + tex_unit;
-        }
+        
 	//GLenum error = glGetError();
         glBindTexture (ctx->tex_target, operand->texture.tex);
+        ctx->bounded_texture = operand->texture.tex;
+        }
 	//error = glGetError();
         _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
                                       operand->texture.attributes.extend);
@@ -1152,8 +1154,9 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
         {
             glActiveTexture (GL_TEXTURE0 + tex_unit);
             ctx->active_texture = GL_TEXTURE0 + tex_unit;
-        }
         glBindTexture (ctx->tex_target, operand->gradient.gradient->tex);
+            ctx->bounded_texture = operand->gradient.gradient->tex;
+        }
         _cairo_gl_texture_set_extend (ctx, ctx->tex_target, operand->gradient.extend);
         _cairo_gl_texture_set_filter (ctx, ctx->tex_target, CAIRO_FILTER_BILINEAR);
 
@@ -1629,9 +1632,18 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
         {
             glActiveTexture (GL_TEXTURE0 + CAIRO_GL_TEX_SOURCE);
             ctx->active_texture = GL_TEXTURE0 + CAIRO_GL_TEX_SOURCE;
-        }
 		//GLenum error = glGetError();
-        glBindTexture (ctx->tex_target, setup->src.texture.tex);
+            glBindTexture (ctx->tex_target, setup->src.texture.tex);
+            ctx->bounded_texture = setup->src.texture.tex;
+        }
+        else
+        {
+            if(ctx->bounded_texture != setup->src.texture.tex)
+            {
+                glBindTexture (ctx->tex_target, setup->src.texture.tex);
+                ctx->bounded_texture = setup->src.texture.tex;
+            }
+        }
 		//error = glGetError();
         _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
                                       setup->src.texture.attributes.extend);
@@ -1660,9 +1672,17 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
         {
             glActiveTexture (GL_TEXTURE0 + CAIRO_GL_TEX_MASK);
             ctx->active_texture = GL_TEXTURE0 + CAIRO_GL_TEX_MASK;
+            glBindTexture (ctx->tex_target, setup->mask.texture.tex);
+            ctx->bounded_texture = setup->mask.texture.tex;
         }
-		//GLenum error = glGetError();
-        glBindTexture (ctx->tex_target, setup->mask.texture.tex);
+        else
+        {
+            if(ctx->bounded_texture != setup->mask.texture.tex)
+            {
+                glBindTexture (ctx->tex_target, setup->mask.texture.tex);
+                ctx->bounded_texture = setup->mask.texture.tex;
+            }
+        }
 		//error = glGetError();
         _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
                                       setup->mask.texture.attributes.extend);

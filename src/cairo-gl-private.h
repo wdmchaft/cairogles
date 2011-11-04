@@ -473,6 +473,7 @@ struct _cairo_gl_context {
     GLuint bound_fb;
     GLint current_program;
     int active_texture;
+    int bounded_texture;
     int src_color_factor;
     int dst_color_factor;
     int src_alpha_factor;

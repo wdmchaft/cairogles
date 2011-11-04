@@ -175,6 +175,7 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     ctx->bound_fb = 0;
     ctx->current_program = -1;
     ctx->active_texture = -9999;
+    ctx->bounded_texture = -9999;
     ctx->src_color_factor = -9999;
     ctx->dst_color_factor = -9999;
     ctx->src_alpha_factor = -9999;

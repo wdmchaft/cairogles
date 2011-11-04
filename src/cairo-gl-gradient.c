@@ -1194,6 +1194,7 @@ _cairo_gl_gradient_create (cairo_gl_context_t           *ctx,
     glGenTextures (1, &gradient->tex);
     _cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
     glBindTexture (ctx->tex_target, gradient->tex);
+    ctx->bounded_texture = gradient->tex;
 
     /* GL_PIXEL_UNPACK_BUFFER is only available in Desktop GL */
     if (ctx->gl_flavor == CAIRO_GL_FLAVOR_DESKTOP) {
