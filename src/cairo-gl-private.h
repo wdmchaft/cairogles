@@ -296,7 +296,6 @@ typedef struct _cairo_gl_surface {
     cairo_bool_t stencil_buffer_changed;
     int extend;
     int filter;
-    cairo_bool_t has_mipmap;
 } cairo_gl_surface_t;
 
 typedef struct cairo_gl_operand {

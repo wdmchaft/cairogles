@@ -1006,36 +1006,19 @@ _cairo_gl_texture_set_extend (cairo_gl_context_t *ctx,
 static void
 _cairo_gl_texture_set_filter (cairo_gl_context_t *ctx,
                               GLuint              target,
-                              cairo_filter_t      filter, 
-                              cairo_bool_t has_mipmap)
+                              cairo_filter_t      filter)
 {
     switch (filter) {
     case CAIRO_FILTER_FAST:
     case CAIRO_FILTER_NEAREST:
-    if(has_mipmap)
-    {
-	    glTexParameteri (target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-	    glTexParameteri (target, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-    }
-    else
-    {        
-	    glTexParameteri (target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	    glTexParameteri (target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }
+	glTexParameteri (target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri (target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	break;
     case CAIRO_FILTER_GOOD:
     case CAIRO_FILTER_BEST:
     case CAIRO_FILTER_BILINEAR:
-    if(has_mipmap)
-    {
-	    glTexParameteri (target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-	    glTexParameteri (target, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    }
-    else
-    {
-	    glTexParameteri (target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	    glTexParameteri (target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
+	glTexParameteri (target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri (target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	break;
     default:
     case CAIRO_FILTER_GAUSSIAN:
@@ -1146,8 +1129,7 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
         _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
                                       operand->texture.attributes.extend);
         _cairo_gl_texture_set_filter (ctx, ctx->tex_target,
-                                      operand->texture.attributes.filter, 
-                                      operand->surface->has_mipmap);
+                                      operand->texture.attributes.filter);
 
 	dispatch->VertexAttribPointer (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit, 2,
 					GL_FLOAT, GL_FALSE, vertex_size,
@@ -1177,7 +1159,7 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
             ctx->bounded_texture = operand->gradient.gradient->tex;
         }
         _cairo_gl_texture_set_extend (ctx, ctx->tex_target, operand->gradient.extend);
-        _cairo_gl_texture_set_filter (ctx, ctx->tex_target, CAIRO_FILTER_BILINEAR, FALSE);
+        _cairo_gl_texture_set_filter (ctx, ctx->tex_target, CAIRO_FILTER_BILINEAR);
 
 	dispatch->VertexAttribPointer (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit, 2,
 				       GL_FLOAT, GL_FALSE, vertex_size,
@@ -1673,8 +1655,7 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
         if(setup->src.texture.attributes.filter != setup->src.surface->filter)
         {
             _cairo_gl_texture_set_filter (ctx, ctx->tex_target,
-                                      setup->src.texture.attributes.filter,
-                                      setup->src.surface->has_mipmap);
+                                      setup->src.texture.attributes.filter);
             setup->src.surface->filter = setup->src.texture.attributes.filter;
         }
         if(ctx->source_texture_attrib_reset == TRUE)
@@ -1720,8 +1701,7 @@ _cairo_gl_composite_begin_constant_color (cairo_gl_composite_t *setup,
         if(setup->mask.surface->filter != setup->mask.texture.attributes.filter)
         {
             _cairo_gl_texture_set_filter (ctx, ctx->tex_target,
-                                     setup->mask.texture.attributes.filter,
-                                     setup->mask.surface->has_mipmap);
+                                      setup->mask.texture.attributes.filter);
             setup->mask.surface->filter = setup->mask.texture.attributes.filter;
         }
         if(ctx->mask_texture_attrib_reset == TRUE)
