@@ -956,6 +956,8 @@ _cairo_gl_surface_init (cairo_device_t *device,
     surface->extend = -9999;
     surface->filter = -9999;
 
+    surface->has_mipmap = FALSE;
+
     status = _cairo_gl_context_acquire (device, &ctx);
     if (unlikely (status))
 	return;
@@ -1756,38 +1758,49 @@ _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
 	 */
     
     // for GLES, we need to check internal format match tex format
-    if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES) {
-        if(format != dst->tex_format && 
-           dst->owns_tex == TRUE &&
-           dst->tex != 0) {
-            glDeleteTextures(1, &dst->tex);
-            if (dst->depth)
-                ctx->dispatch.DeleteFramebuffers (1, &dst->depth);
-            if (dst->fb)
-	        {
-                ctx->dispatch.DeleteFramebuffers (1, &dst->fb);
-		        dst->fb = 0;
-	        }
-	        if(dst->rb)
-	        {
-	        	ctx->dispatch.DeleteRenderbuffers(1, &dst->rb);
-		        dst->rb = 0;
-	        }
-            glGenTextures(1, &dst->tex);
-            _cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
-            glBindTexture (ctx->tex_target, dst->tex);
-            ctx->bounded_texture = dst->tex;
-            glTexParameteri (ctx->tex_target, GL_TEXTURE_MIN_FILTER, 
-                             GL_NEAREST);
-            glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, 
-                             GL_NEAREST);
-            glTexImage2D (ctx->tex_target, 0, format, dst->width, 
+    if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES &&
+        format != dst->tex_format && 
+        dst->owns_tex == TRUE &&
+        dst->tex != 0) 
+    {
+        glDeleteTextures(1, &dst->tex);
+        if (dst->depth)
+            ctx->dispatch.DeleteFramebuffers (1, &dst->depth);
+        if (dst->fb)
+        {
+            ctx->dispatch.DeleteFramebuffers (1, &dst->fb);
+	        dst->fb = 0;
+	    }
+	    if(dst->rb)
+	    {
+	     	ctx->dispatch.DeleteRenderbuffers(1, &dst->rb);
+	        dst->rb = 0;
+	    }
+        glGenTextures(1, &dst->tex);
+        _cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
+        glBindTexture (ctx->tex_target, dst->tex);
+        ctx->bounded_texture = dst->tex;
+        glTexParameteri (ctx->tex_target, GL_TEXTURE_MIN_FILTER, 
+                         GL_NEAREST);
+        glTexParameteri (ctx->tex_target, GL_TEXTURE_MAG_FILTER, 
+                         GL_NEAREST);
+        glTexImage2D (ctx->tex_target, 0, format, dst->width, 
                           dst->height, 0,
 		                  format, GL_UNSIGNED_BYTE, NULL);
-            dst->filter = CAIRO_FILTER_NEAREST;
-            //glGenerateMipmap(GL_TEXTURE_2D);
-            dst->tex_format = format;
-        }
+        dst->filter = CAIRO_FILTER_NEAREST;
+        glGenerateMipmap(GL_TEXTURE_2D);
+        dst->has_mipmap = TRUE;
+        dst->has_mipmap = FALSE;
+        dst->tex_format = format;
+    }
+    else
+    {
+        _cairo_gl_context_activate (ctx, CAIRO_GL_TEX_TEMP);
+        glBindTexture (ctx->tex_target, dst->tex);
+        ctx->bounded_texture = dst->tex;
+        glGenerateMipmap(GL_TEXTURE_2D);
+        dst->has_mipmap = TRUE;
+        dst->has_mipmap = FALSE;
     }
 	if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES &&
 	    (src->width * cpp < src->stride - 3 ||
