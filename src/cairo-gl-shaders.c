@@ -302,6 +302,22 @@ bind_vec4_core_2_0 (cairo_gl_context_t *ctx,
             shader->source_constant = dispatch->GetUniformLocation(shader->program, name);
         }
         location = shader->source_constant;
+        if(location != -1)
+        {
+            if(ctx->source_constant.red != value0 ||
+               ctx->source_constant.green != value1 ||
+               ctx->source_constant.blue != value2 ||  
+               ctx->source_constant.alpha != value3 ||
+               ctx->source_constant_reset == TRUE)
+            {
+                ctx->source_constant.red = value0;
+                ctx->source_constant.green = value1;
+                ctx->source_constant.blue = value2;
+                ctx->source_constant.alpha = value3;
+                ctx->source_constant_reset = FALSE;
+                dispatch->Uniform4f (location, value0, value1, value2, value3);
+            }
+        }
     }
     else if(strcmp(name, MASK_CONSTANT) == 0)
     {
@@ -310,13 +326,29 @@ bind_vec4_core_2_0 (cairo_gl_context_t *ctx,
             shader->mask_constant = dispatch->GetUniformLocation(shader->program, name);
         }
         location = shader->mask_constant;
+        if(location != -1)
+        {
+            if(ctx->mask_constant.red != value0 ||
+               ctx->mask_constant.green != value1 ||
+               ctx->mask_constant.blue != value2 ||  
+               ctx->mask_constant.alpha != value3 ||
+               ctx->mask_constant_reset == TRUE)
+            {
+                ctx->mask_constant.red = value0;
+                ctx->mask_constant.green = value1;
+                ctx->mask_constant.blue = value2;
+                ctx->mask_constant.alpha = value3;
+                ctx->mask_constant_reset = FALSE;
+                dispatch->Uniform4f (location, value0, value1, value2, value3);
+            }
+        }
     }
     else
     {
         location = dispatch->GetUniformLocation (shader->program, name);
+        assert (location != -1);
+        dispatch->Uniform4f (location, value0, value1, value2, value3);
     }
-    assert (location != -1);
-    dispatch->Uniform4f (location, value0, value1, value2, value3);
 }
 
 // Henry Song
@@ -575,6 +607,8 @@ use_program_core_2_0 (cairo_gl_context_t *ctx,
 	        ctx->dispatch.UseProgram (shader->program);
             ctx->current_program = shader->program;
             ctx->modelviewprojection_matrix_reset = TRUE;
+            ctx->source_constant_reset = TRUE;
+            ctx->mask_constant_reset= TRUE;
         }
    }
     //else
@@ -2750,14 +2784,16 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
         ctx->program_reset = FALSE;
     }  
     else */
-    {
+    
         if(ctx->current_program != shader->program) 
         {
             dispatch->UseProgram (shader->program);
             ctx->current_program = shader->program;
             ctx->modelviewprojection_matrix_reset = TRUE;
+            //ctx->source_constant_reset = TRUE;
+            //ctx->mask_constant_reset = TRUE;
         }
-    }
+    //}
     
     if(set_samplers == TRUE)
     {

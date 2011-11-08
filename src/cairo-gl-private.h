@@ -477,13 +477,20 @@ struct _cairo_gl_context {
 	//cairo_clip_t *clip;
     GLuint bound_fb;
     GLint current_program;
-    int modelviewprojection_matrix_reset; /* 0 reset, 1, texture, 2 window */
+    cairo_bool_t modelviewprojection_matrix_reset;
+    cairo_bool_t source_constant_reset;
+    cairo_bool_t mask_constant_reset;
+    cairo_color_t source_constant;
+    cairo_color_t mask_constant;
     int active_texture;
     int bounded_texture;
     int src_color_factor;
     int dst_color_factor;
     int src_alpha_factor;
     int dst_alpha_factor;
+
+    cairo_bool_t constant_reset;
+
     float clear_red;
     float clear_green;
     float clear_blue;

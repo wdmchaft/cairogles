@@ -173,6 +173,18 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     int n;
 
     ctx->modelviewprojection_matrix_reset = TRUE;
+    
+    ctx->source_constant_reset = TRUE;
+    ctx->mask_constant_reset = TRUE;
+    ctx->source_constant.red= -1;
+    ctx->source_constant.green = -1;
+    ctx->source_constant.blue = -1;
+    ctx->source_constant.alpha = -1;
+    ctx->mask_constant.red = -1;
+    ctx->mask_constant.green = -1;
+    ctx->mask_constant.blue = -1;
+    ctx->mask_constant.alpha = -1;
+    
     ctx->bound_fb = 0;
     ctx->current_program = -1;
     ctx->active_texture = -9999;
