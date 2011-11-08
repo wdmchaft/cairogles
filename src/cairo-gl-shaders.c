@@ -549,7 +549,11 @@ bind_matrix4f_core_2_0 (cairo_gl_context_t *ctx,
             dispatch->GetUniformLocation (shader->program, name);
     }
     assert (shader->modelviewprojection_matrix != -1);
-    dispatch->UniformMatrix4fv (shader->modelviewprojection_matrix, 1, GL_FALSE, gl_m);
+    if(ctx->modelviewprojection_matrix_reset == TRUE)
+    {
+        dispatch->UniformMatrix4fv (shader->modelviewprojection_matrix, 1, GL_FALSE, gl_m);
+        ctx->modelviewprojection_matrix_reset = FALSE;
+    }
 }
 
 static void
@@ -570,6 +574,7 @@ use_program_core_2_0 (cairo_gl_context_t *ctx,
         {
 	        ctx->dispatch.UseProgram (shader->program);
             ctx->current_program = shader->program;
+            ctx->modelviewprojection_matrix_reset = TRUE;
         }
    }
     //else
@@ -2750,6 +2755,7 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
         {
             dispatch->UseProgram (shader->program);
             ctx->current_program = shader->program;
+            ctx->modelviewprojection_matrix_reset = TRUE;
         }
     }
     

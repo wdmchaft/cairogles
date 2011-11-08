@@ -3527,6 +3527,7 @@ void cairo_gl_reset_device(cairo_device_t *device)
 	if(device == NULL)
 		return;
 	ctx = (cairo_gl_context_t *)device;
+    ctx->modelviewprojection_matrix_reset = TRUE;
     ctx->bound_fb = 0;
     ctx->current_program = -1;
     ctx->active_texture = -9999;
@@ -3543,6 +3544,7 @@ void cairo_gl_reset_device(cairo_device_t *device)
     
     //ctx->viewport_box.x = 0;
     //ctx->viewport_box.y = 0;
+    ctx->viewport_reset = TRUE;
     ctx->viewport_box.width = 0;
     ctx->viewport_box.height = 0;
 

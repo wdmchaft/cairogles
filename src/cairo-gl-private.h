@@ -477,6 +477,7 @@ struct _cairo_gl_context {
 	//cairo_clip_t *clip;
     GLuint bound_fb;
     GLint current_program;
+    int modelviewprojection_matrix_reset; /* 0 reset, 1, texture, 2 window */
     int active_texture;
     int bounded_texture;
     int src_color_factor;
@@ -489,6 +490,7 @@ struct _cairo_gl_context {
     float clear_alpha;
     cairo_rectangle_int_t scissor_box;
     cairo_rectangle_int_t viewport_box;
+    cairo_bool_t viewport_reset;
     cairo_bool_t depthmask_enabled;
     GLfloat vertices[MAX_INDEX + 10];
     GLfloat tex_vertices[MAX_INDEX + 10];

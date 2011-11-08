@@ -172,6 +172,7 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     cairo_gl_flavor_t gl_flavor = _cairo_gl_get_flavor ();
     int n;
 
+    ctx->modelviewprojection_matrix_reset = TRUE;
     ctx->bound_fb = 0;
     ctx->current_program = -1;
     ctx->active_texture = -9999;
@@ -189,7 +190,8 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     ctx->scissor_box.y = 0;
     ctx->scissor_box.width = 0;
     ctx->scissor_box.height = 0;
-    
+   
+    ctx->viewport_reset = TRUE; 
     ctx->viewport_box.x = 0;
     ctx->viewport_box.y = 0;
     ctx->viewport_box.width = 0;
@@ -619,6 +621,7 @@ _cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
     ctx->current_target = surface;
     surface->needs_update = FALSE;
+    cairo_bool_t reset_matrix = FALSE;
 
     cairo_bool_t bounded = FALSE;
     //surface->require_aa = FALSE;
@@ -736,14 +739,28 @@ _cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
         glViewport (0, 0, surface->width, surface->height);
         ctx->viewport_box.width = surface->width;
         ctx->viewport_box.height = surface->height;
+        reset_matrix = TRUE;
     }
 
     if (_cairo_gl_surface_is_texture (surface))
-	_gl_identity_ortho (ctx->modelviewprojection_matrix,
+    {
+        if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
+        {
+	        _gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, 0, surface->height);
+            ctx->modelviewprojection_matrix_reset = TRUE;
+        }
+        //printf("reset matrix = %d for surface (%d, %d)\n", ctx->modelviewprojection_matrix_reset, surface->width, surface->height);
+    }
     else
-	_gl_identity_ortho (ctx->modelviewprojection_matrix,
+    {
+        if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
+        {
+	        _gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, surface->height, 0);
+            ctx->modelviewprojection_matrix_reset = TRUE;
+        }
+    }
 }
 #endif
 
@@ -757,6 +774,7 @@ _cairo_gl_context_set_destination_for_gles (cairo_gl_context_t *ctx,
     ctx->current_target = surface;
     surface->needs_update = FALSE;
     cairo_bool_t bounded = FALSE;
+    cairo_bool_t reset_matrix = FALSE;
 
     if (_cairo_gl_surface_is_texture (surface)) {
         // we ensure framebuffer and renderbuffer are created
@@ -785,14 +803,34 @@ _cairo_gl_context_set_destination_for_gles (cairo_gl_context_t *ctx,
         glViewport (0, 0, surface->width, surface->height);
         ctx->viewport_box.width = surface->width;
         ctx->viewport_box.height = surface->height;
+        reset_matrix = TRUE;
     }
-
+    if (_cairo_gl_surface_is_texture (surface))
+    {
+        if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
+        {
+	        _gl_identity_ortho (ctx->modelviewprojection_matrix,
+			    0, surface->width, 0, surface->height);
+            ctx->modelviewprojection_matrix_reset = TRUE;
+        }
+    }
+    else
+    {
+        if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
+        {
+	        _gl_identity_ortho (ctx->modelviewprojection_matrix,
+			    0, surface->width, surface->height, 0);
+            ctx->modelviewprojection_matrix_reset = TRUE;
+        }
+    }
+    /*
     if (_cairo_gl_surface_is_texture (surface))
 	_gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, 0, surface->height);
     else
 	_gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, surface->height, 0);
+    */
 }
 #endif
 
