@@ -194,6 +194,8 @@ typedef struct cairo_gl_shader {
     GLint modelviewprojection_matrix;
     GLint source_sampler;
     GLint mask_sampler;
+    cairo_bool_t source_sampler_set;
+    cairo_bool_t mask_sampler_set;
     GLint source_constant;
     GLint mask_constant;
     

@@ -670,6 +670,8 @@ _cairo_gl_shader_init (cairo_gl_shader_t *shader)
     shader->modelviewprojection_matrix = -1;
     shader->source_sampler = -1;
     shader->mask_sampler = -1;
+    shader->source_sampler_set = FALSE;
+    shader->mask_sampler_set = FALSE;
     shader->source_constant = -1;
     shader->mask_constant = -1;
 
@@ -2760,7 +2762,11 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
                 shader->source_sampler = -999;
         }
         if (shader->source_sampler != -1 && shader->source_sampler != -999) {
-	        dispatch->Uniform1i (shader->source_sampler, CAIRO_GL_TEX_SOURCE);
+            if(shader->source_sampler_set == FALSE)
+            {
+	            dispatch->Uniform1i (shader->source_sampler, CAIRO_GL_TEX_SOURCE);
+                shader->source_sampler_set = TRUE;
+            }
         }
     
         if(shader->mask_sampler == -1)
@@ -2770,7 +2776,13 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
                 shader->mask_sampler = -999;
         }
         if(shader->mask_sampler != -1 && shader->mask_sampler != -999)
-	        dispatch->Uniform1i (shader->mask_sampler, CAIRO_GL_TEX_MASK);
+        {
+            if(shader->mask_sampler_set == FALSE)
+            {
+	            dispatch->Uniform1i (shader->mask_sampler, CAIRO_GL_TEX_MASK);
+                shader->mask_sampler_set = TRUE;
+            }
+        }
     }
 
     //dispatch->UseProgram (saved_program);
