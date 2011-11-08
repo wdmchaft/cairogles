@@ -1077,7 +1077,7 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
     cairo_gl_context_t *ctx;
     cairo_status_t status;
     double r, g, b, a;
-
+    
     status = _cairo_gl_context_acquire (surface->base.device, &ctx);
     if (unlikely (status))
 	return status;

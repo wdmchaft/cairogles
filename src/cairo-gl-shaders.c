@@ -2790,8 +2790,8 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
             dispatch->UseProgram (shader->program);
             ctx->current_program = shader->program;
             ctx->modelviewprojection_matrix_reset = TRUE;
-            //ctx->source_constant_reset = TRUE;
-            //ctx->mask_constant_reset = TRUE;
+            ctx->source_constant_reset = TRUE;
+            ctx->mask_constant_reset = TRUE;
         }
     //}
     
