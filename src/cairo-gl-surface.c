@@ -2602,7 +2602,7 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	}
 
 	setup = (cairo_gl_composite_t *)malloc(sizeof(cairo_gl_composite_t));
-	status = _cairo_gl_composite_init(setup, op, surface, FALSE, &extents.bounded);
+	status = _cairo_gl_composite_init(setup, op, surface, FALSE, &surface_rect);
 	if (unlikely (status))
 		goto FINISH;
 
