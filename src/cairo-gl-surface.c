@@ -543,15 +543,17 @@ _cairo_gl_clip (cairo_clip_t		*clip,
     /*if(surface->clip == clip && 
        surface->stencil_buffer_changed == FALSE &&
         _cairo_gl_surface_is_texture (surface)) {
-    glDepthMask (GL_TRUE);
-    glEnable (GL_STENCIL_TEST);
+    _cairo_gl_enable_depthmask (ctx);
+    _cairo_gl_enable_stencil_test (ctx);
+    //glDepthMask (GL_TRUE);
+    //glEnable (GL_STENCIL_TEST);
     glColorMask (1, 1, 1, 1);
     //glStencilOp (GL_KEEP, GL_KEEP, GL_KEEP);
     //glStencilFunc (GL_EQUAL, 1, 1);
     return CAIRO_STATUS_SUCCESS;
     }*/
 
-    if(surface->clip == clip && 
+    /*if(surface->clip == clip && 
        surface->stencil_buffer_changed == FALSE &&
        _cairo_gl_surface_is_texture (surface)) {
     _cairo_gl_enable_depthmask (ctx);
@@ -560,7 +562,7 @@ _cairo_gl_clip (cairo_clip_t		*clip,
             
     glColorMask (1, 1, 1, 1);
     return CAIRO_STATUS_SUCCESS;
-    }
+    }*/
 
     /* Operations on_triangle strip indices may end up flushing the surface
        triangle strip cache and doing the fill. In case that happens we prepare
@@ -2634,7 +2636,9 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 	if (unlikely(status))
 		goto FINISH;
+   
     
+    _cairo_gl_disable_stencil_test (ctx);
     if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
     {
         _cairo_gl_enable_scissor_test (ctx, surface, clip_pt->extents);
