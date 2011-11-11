@@ -568,6 +568,7 @@ _cairo_gl_clip (cairo_clip_t		*clip,
        triangle strip cache and doing the fill. In case that happens we prepare
        to update the stencil buffer now. */
     _cairo_gl_enable_depthmask (ctx);
+    _cairo_gl_disable_scissor_test (ctx);
     //glDepthMask (GL_TRUE);
     //printf("\tdepth mask enable %ld usec\n", _get_tick() - now);
     //now = _get_tick();
@@ -2549,7 +2550,8 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	
 	if (unlikely(status))
 		return status;
-   
+    
+    surface->require_aa = TRUE; 
     if(source->matrix.xy == 0)
         surface->require_aa = FALSE;
     surface_rect.x = extents.bounded.x;
@@ -3045,28 +3047,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 		return status;
     }
     
-    if(clip_pt != NULL && clip_pt->path == NULL && clip_pt->num_boxes == 1)
-    {
-        _cairo_gl_enable_scissor_test(ctx, surface, clip_pt->extents);
-        _cairo_gl_disable_stencil_test(ctx);
-	/*
-        if(_cairo_gl_surface_is_texture(surface))
-            glScissor(clip_pt->extents.x, clip_pt->extents.y,
-              clip_pt->extents.width, clip_pt->extents.height);
-        else
-            glScissor(clip_pt->extents.x, 
-                surface->height - clip_pt->extents.y - clip_pt->extents.height,
-              clip_pt->extents.width, clip_pt->extents.height);
-        */
-        clip_pt = NULL;
-    }
-    else
-    {
-        //glEnable(GL_SCISSOR_TEST);
-        //glScissor(surface_rect.x, surface_rect.y,
-        //      surface_rect.width, surface_rect.height);
-        _cairo_gl_disable_scissor_test(ctx);
-    }
     //if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
     //if(clip_pt != NULL && _cairo_clip_contains_rectangle(clip_pt, &surface_rect))
     //    clip_pt = NULL;
@@ -3109,6 +3089,33 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	}
     else if(source->type == CAIRO_PATTERN_TYPE_SOLID)
         has_alpha = ((cairo_solid_pattern_t *)source)->color.alpha == 1.0 ? FALSE : TRUE;
+    //if(!has_alpha)
+    {
+        if(clip_pt != NULL && 
+           clip_pt->path == NULL && 
+           clip_pt->num_boxes == 1)
+        {
+            _cairo_gl_enable_scissor_test(ctx, surface, clip_pt->extents);
+            _cairo_gl_disable_stencil_test(ctx);
+	/*
+        if(_cairo_gl_surface_is_texture(surface))
+            glScissor(clip_pt->extents.x, clip_pt->extents.y,
+              clip_pt->extents.width, clip_pt->extents.height);
+        else
+            glScissor(clip_pt->extents.x, 
+                surface->height - clip_pt->extents.y - clip_pt->extents.height,
+              clip_pt->extents.width, clip_pt->extents.height);
+        */
+            clip_pt = NULL;
+        }
+        else
+        {
+        //glEnable(GL_SCISSOR_TEST);
+        //glScissor(surface_rect.x, surface_rect.y,
+        //      surface_rect.width, surface_rect.height);
+        _cairo_gl_disable_scissor_test(ctx);
+        }
+    }
 	
     //now = _get_tick();
 	setup = (cairo_gl_composite_t *)malloc(sizeof(cairo_gl_composite_t));
@@ -3188,6 +3195,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	   we can use it below to prevent overlapping shapes. We initialize
 	   it all to one here which represents infinite clip. */
     if(has_alpha) {
+    //_cairo_gl_disable_scissor_test (ctx);
     _cairo_gl_enable_depthmask (ctx);
 	//glDepthMask (GL_TRUE);
     _cairo_gl_enable_stencil_test(ctx);
@@ -3243,6 +3251,8 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
 	// fill it, we fix t later
     //now = _get_tick();
     }
+    //if(has_alpha && clip_pt != NULL)
+    //    cairo_surface_write_to_png(&surface->base, "/home/me/test1.png");
 	status = _cairo_gl_fill(&indices);
 	//printf("\tgl_fill %ld\n", _get_tick() - now);
 CLEANUP:
@@ -3264,6 +3274,8 @@ CLEANUP:
 	status = _cairo_gl_context_release(ctx, status);
     //printf("\t release context %ld\n", _get_tick() - now);
 	surface->needs_new_data_surface = TRUE;
+    //if(has_alpha && clip_pt != NULL)
+    //    cairo_surface_write_to_png(&surface->base, "/home/me/test.png");
     //printf("&&&&&&&&&&&&& finish stroke %ld &&&&&&&&&&&&&&&&&&\n\n", _get_tick() - whole_now);
     return status;
 }
