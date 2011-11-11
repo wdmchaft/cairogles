@@ -3544,6 +3544,7 @@ void cairo_gl_reset_device(cairo_device_t *device)
 		return;
 	ctx = (cairo_gl_context_t *)device;
     ctx->modelviewprojection_matrix_reset = TRUE;
+    ctx->current_destination = 0;
     ctx->source_constant_reset = TRUE;
     ctx->mask_constant_reset = TRUE;
     ctx->source_constant.red= -1;

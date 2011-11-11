@@ -173,7 +173,8 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     int n;
 
     ctx->modelviewprojection_matrix_reset = TRUE;
-    
+    ctx->current_destination = 0;
+
     ctx->source_constant_reset = TRUE;
     ctx->mask_constant_reset = TRUE;
     ctx->source_constant.red= -1;
@@ -756,21 +757,27 @@ _cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
 
     if (_cairo_gl_surface_is_texture (surface))
     {
-        //if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
+        if(ctx->modelviewprojection_matrix_reset == TRUE || 
+           reset_matrix == TRUE ||
+           ctx->current_destination != 2)
         {
 	        _gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, 0, surface->height);
             ctx->modelviewprojection_matrix_reset = TRUE;
+            ctx->current_destination = 2;
         }
         //printf("reset matrix = %d for surface (%d, %d)\n", ctx->modelviewprojection_matrix_reset, surface->width, surface->height);
     }
     else
     {
-        //if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
+        if(ctx->modelviewprojection_matrix_reset == TRUE || 
+           reset_matrix == TRUE ||
+           ctx->current_destination != 1)
         {
 	        _gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, surface->height, 0);
             ctx->modelviewprojection_matrix_reset = TRUE;
+            ctx->current_destination = 1;
         }
     }
 }
@@ -819,20 +826,26 @@ _cairo_gl_context_set_destination_for_gles (cairo_gl_context_t *ctx,
     }
     if (_cairo_gl_surface_is_texture (surface))
     {
-        //if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
+        if(ctx->modelviewprojection_matrix_reset == TRUE || 
+           reset_matrix == TRUE ||
+           ctx->current_destination != 2)
         {
 	        _gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, 0, surface->height);
             ctx->modelviewprojection_matrix_reset = TRUE;
+            ctx->current_destination = 2;
         }
     }
     else
     {
-        //if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
+        if(ctx->modelviewprojection_matrix_reset == TRUE || 
+           reset_matrix == TRUE ||
+           ctx->current_destination != 1)
         {
 	        _gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, surface->height, 0);
             ctx->modelviewprojection_matrix_reset = TRUE;
+            ctx->current_destination = 1;
         }
     }
     /*
