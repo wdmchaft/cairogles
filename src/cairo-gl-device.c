@@ -756,7 +756,7 @@ _cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
 
     if (_cairo_gl_surface_is_texture (surface))
     {
-        if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
+        //if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
         {
 	        _gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, 0, surface->height);
@@ -766,7 +766,7 @@ _cairo_gl_context_set_destination_for_gl (cairo_gl_context_t *ctx,
     }
     else
     {
-        if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
+        //if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
         {
 	        _gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, surface->height, 0);
@@ -819,7 +819,7 @@ _cairo_gl_context_set_destination_for_gles (cairo_gl_context_t *ctx,
     }
     if (_cairo_gl_surface_is_texture (surface))
     {
-        if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
+        //if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
         {
 	        _gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, 0, surface->height);
@@ -828,7 +828,7 @@ _cairo_gl_context_set_destination_for_gles (cairo_gl_context_t *ctx,
     }
     else
     {
-        if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
+        //if(ctx->modelviewprojection_matrix_reset == TRUE || reset_matrix == TRUE)
         {
 	        _gl_identity_ortho (ctx->modelviewprojection_matrix,
 			    0, surface->width, surface->height, 0);
