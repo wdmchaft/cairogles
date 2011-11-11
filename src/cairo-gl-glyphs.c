@@ -1326,6 +1326,7 @@ _cairo_gl_surface_show_glyphs (void			*abstract_dst,
 	{
 	//	dst->needs_super_sampling = TRUE;
 	}
+    
 	if(op != CAIRO_OPERATOR_OVER || needs_clip == TRUE)
 	//if(op != CAIRO_OPERATOR_OVER || clip != NULL)
 		return _cairo_gl_surface_show_glyphs_via_mask (dst, dst->width,

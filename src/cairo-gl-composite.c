@@ -1777,8 +1777,8 @@ _cairo_gl_composite_fill_constant_color(cairo_gl_context_t *ctx,
        		glDrawElements (GL_TRIANGLE_STRIP, count, GL_UNSIGNED_SHORT, indices);
 
         	_cairo_gl_set_shader (ctx, prev_shader);
-        //	_cairo_gl_set_operator (ctx, CAIRO_OPERATOR_ADD, TRUE);
-        	_cairo_gl_set_operator (ctx, CAIRO_OPERATOR_OVER, TRUE);
+        	_cairo_gl_set_operator (ctx, CAIRO_OPERATOR_ADD, TRUE);
+        	//_cairo_gl_set_operator (ctx, CAIRO_OPERATOR_OVER, TRUE);
 		   //printf("draw ADD\n");
         	glDrawElements (GL_TRIANGLE_STRIP, count, GL_UNSIGNED_SHORT, indices);
     	}
