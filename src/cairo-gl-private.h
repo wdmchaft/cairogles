@@ -499,9 +499,15 @@ struct _cairo_gl_context {
     cairo_rectangle_int_t viewport_box;
     cairo_bool_t viewport_reset;
     cairo_bool_t depthmask_enabled;
-    GLfloat vertices[MAX_INDEX + 10];
-    GLfloat tex_vertices[MAX_INDEX + 10];
-    GLfloat mask_tex_vertices[MAX_INDEX + 10];
+
+    GLfloat vertices[2 *(MAX_INDEX + 10)];
+    GLfloat tex_vertices[2 * (MAX_INDEX + 10)];
+    GLfloat mask_tex_vertices[2 *(MAX_INDEX + 10)];
+    unsigned short indices[MAX_INDEX + 10];
+    int num_of_vertices;
+    int num_of_indices;
+    int num_of_mask_tex_vertices;
+    int num_of_tex_vertices;
 
     GLenum draw_buffer;
     cairo_bool_t stencil_test_enabled;

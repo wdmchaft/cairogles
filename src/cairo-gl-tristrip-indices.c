@@ -46,18 +46,18 @@ _cairo_gl_tristrip_indices_init (cairo_gl_tristrip_indices_t *indices)
 {
     indices->setup = NULL;
 
-    _cairo_array_init (&indices->vertices, sizeof(float));
-    _cairo_array_init (&indices->indices, sizeof(unsigned short));
-    _cairo_array_init (&indices->mask_texture_coords, sizeof(float));
+    //_cairo_array_init (&indices->vertices, sizeof(float));
+    //_cairo_array_init (&indices->indices, sizeof(unsigned short));
+    //_cairo_array_init (&indices->mask_texture_coords, sizeof(float));
     return CAIRO_STATUS_SUCCESS;
 }
 
 void
 _cairo_gl_tristrip_indices_destroy (cairo_gl_tristrip_indices_t *indices)
 {
-    _cairo_array_fini (&indices->vertices);
-    _cairo_array_fini (&indices->indices);
-    _cairo_array_fini (&indices->mask_texture_coords);
+    //_cairo_array_fini (&indices->vertices);
+    //_cairo_array_fini (&indices->indices);
+    //_cairo_array_fini (&indices->mask_texture_coords);
 }
 
 cairo_status_t
@@ -65,8 +65,11 @@ _cairo_gl_tristrip_indices_append_vertex_indices (cairo_gl_tristrip_indices_t	*t
 						  unsigned short		 number_of_new_indices)
 {
     cairo_int_status_t status = CAIRO_INT_STATUS_SUCCESS;
-    cairo_array_t *indices = &tristrip_indices->indices;
-    int number_of_indices = _cairo_array_num_elements (indices);
+    cairo_gl_context_t *ctx = tristrip_indices->setup->ctx;
+    
+    //cairo_array_t *indices = &tristrip_indices->indices;
+    //int number_of_indices = _cairo_array_num_elements (indices);
+    int number_of_indices = ctx->num_of_indices;
     unsigned short current_vertex_index = 0;
     int i;
 
@@ -76,25 +79,25 @@ _cairo_gl_tristrip_indices_append_vertex_indices (cairo_gl_tristrip_indices_t	*t
        context, we insert a set of degenerate triangle from the last
        preexisting vertex to our first one. */
     if (number_of_indices > 0) {
-	const unsigned short *indices_array = _cairo_array_index_const (indices, 0);
-	current_vertex_index = indices_array[number_of_indices - 1];
+	//const unsigned short *indices_array = _cairo_array_index_const (indices, 0);
+	current_vertex_index = ctx->indices[number_of_indices - 1];
 
-	status = _cairo_array_append (indices, &current_vertex_index);
-	if (unlikely (status))
-	    return status;
+    ctx->indices[number_of_indices] = current_vertex_index;
+    number_of_indices++;
+    current_vertex_index++;
+    
+    ctx->indices[number_of_indices] = current_vertex_index;
+    number_of_indices++;
+   // current_vertex_index++;
 
-	current_vertex_index++;
-	status =_cairo_array_append (indices, &current_vertex_index);
-	if (unlikely (status))
-	    return status;
     }
 
     for (i = 0; i < number_of_new_indices; i++) {
-	status = _cairo_array_append (indices, &current_vertex_index);
+    ctx->indices[number_of_indices] = current_vertex_index;
 	current_vertex_index++;
-	if (unlikely (status))
-	    return status;
+    number_of_indices++;
     }
+    ctx->num_of_indices = number_of_indices;
 
     return CAIRO_STATUS_SUCCESS;
 }
@@ -103,12 +106,17 @@ cairo_status_t
 _cairo_gl_tristrip_add_vertex (cairo_gl_tristrip_indices_t	*indices,
 			       const cairo_point_t		*vertex)
 {
-    cairo_status_t status;
+    cairo_status_t status = CAIRO_INT_STATUS_SUCCESS;
+    cairo_gl_context_t *ctx = indices->setup->ctx;
+    int num_of_vertices = ctx->num_of_vertices;
+    
     float x = _cairo_fixed_to_double (vertex->x);
     float y = _cairo_fixed_to_double (vertex->y);
 
-    status = _cairo_array_append (&indices->vertices, &x);
-    status = _cairo_array_append (&indices->vertices, &y);
+    ctx->vertices[num_of_vertices] = x;
+    ctx->vertices[num_of_vertices+1] = y;
+    ctx->num_of_vertices += 2;
+    
     return status;
 }
 
@@ -120,7 +128,8 @@ _cairo_gl_tristrip_indices_add_quad (cairo_gl_tristrip_indices_t	*indices,
 
     /* Flush everything if the mesh is very complicated. */
     cairo_gl_composite_t *setup = indices->setup;
-    if (_cairo_array_num_elements (&indices->indices) > MAX_INDEX && setup != NULL) {
+    cairo_gl_context_t *ctx = setup->ctx;
+    if (ctx->num_of_indices + 6 > MAX_INDEX ) {
 	cairo_status_t status = _cairo_gl_fill(indices);
 	_cairo_gl_tristrip_indices_destroy (indices);
 	status = _cairo_gl_tristrip_indices_init (indices);
@@ -242,6 +251,7 @@ _cairo_gl_tristrip_indices_add_boxes_with_mask (cairo_gl_tristrip_indices_t *ind
     int i;
     cairo_status_t status;
     cairo_matrix_t m, m1;
+
     cairo_matrix_init_scale(&m, 1.0, 1.0);
     cairo_matrix_multiply(&m, &m, matrix);
     cairo_matrix_init_scale(&m1, 1.0 / mask->orig_width,
@@ -350,7 +360,11 @@ _cairo_gl_tristrip_indices_add_mask_texture_coord (cairo_gl_tristrip_indices_t	*
 {
     /* We ignore the status here, because eventually we are going to emit these vertices
       directly to a GL bound buffer. */
-    cairo_int_status_t status;
-    status = _cairo_array_append (&indices->mask_texture_coords, &x);
-    status =_cairo_array_append (&indices->mask_texture_coords, &y);
+    cairo_gl_context_t *ctx = indices->setup->ctx;
+    int num_of_vertices = ctx->num_of_mask_tex_vertices;
+    cairo_int_status_t status = CAIRO_INT_STATUS_SUCCESS;
+
+    ctx->mask_tex_vertices[num_of_vertices] = x;
+    ctx->mask_tex_vertices[num_of_vertices+1] = y;
+    ctx->num_of_mask_tex_vertices += 2;
 }

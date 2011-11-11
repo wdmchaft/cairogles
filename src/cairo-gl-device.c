@@ -213,6 +213,11 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
 
     ctx->draw_buffer = GL_NONE;
 
+    ctx->num_of_vertices = 0;
+    ctx->num_of_indices = 0;
+    ctx->num_of_tex_vertices = 0;
+    ctx->num_of_mask_tex_vertices = 0;
+
     ctx->depthmask_enabled = FALSE;
     ctx->stencil_test_enabled = FALSE;
     ctx->scissor_test_enabled = FALSE;

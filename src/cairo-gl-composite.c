@@ -1774,16 +1774,16 @@ _cairo_gl_composite_fill_constant_color(cairo_gl_context_t *ctx,
         	//_cairo_gl_set_operator (ctx, 13, TRUE);
 		   _cairo_gl_set_operator (ctx, CAIRO_OPERATOR_DEST_OUT, TRUE);
 		   //printf("draw DEST_OUT\n");
-       		glDrawElements (GL_TRIANGLE_STRIP, count, GL_UNSIGNED_SHORT, indices);
+       		glDrawElements (GL_TRIANGLE_STRIP, ctx->num_of_indices, GL_UNSIGNED_SHORT, ctx->indices);
 
         	_cairo_gl_set_shader (ctx, prev_shader);
         	_cairo_gl_set_operator (ctx, CAIRO_OPERATOR_ADD, TRUE);
         	//_cairo_gl_set_operator (ctx, CAIRO_OPERATOR_OVER, TRUE);
 		   //printf("draw ADD\n");
-        	glDrawElements (GL_TRIANGLE_STRIP, count, GL_UNSIGNED_SHORT, indices);
+        	glDrawElements (GL_TRIANGLE_STRIP, ctx->num_of_indices, GL_UNSIGNED_SHORT, ctx->indices);
     	}
 		else
-			glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_SHORT, indices);
+			glDrawElements(GL_TRIANGLE_STRIP, ctx->num_of_indices, GL_UNSIGNED_SHORT, ctx->indices);
 	}
 	else
 		glDrawArrays(GL_TRIANGLE_FAN, 0, count);

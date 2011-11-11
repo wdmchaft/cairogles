@@ -321,21 +321,14 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 	int number_of_indices = 0;
 	unsigned short *gl_indices = NULL;
 
-	number_of_vertices = _cairo_array_num_elements (&indices->vertices) / 2;
-	GLfloat *mask_texture_coords = NULL;
-	if (_cairo_array_num_elements (&indices->mask_texture_coords) > 0)
-    {
-		mask_texture_coords = _cairo_array_index (&indices->mask_texture_coords, 0);
-        memcpy(ctx->mask_tex_vertices, mask_texture_coords, sizeof(GLfloat) * (number_of_vertices) *2);
-    } 
+	number_of_vertices = ctx->num_of_vertices / 2;
 
-	vertices = _cairo_array_index (&indices->vertices, 0);
+	vertices = ctx->vertices;
+    GLfloat *mask_texture_coords = ctx->mask_tex_vertices;
 
-	number_of_indices = _cairo_array_num_elements (&indices->indices);
-	gl_indices = _cairo_array_index (&indices->indices, 0);
+	number_of_indices = ctx->num_of_indices;
+	gl_indices = ctx->indices;
 
-    // copy vertices to ctx->vertices
-    memcpy(ctx->vertices, vertices, sizeof(GLfloat) * number_of_vertices *2);
 
 	if(setup->src.type == CAIRO_GL_OPERAND_TEXTURE)
 	{
@@ -384,6 +377,10 @@ _cairo_gl_fill (cairo_gl_tristrip_indices_t *indices)
 	    free (src_colors);
     if(src_colors)
 	    free (src_v);
+    ctx->num_of_indices = 0;
+    ctx->num_of_vertices = 0;
+    ctx->num_of_tex_vertices = 0;
+    ctx->num_of_mask_tex_vertices = 0;
 	return status;
 }
 
@@ -394,9 +391,11 @@ _cairo_gl_add_triangle (void		   *closure,
     cairo_status_t status;
     cairo_gl_tristrip_indices_t *indices = (cairo_gl_tristrip_indices_t *)closure;
     cairo_gl_composite_t *setup = indices->setup;
+    cairo_gl_context_t *ctx = setup->ctx;
 
     /* Flush everything if the mesh is very complicated. */
-    if (_cairo_array_num_elements (&indices->indices) > MAX_INDEX && setup != NULL) {
+    if (ctx->num_of_indices + 5 > MAX_INDEX) {
+
 	cairo_status_t status = _cairo_gl_fill(indices);
 	_cairo_gl_tristrip_indices_destroy (indices);
 	status = _cairo_gl_tristrip_indices_init (indices);
@@ -420,9 +419,10 @@ _cairo_gl_add_triangle_fan(void			*closure,
     int i;
     cairo_gl_tristrip_indices_t *indices = (cairo_gl_tristrip_indices_t *)closure;
     cairo_gl_composite_t *setup = indices->setup;
+    cairo_gl_context_t *ctx = setup->ctx;
 
     /* Flush everything if the mesh is very complicated. */
-    if (_cairo_array_num_elements (&indices->indices) > MAX_INDEX && setup != NULL) {
+    if (ctx->num_of_indices + 5 * npoints > MAX_INDEX) {
 	cairo_status_t status = _cairo_gl_fill(indices);
 	_cairo_gl_tristrip_indices_destroy (indices);
 	status = _cairo_gl_tristrip_indices_init (indices);
@@ -442,6 +442,8 @@ _cairo_gl_add_triangle_fan(void			*closure,
 	if (unlikely (status))
 	    return status;
     }
+//    if(ctx->num_of_indices == 9996)
+//    printf("number of indices = %d\n", ctx->num_of_indices);
 
     return CAIRO_STATUS_SUCCESS;
 }
