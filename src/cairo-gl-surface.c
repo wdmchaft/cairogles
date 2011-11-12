@@ -97,6 +97,11 @@ _cairo_gl_surface_flush (void *abstract_surface);
 static void
 _cairo_gl_surface_remove_from_cache(cairo_surface_t *abstract_surface);
 
+static cairo_surface_t *
+_cairo_gl_surface_create_similar_for_single_sample (void		 *abstract_surface,
+				  cairo_content_t  content,
+				  int		  width,
+				  int		  height);
 static int
 _cairo_gl_surface_max_size(cairo_gl_surface_t *surface)
 {
@@ -512,7 +517,7 @@ _cairo_gl_surface_generate_npot_surface(cairo_gl_surface_t *src)
 		return src;
 	
 	extend_src = 
-		(cairo_gl_surface_t *)cairo_surface_create_similar(&src->base,
+		(cairo_gl_surface_t *)_cairo_gl_surface_create_similar_for_single_sample(&src->base,
 						cairo_surface_get_content(&src->base),
 						out_size_x,
 						out_size_y);
@@ -1514,6 +1519,24 @@ _cairo_gl_surface_create_similar (void		 *abstract_surface,
     return surface;
 }
 
+cairo_surface_t *
+_cairo_gl_surface_create_similar_for_single_sample (void		 *abstract_surface,
+				  cairo_content_t  content,
+				  int		  width,
+				  int		  height)
+{
+    cairo_gl_surface_t *gl_surface;
+    cairo_surface_t *surface = _cairo_gl_surface_create_similar (
+                        abstract_surface,
+                        content, 
+                        width,
+                        height);
+    if(surface->type == CAIRO_SURFACE_TYPE_GL) {
+    gl_surface = (cairo_gl_surface_t *)surface;
+    gl_surface->single_sample = TRUE;
+    }
+}
+
 // Henry Song
 static cairo_gl_surface_t *
 _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int extend)
@@ -1569,7 +1592,7 @@ _cairo_gl_generate_clone(cairo_gl_surface_t *surface, cairo_surface_t *src, int 
 		cairo_bool_t bounded  = _cairo_surface_get_extents(src, &recording_extents);
 		if(bounded == FALSE)
 			clone = (cairo_gl_surface_t *)
-				_cairo_gl_surface_create_similar(&surface->base, 
+				_cairo_gl_surface_create_similar_for_single_sample(&surface->base, 
 				src->content,
 				surface->width, surface->height);
 		else

@@ -255,7 +255,7 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
 	if(_cairo_gl_has_extension ("GL_IMG_multisampled_render_to_texture")) {
 	    glGetIntegerv(GL_MAX_SAMPLES_IMG, &ctx->max_sample_size);
 		//ctx->msaa-extension = 2;
-        ctx->max_sample_size = 1;
+        //ctx->max_sample_size = 1;
 	}
 #endif
 	}
@@ -547,7 +547,7 @@ _cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
                                               surface->rb);
         }
     }
-    else{
+    else {
 	// create single sample buffer
 	    dispatch->GenFramebuffers (1, &(surface->fb));
         dispatch->BindFramebuffer(GL_FRAMEBUFFER, surface->fb);
@@ -576,13 +576,51 @@ _cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
     return status;
 }
 #endif
+#if CAIRO_HAS_GLESV2_SURFACE
+static cairo_status_t
+_cairo_gl_ensure_single_sample_framebuffer_for_gles (
+                              cairo_gl_context_t *ctx,
+                              cairo_gl_surface_t *surface)
+{
+    cairo_status_t status = CAIRO_STATUS_SUCCESS;
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+	
+    dispatch->GenFramebuffers (1, &(surface->fb));
+    dispatch->BindFramebuffer(GL_FRAMEBUFFER, surface->fb);
+	
+    dispatch->FramebufferTexture2D (GL_FRAMEBUFFER,
+	                                GL_COLOR_ATTACHMENT0,
+	                                ctx->tex_target,
+	                                surface->tex,
+	                                0);
+    dispatch->GenRenderbuffers(1, &(surface->rb));
+	dispatch->BindRenderbuffer(GL_RENDERBUFFER, surface->rb);
+	glRenderbufferStorage(GL_RENDERBUFFER,
+	                      GL_DEPTH24_STENCIL8_OES,
+	                      surface->width, 
+                          surface->height);
+	dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+	                                  GL_DEPTH_ATTACHMENT, 
+                                      GL_RENDERBUFFER, 
+                                      surface->rb);
+	dispatch->FramebufferRenderbuffer(GL_FRAMEBUFFER,
+	                                  GL_STENCIL_ATTACHMENT, 
+                                      GL_RENDERBUFFER, surface->rb);
+	// check status
+	status = _cairo_gl_check_framebuffer_status(dispatch);
+    return status;
+}
+#endif
 
 cairo_status_t
 _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
                               cairo_gl_surface_t *surface)
 {
 #if CAIRO_HAS_GLESV2_SURFACE
-    return _cairo_gl_ensure_framebuffer_for_gles (ctx, surface);
+    if(surface->single_sample)
+        return _cairo_gl_ensure_single_sample_framebuffer_for_gles (ctx, surface);
+    else
+        return _cairo_gl_ensure_framebuffer_for_gles (ctx, surface);
 #elif CAIRO_HAS_GL_SURFACE
     return _cairo_gl_ensure_framebuffer_for_gl (ctx, surface);
 #endif
