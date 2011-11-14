@@ -264,6 +264,7 @@ typedef struct _cairo_gl_surface {
     int owns_tex;
     cairo_bool_t needs_update;
 
+    GLuint ms_tex;
 	// Henry Song
 	GLuint rb; /* GL render buffer for depth and stencil buffer */
 	GLuint ms_rb;

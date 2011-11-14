@@ -950,6 +950,7 @@ _cairo_gl_surface_init (cairo_device_t *device,
 
     surface->needs_update = FALSE;
 	surface->tex_img = 0;
+    surface->ms_tex = 0;
 	surface->external_tex = FALSE;
 	surface->width = surface->orig_width = width;
 	surface->height = surface->orig_height = height;
@@ -2093,6 +2094,9 @@ _cairo_gl_surface_finish (void *abstract_surface)
 	}
 	if(surface->tex_img != 0)
 		glDeleteTextures(1, (GLuint*)&surface->tex_img);
+
+    if(surface->ms_tex != 0)
+        glDeleteTextures(1, (GLuint *)&surface->ms_tex);
 
 	surface->external_tex = FALSE;
 
@@ -3432,10 +3436,15 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     if(clone != NULL && clone->multisample_resolved == FALSE)
         _cairo_gl_context_blit_destination(ctx, clone);
 
-    if(antialias != CAIRO_ANTIALIAS_NONE || 
-      (clip_pt != NULL && clip_pt->path != NULL && 
-       clip_pt->path->antialias != CAIRO_ANTIALIAS_NONE))
+    if(antialias != CAIRO_ANTIALIAS_NONE)
+    {
+      if((clip_pt != NULL && clip_pt->path != NULL && 
+       clip_pt->path->antialias != CAIRO_ANTIALIAS_NONE) ||
+        !_cairo_path_fixed_fill_is_rectilinear(path))
         surface->require_aa = TRUE;
+      else
+        surface->require_aa = FALSE;
+    }
     else
         surface->require_aa = FALSE;
     //surface->require_aa = FALSE;
