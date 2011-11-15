@@ -419,7 +419,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 	}
 	setup.source = source;
 	status = _cairo_gl_composite_set_source(&setup, source, 0, 0, 0, 0, 
-		dst->width, dst->height, NULL);
+		dst->width, dst->height, source);
 	if(unlikely(status))
 	{
 		//scaled_font->options.antialias = current_antialias;
@@ -525,7 +525,7 @@ _render_glyphs (cairo_gl_surface_t *dst, int dst_width, int dst_height,
 	}*/
 	setup.source = source;
 	status = _cairo_gl_composite_set_source(&setup, source, 0, 0, 0, 0, 
-		dst->width, dst->height, NULL);
+		dst->width, dst->height, source);
 	if(unlikely(status))
 	{
 		//scaled_font->options.antialias = current_antialias;
