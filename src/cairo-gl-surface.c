@@ -2608,17 +2608,12 @@ _cairo_gl_surface_mask (void *abstract_surface,
         //      surface_rect.width, surface_rect.height);
         glDisable(GL_SCISSOR_TEST);
     }*/
-    if(clip_pt != NULL && 
-       clip_pt->path != NULL && 
-       clip_pt->path->antialias != CAIRO_ANTIALIAS_NONE)
-        surface->require_aa = TRUE;
-    else
-        surface->require_aa = FALSE;
         
     if(clip_pt != NULL && _cairo_gl_clip_contains_rectangle(clip_pt, &surface_rect))
     {
         clip_pt = NULL;
     }
+  
 
 	//printf("get rectangle extents %ld usec\n", _get_tick() - now);
 	// upload image
@@ -2686,7 +2681,17 @@ _cairo_gl_surface_mask (void *abstract_surface,
 
     if(clip_pt == NULL)
         _cairo_gl_disable_scissor_test (ctx);
-
+    
+    if(clip_pt != NULL && 
+       clip_pt->path != NULL && 
+       clip_pt->path->antialias != CAIRO_ANTIALIAS_NONE)
+        surface->require_aa = TRUE;
+    else
+        surface->require_aa = FALSE;
+#if CAIRO_HAS_GLESV2_SURFACE
+    if(surface->multisample_resolved == TRUE)
+		surface->require_aa = FALSE;
+#endif
 	setup->ctx = ctx;
     
     //now = _get_tick();
@@ -2709,11 +2714,6 @@ _cairo_gl_surface_mask (void *abstract_surface,
 
 	//surface->require_aa = FALSE;
 	// we set require_aa to false if multisample is resolved
-	/*if(surface->multisample_resolved == TRUE)
-		surface->require_aa = FALSE;
-	else
-		surface->require_aa = TRUE;
-    */
 	_cairo_gl_context_set_destination(ctx, surface);
 /*
     if (clip != NULL && clip->path != NULL) {

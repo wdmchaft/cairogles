@@ -255,7 +255,7 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
 	if(_cairo_gl_has_extension ("GL_IMG_multisampled_render_to_texture")) {
 	    glGetIntegerv(GL_MAX_SAMPLES_IMG, &ctx->max_sample_size);
 		//ctx->msaa-extension = 2;
-        //ctx->max_sample_size = 1;
+        ctx->max_sample_size = 1;
 	}
 #endif
 	}
@@ -909,9 +909,9 @@ _cairo_gl_context_set_destination_for_gles (cairo_gl_context_t *ctx,
                 }
             }
 			// we are using either non AA or multisampling is not there
-            //if(ctx->bound_fb != surface->fb)
+            if(ctx->bound_fb != surface->fb)
                 dispatch->BindFramebuffer(GL_FRAMEBUFFER, surface->fb);
-            //else
+            else
                 bounded = TRUE;
             surface->multisample_resolved = TRUE;
             ctx->bound_fb = surface->fb;
@@ -945,9 +945,9 @@ _cairo_gl_context_set_destination_for_gles (cairo_gl_context_t *ctx,
                 ctx->multisample_enabled = FALSE;   
             }
         }
-        //if(ctx->bound_fb != 0)
-        //    ctx->dispatch.BindFramebuffer (GL_FRAMEBUFFER, 0);
-        //else
+        if(ctx->bound_fb != 0)
+            ctx->dispatch.BindFramebuffer (GL_FRAMEBUFFER, 0);
+        else
             bounded = TRUE;
         ctx->bound_fb = 0;
     }
@@ -1074,7 +1074,7 @@ _cairo_gl_context_blit_destination (cairo_gl_context_t *ctx,
                                  surface->width, surface->height);
                 
             //glBindFramebuffer (GL_FRAMEBUFFER, surface->fb);
-            //ctx->bound_fb = surface->fb;
+            ctx->bound_fb = surface->ms_fb;
             ctx->bounded_texture = surface->tex;
             //}
             }
