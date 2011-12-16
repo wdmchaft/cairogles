@@ -337,6 +337,9 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
     cairo_int_status_t status;
     cairo_operator_t op = composite->op;
 
+    if (should_fall_back (dst, CAIRO_ANTIALIAS_GOOD))
+	return CAIRO_INT_STATUS_UNSUPPORTED;
+
     /* GL compositing operators cannot properly represent a mask operation
        using the SOURCE compositing operator in one pass. This only matters if
        there actually is a mask (there isn't in a paint operation) and if the
@@ -394,7 +397,9 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
     if (unlikely (status))
 	goto finish;
 
-    status = _cairo_gl_composite_begin (&setup, &ctx);
+    /* We always use multisampling here, because we do not yet have the smarts
+       to calculate when the clip or the source requires it. */
+    status = _cairo_gl_composite_begin_multisample (&setup, &ctx, TRUE);
     if (unlikely (status))
 	goto finish;
 
@@ -478,6 +483,18 @@ _prevent_overlapping_drawing (cairo_gl_context_t *ctx,
     return CAIRO_INT_STATUS_SUCCESS;
 }
 
+static cairo_bool_t
+should_fall_back (cairo_gl_surface_t *surface,
+		  cairo_antialias_t antialias)
+{
+    if (antialias == CAIRO_ANTIALIAS_FAST)
+	return TRUE;
+    if (antialias == CAIRO_ANTIALIAS_NONE)
+	return FALSE;
+    return ! surface->supports_msaa;
+}
+
+
 static cairo_int_status_t
 _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
 				  cairo_composite_rectangles_t	*composite,
@@ -493,7 +510,7 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
     struct _tristrip_composite_info info;
     cairo_bool_t used_stencil_buffer_for_clip;
 
-    if (antialias != CAIRO_ANTIALIAS_NONE)
+    if (should_fall_back (dst, antialias))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
 
     if (composite->is_bounded == FALSE) {
@@ -531,7 +548,8 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
     if (unlikely (status))
 	goto finish;
 
-    status = _cairo_gl_composite_begin (&info.setup, &info.ctx);
+    status = _cairo_gl_composite_begin_multisample (&info.setup, &info.ctx,
+	antialias != CAIRO_ANTIALIAS_NONE);
     if (unlikely (status))
 	goto finish;
 
@@ -586,7 +604,7 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
     cairo_traps_t traps;
     cairo_bool_t used_stencil_buffer;
 
-    if (antialias != CAIRO_ANTIALIAS_NONE)
+    if (should_fall_back (dst, antialias))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
 
     if (composite->is_bounded == FALSE) {
@@ -629,7 +647,8 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
     if (unlikely (status))
 	goto cleanup_setup;
 
-    status = _cairo_gl_composite_begin (&setup, &ctx);
+    status = _cairo_gl_composite_begin_multisample (&setup, &ctx,
+	antialias != CAIRO_ANTIALIAS_NONE);
     if (unlikely (status))
 	goto cleanup_setup;
 
