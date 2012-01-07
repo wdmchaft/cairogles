@@ -202,19 +202,99 @@ destroy_program_core_2_0 (cairo_gl_context_t *ctx, GLuint shader)
     ctx->dispatch.DeleteProgram (shader);
 }
 
+typedef struct _cairo_gl_uniform_entry {
+    cairo_hash_entry_t base;
+    char *name;
+    GLint location;
+} cairo_gl_uniform_entry_t;
+
 static void
+_cairo_gl_uniform_init_key (cairo_gl_uniform_entry_t *key,
+			    const char *name)
+{
+    unsigned long sum = 0;
+    unsigned int i;
+
+    for (i = 0; i < strlen(name); i++)
+        sum += name[i];
+    key->base.hash = sum;
+    key->name = strdup(name);
+    key->location = -1;
+}
+
+static cairo_status_t
+create_gl_uniform_entry (const char *name,
+			 cairo_gl_uniform_entry_t **entry)
+{
+    *entry = malloc (sizeof (cairo_gl_uniform_entry_t));
+    if (unlikely (*entry == NULL))
+        return _cairo_error (CAIRO_STATUS_NO_MEMORY);
+
+    _cairo_gl_uniform_init_key (*entry, name);
+    return CAIRO_STATUS_SUCCESS;
+}
+
+
+static cairo_bool_t
+_cairo_gl_uniform_equal (const void *key_a,
+			 const void *key_b)
+{
+    const cairo_gl_uniform_entry_t *a = key_a;
+    const cairo_gl_uniform_entry_t *b = key_b;
+
+    return strcmp (a->name, b->name) == 0;
+}
+
+static cairo_int_status_t
+get_uniform_location (cairo_gl_context_t *ctx,
+		      cairo_gl_shader_t *shader,
+		      const char *name,
+		      GLint *location)
+{
+    cairo_gl_uniform_entry_t *key, *uniform_entry;
+    cairo_int_status_t status;
+
+    status = create_gl_uniform_entry (name, &key);
+    if (status)
+	return status;
+
+    //_cairo_gl_uniform_init_key (key, name);
+    uniform_entry = _cairo_hash_table_lookup (shader->uniform_cache,
+					      &key->base);
+    if (uniform_entry) {
+	*location = uniform_entry->location;
+	free (key->name);
+	free (key);
+	return CAIRO_INT_STATUS_SUCCESS;
+    }
+
+    key->location = ctx->dispatch.GetUniformLocation (shader->program, name);
+    status = _cairo_hash_table_insert (shader->uniform_cache, &key->base);
+    *location = key->location;
+
+    return status;
+}
+
+static cairo_int_status_t
 bind_float_core_2_0 (cairo_gl_context_t *ctx,
 		     cairo_gl_shader_t *shader,
 		     const char *name,
 		     float value)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
-    assert (location != -1);
+    GLint location;
+    cairo_int_status_t status;
+
+    status = get_uniform_location (ctx, shader, name, &location);
+    if (status)
+	return status;
+
+    assert(location != -1);
     dispatch->Uniform1f (location, value);
+    return CAIRO_INT_STATUS_SUCCESS;
 }
 
-static void
+static cairo_int_status_t
 bind_vec2_core_2_0 (cairo_gl_context_t *ctx,
 		    cairo_gl_shader_t *shader,
 		    const char *name,
@@ -222,12 +302,19 @@ bind_vec2_core_2_0 (cairo_gl_context_t *ctx,
 		    float value1)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
-    assert (location != -1);
+    GLint location;
+    cairo_int_status_t status;
+
+    status = get_uniform_location (ctx, shader, name, &location);
+    if (status)
+	return status;
+
+    assert(location != -1);
     dispatch->Uniform2f (location, value0, value1);
+    return CAIRO_INT_STATUS_SUCCESS;
 }
 
-static void
+static cairo_int_status_t
 bind_vec3_core_2_0 (cairo_gl_context_t *ctx,
 		    cairo_gl_shader_t *shader,
 		    const char *name,
@@ -236,12 +323,19 @@ bind_vec3_core_2_0 (cairo_gl_context_t *ctx,
 		    float value2)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
-    assert (location != -1);
+    GLint location;
+    cairo_int_status_t status;
+
+    status = get_uniform_location (ctx, shader, name, &location);
+    if (status)
+	return status;
+
+    assert(location != -1);
     dispatch->Uniform3f (location, value0, value1, value2);
+    return CAIRO_INT_STATUS_SUCCESS;
 }
 
-static void
+static cairo_int_status_t
 bind_vec4_core_2_0 (cairo_gl_context_t *ctx,
 		    cairo_gl_shader_t *shader,
 		    const char *name,
@@ -251,38 +345,59 @@ bind_vec4_core_2_0 (cairo_gl_context_t *ctx,
 		    float value3)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
-    assert (location != -1);
+    GLint location;
+    cairo_int_status_t status;
+
+    status = get_uniform_location (ctx, shader, name, &location);
+    if (status)
+	return status;
+
+    assert(location != -1);
     dispatch->Uniform4f (location, value0, value1, value2, value3);
+    return CAIRO_INT_STATUS_SUCCESS;
 }
 
-static void
+static cairo_int_status_t
 bind_matrix_core_2_0 (cairo_gl_context_t *ctx,
 		      cairo_gl_shader_t *shader,
 		      const char *name,
 		      cairo_matrix_t* m)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
+    GLint location;
+    cairo_int_status_t status;
     float gl_m[16] = {
         m->xx, m->xy, m->x0,
         m->yx, m->yy, m->y0,
         0,     0,     1
     };
-    assert (location != -1);
+
+    status = get_uniform_location (ctx, shader, name, &location);
+    if (status)
+	return status;
+
+    assert(location != -1);
     dispatch->UniformMatrix3fv (location, 1, GL_TRUE, gl_m);
+    return CAIRO_INT_STATUS_SUCCESS;
 }
 
-static void
+static cairo_int_status_t
 bind_matrix4f_core_2_0 (cairo_gl_context_t *ctx,
 		        cairo_gl_shader_t *shader,
 		        const char *name,
 		        GLfloat* gl_m)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    GLint location = dispatch->GetUniformLocation (shader->program, name);
-    assert (location != -1);
+    GLint location;
+    cairo_int_status_t status;
+
+    status = get_uniform_location (ctx, shader, name, &location);
+    if (status)
+	return status;
+
+    assert(location != -1);
     dispatch->UniformMatrix4fv (location, 1, GL_FALSE, gl_m);
+    return CAIRO_INT_STATUS_SUCCESS;
 }
 
 static void
@@ -290,9 +405,9 @@ use_program_core_2_0 (cairo_gl_context_t *ctx,
 		      cairo_gl_shader_t *shader)
 {
     if (shader)
-	ctx->dispatch.UseProgram (shader->program);
+        ctx->dispatch.UseProgram (shader->program);
     else
-	ctx->dispatch.UseProgram (0);
+        ctx->dispatch.UseProgram (0);
 }
 
 static const cairo_gl_shader_impl_t shader_impl_core_2_0 = {
@@ -393,6 +508,7 @@ _cairo_gl_shader_init (cairo_gl_shader_t *shader)
 {
     shader->fragment_shader = 0;
     shader->program = 0;
+    shader->uniform_cache = _cairo_hash_table_create (_cairo_gl_uniform_equal);
 }
 
 cairo_status_t
@@ -459,6 +575,16 @@ _cairo_gl_context_fini_shaders (cairo_gl_context_t *ctx)
     }
 
     _cairo_cache_fini (&ctx->shaders);
+    _cairo_gl_shader_fini (ctx, &ctx->fill_rectangles_shader);
+}
+
+static void
+destroy_uniform_callback (void *entry, void *closure)
+{
+    cairo_gl_uniform_entry_t *key = entry;
+    _cairo_hash_table_remove ((cairo_hash_table_t *) closure, &key->base);
+    free (key->name);
+    free (key);
 }
 
 void
@@ -470,6 +596,13 @@ _cairo_gl_shader_fini (cairo_gl_context_t *ctx,
 
     if (shader->program)
         ctx->shader_impl->destroy_program (ctx, shader->program);
+
+    if (shader->uniform_cache) {
+	_cairo_hash_table_foreach (shader->uniform_cache,
+				   destroy_uniform_callback,
+				   shader->uniform_cache);
+	_cairo_hash_table_destroy (shader->uniform_cache);
+    }
 }
 
 static const char *operand_names[] = { "source", "mask", "dest" };
@@ -1020,13 +1153,14 @@ _cairo_gl_shader_compile (cairo_gl_context_t *ctx,
  * texture unit 1 if present, so we can just initialize these once at
  * compile time.
  */
-static void
+static cairo_int_status_t
 _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
 			       cairo_gl_shader_t *shader)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
     GLint location;
     GLint saved_program;
+    cairo_int_status_t status;
 
     /* We have to save/restore the current program because we might be
      * asked for a different program while a shader is bound.  This shouldn't
@@ -1035,17 +1169,22 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
     glGetIntegerv (GL_CURRENT_PROGRAM, &saved_program);
     dispatch->UseProgram (shader->program);
 
-    location = dispatch->GetUniformLocation (shader->program, "source_sampler");
+    status = get_uniform_location (ctx, shader, "source_sampler", &location);
+    if (status)
+	return status;
     if (location != -1) {
 	dispatch->Uniform1i (location, CAIRO_GL_TEX_SOURCE);
     }
 
-    location = dispatch->GetUniformLocation (shader->program, "mask_sampler");
+    get_uniform_location (ctx, shader, "mask_sampler", &location);
+    if (status)
+	return status;
     if (location != -1) {
 	dispatch->Uniform1i (location, CAIRO_GL_TEX_MASK);
     }
 
     dispatch->UseProgram (saved_program);
+    return CAIRO_INT_STATUS_SUCCESS;
 }
 
 void
@@ -1172,21 +1311,23 @@ _cairo_gl_get_shader_by_type (cairo_gl_context_t *ctx,
 				       fs_source);
     free (fs_source);
 
-    if (unlikely (status)) {
-	free (entry);
-	return status;
-    }
+    if (unlikely (status))
+	goto error;
 
-    _cairo_gl_shader_set_samplers (ctx, &entry->shader);
+    status = _cairo_gl_shader_set_samplers (ctx, &entry->shader);
+    if (unlikely (status))
+	goto error;
 
     status = _cairo_cache_insert (&ctx->shaders, &entry->base);
-    if (unlikely (status)) {
-	_cairo_gl_shader_fini (ctx, &entry->shader);
-	free (entry);
-	return status;
-    }
+    if (unlikely (status))
+	goto error;
 
     *shader = &entry->shader;
 
     return CAIRO_STATUS_SUCCESS;
+
+error:
+    _cairo_gl_shader_fini (ctx, &entry->shader);
+    free (entry);
+    return status;
 }

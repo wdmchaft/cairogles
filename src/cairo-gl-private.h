@@ -198,6 +198,7 @@ typedef struct cairo_gl_shader_impl cairo_gl_shader_impl_t;
 typedef struct cairo_gl_shader {
     GLuint fragment_shader;
     GLuint program;
+    cairo_hash_table_t *uniform_cache;
 } cairo_gl_shader_t;
 
 typedef enum cairo_gl_shader_in {
