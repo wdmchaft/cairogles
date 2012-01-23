@@ -407,6 +407,7 @@ _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
 		 str, status);
     }
 }
+
 #if CAIRO_HAS_GL_SURFACE
 static void
 _cairo_gl_ensure_multisampling (cairo_gl_context_t *ctx,
@@ -537,6 +538,7 @@ _cairo_gl_ensure_stencil (cairo_gl_context_t *ctx,
 {
     if (! _cairo_gl_surface_is_texture (surface))
 	return TRUE; /* best guess for now, will check later */
+
     if (! ctx->has_packed_depth_stencil)
 	return FALSE;
 
@@ -681,6 +683,14 @@ _cairo_gl_context_set_destination (cairo_gl_context_t *ctx,
 	}
     } else {
         ctx->make_current (ctx, surface);
+
+#if CAIRO_HAS_GL_SURFACE
+	if (multisampling)
+	    glEnable(GL_MULTISAMPLE);
+	else
+	    glDisable(GL_MULTISAMPLE);
+#endif
+
         ctx->dispatch.BindFramebuffer (GL_FRAMEBUFFER, 0);
 
 #if CAIRO_HAS_GL_SURFACE
