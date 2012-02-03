@@ -3789,9 +3789,18 @@ cairo_gl_surface_get_image_surface(cairo_surface_t *abstract_surface)
 unsigned int
 cairo_gl_surface_get_texture(cairo_surface_t *abstract_surface)
 {
+	cairo_gl_context_t *ctx;
+	cairo_status_t status;
 	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
 	if(!_cairo_surface_is_gl(abstract_surface))
 		return 0;
+	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
+	if (unlikely (status))
+		return 0;
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	ctx->bound_fb = 0;
+	status = _cairo_gl_context_release (ctx, status);
 	return surface->tex;
 }
 
