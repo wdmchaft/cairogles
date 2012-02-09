@@ -264,7 +264,10 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
         }
         break;
     case CAIRO_GL_OPERAND_TEXTURE:
-        glActiveTexture (GL_TEXTURE0 + tex_unit);
+        if (ctx->states_cache.active_texture != GL_TEXTURE0 + tex_unit) {
+	    glActiveTexture (GL_TEXTURE0 + tex_unit);
+	    ctx->states_cache.active_texture = GL_TEXTURE0 + tex_unit;
+        }
         glBindTexture (ctx->tex_target, operand->texture.tex);
         _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
                                       operand->texture.attributes.extend,
@@ -294,7 +297,10 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
-        glActiveTexture (GL_TEXTURE0 + tex_unit);
+        if(ctx->states_cache.active_texture != GL_TEXTURE0 + tex_unit) {
+	    glActiveTexture (GL_TEXTURE0 + tex_unit);
+	    ctx->states_cache.active_texture = GL_TEXTURE0 + tex_unit;
+        }
         glBindTexture (ctx->tex_target, operand->gradient.gradient->tex);
         _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
 				      operand->gradient.extend, FALSE);
@@ -415,11 +421,35 @@ _cairo_gl_set_operator (cairo_gl_context_t *ctx,
     }
 
     if (ctx->current_target->base.content == CAIRO_CONTENT_ALPHA) {
-        glBlendFuncSeparate (GL_ZERO, GL_ZERO, src_factor, dst_factor);
+        /* cache glBlendFunc, src factor and dst factor, alpha factor */
+	if (ctx->states_cache.src_color_factor != GL_ZERO ||
+	   ctx->states_cache.dst_color_factor != GL_ZERO ||
+	   ctx->states_cache.src_alpha_factor != src_factor ||
+	   ctx->states_cache.dst_alpha_factor != dst_factor) {
+	    glBlendFuncSeparate (GL_ZERO, GL_ZERO, src_factor, dst_factor);
+	    ctx->states_cache.src_color_factor = GL_ZERO;
+	    ctx->states_cache.dst_color_factor = GL_ZERO;
+	    ctx->states_cache.src_alpha_factor = src_factor;
+	    ctx->states_cache.dst_alpha_factor = dst_factor;
+        }
     } else if (ctx->current_target->base.content == CAIRO_CONTENT_COLOR) {
-        glBlendFuncSeparate (src_factor, dst_factor, GL_ONE, GL_ONE);
+	if (ctx->states_cache.src_color_factor != src_factor ||
+	    ctx->states_cache.dst_color_factor != dst_factor ||
+	    ctx->states_cache.src_alpha_factor != GL_ONE ||
+	    ctx->states_cache.dst_alpha_factor != GL_ONE) {
+	    glBlendFuncSeparate (src_factor, dst_factor, GL_ONE, GL_ONE);
+	    ctx->states_cache.src_color_factor = src_factor;
+	    ctx->states_cache.dst_color_factor = dst_factor;
+	    ctx->states_cache.src_alpha_factor = GL_ONE;
+	    ctx->states_cache.dst_alpha_factor = GL_ONE;
+        }
     } else {
-        glBlendFunc (src_factor, dst_factor);
+        if (ctx->states_cache.src_color_factor != src_factor ||
+	    ctx->states_cache.dst_color_factor != dst_factor) {
+	    glBlendFunc (src_factor, dst_factor);
+	    ctx->states_cache.src_color_factor = src_factor;
+	    ctx->states_cache.dst_color_factor = dst_factor;
+        }
     }
 }
 
@@ -591,7 +621,6 @@ _disable_stencil_buffer (void)
 {
     if (glIsEnabled (GL_STENCIL_TEST))
         glDisable (GL_STENCIL_TEST);
-    glDepthMask (GL_FALSE);
 }
 
 void
@@ -624,7 +653,10 @@ _cairo_gl_composite_setup_painted_clipping (cairo_gl_composite_t *setup,
 	goto disable_stencil_buffer_and_return;
     }
 
-    glDepthMask (GL_TRUE);
+    if (! ctx->states_cache.depth_mask ) {
+	glDepthMask (GL_TRUE);
+	ctx->states_cache.depth_mask = TRUE;
+    }
     glEnable (GL_STENCIL_TEST);
     clip_extents = _cairo_clip_get_extents ((const cairo_clip_t *)clip);
     _cairo_gl_scissor_to_extents (dst, clip_extents);
@@ -727,7 +759,10 @@ _cairo_gl_composite_begin_multisample (cairo_gl_composite_t *setup,
 
     _cairo_gl_context_set_destination (ctx, setup->dst, multisampling);
 
-    glEnable (GL_BLEND);
+    if (ctx->states_cache.blend_enabled == FALSE) {
+	glEnable (GL_BLEND);
+	ctx->states_cache.blend_enabled = TRUE;
+    }
 
     component_alpha =
 	setup->mask.type == CAIRO_GL_OPERAND_TEXTURE &&

@@ -76,6 +76,7 @@ _glx_acquire (void *abstract_ctx)
         current_drawable = surface->win;
     }
 
+    _cairo_gl_context_reset (&ctx->base);
     glXMakeCurrent (ctx->display, current_drawable, ctx->context);
 }
 

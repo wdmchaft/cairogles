@@ -119,8 +119,14 @@ _gl_flush (void *device)
 
     ctx->dispatch.BindBuffer (GL_ARRAY_BUFFER, 0);
 
+    _cairo_gl_context_reset (ctx);
+
     _disable_scissor_buffer ();
-    glDisable (GL_BLEND);
+
+    if (ctx->states_cache.blend_enabled == TRUE ) {
+	glDisable (GL_BLEND);
+	ctx->states_cache.blend_enabled = FALSE;
+    }
 
     return _cairo_gl_context_release (ctx, status);
 }
@@ -332,6 +338,8 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
 		       sizeof (cairo_gl_image_t),
 		       _cairo_gl_image_node_destroy);
 
+    _cairo_gl_context_reset (ctx);
+
     return CAIRO_STATUS_SUCCESS;
 }
 
@@ -344,9 +352,15 @@ _cairo_gl_context_activate (cairo_gl_context_t *ctx,
             _cairo_gl_composite_flush (ctx);
             _cairo_gl_context_destroy_operand (ctx, ctx->max_textures - 1);
         }
-        glActiveTexture (ctx->max_textures - 1);
+        if (ctx->states_cache.active_texture != ctx->max_textures - 1) {
+	    glActiveTexture (ctx->max_textures - 1);
+	    ctx->states_cache.active_texture = ctx->max_textures - 1;
+        }
     } else {
-        glActiveTexture (GL_TEXTURE0 + tex_unit);
+        if (ctx->states_cache.active_texture != GL_TEXTURE0 + tex_unit) {
+	    glActiveTexture (GL_TEXTURE0 + tex_unit);
+	    ctx->states_cache.active_texture = GL_TEXTURE0 + tex_unit;
+        }
     }
 }
 
@@ -482,6 +496,8 @@ _cairo_gl_ensure_multisampling (cairo_gl_context_t *ctx,
     /* Cairo surfaces start out initialized to transparent (black) */
     _disable_scissor_buffer ();
     glClearColor (0, 0, 0, 0);
+    // reset cached clear colors
+    memset (&ctx->states_cache.clear_red, 0, sizeof (double) * 4);
     glClear (GL_COLOR_BUFFER_BIT);
 }
 #endif
@@ -781,7 +797,12 @@ _cairo_gl_context_set_destination (cairo_gl_context_t *ctx,
 #endif
     }
 
-    glViewport (0, 0, surface->width, surface->height);
+    if (ctx->states_cache.viewport_box.width != surface->width ||
+	ctx->states_cache.viewport_box.height != surface->height) {
+	glViewport (0, 0, surface->width, surface->height);
+	ctx->states_cache.viewport_box.width = surface->width;
+	ctx->states_cache.viewport_box.height = surface->height;
+    }
 
     if (_cairo_gl_surface_is_texture (surface))
 	_gl_identity_ortho (ctx->modelviewprojection_matrix,
@@ -800,4 +821,26 @@ cairo_gl_device_set_thread_aware (cairo_device_t	*device,
 	return;
     }
     ((cairo_gl_context_t *) device)->thread_aware = thread_aware;
+}
+
+void _cairo_gl_context_reset (cairo_gl_context_t *ctx)
+{
+    ctx->states_cache.viewport_box.width = 0;
+    ctx->states_cache.viewport_box.height = 0;
+
+    ctx->states_cache.clear_red = -1;
+    ctx->states_cache.clear_green = -1;
+    ctx->states_cache.clear_blue = -1;
+    ctx->states_cache.clear_alpha = -1;
+
+    ctx->states_cache.blend_enabled = FALSE;
+
+    ctx->states_cache.src_color_factor = CAIRO_GL_ENUM_UNINITIALIZED;
+    ctx->states_cache.dst_color_factor = CAIRO_GL_ENUM_UNINITIALIZED;
+    ctx->states_cache.src_alpha_factor = CAIRO_GL_ENUM_UNINITIALIZED;
+    ctx->states_cache.dst_alpha_factor = CAIRO_GL_ENUM_UNINITIALIZED;
+
+    ctx->states_cache.active_texture = CAIRO_GL_ENUM_UNINITIALIZED;
+
+    ctx->states_cache.depth_mask = FALSE;
 }
