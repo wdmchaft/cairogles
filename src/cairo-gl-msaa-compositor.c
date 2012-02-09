@@ -633,7 +633,10 @@ _prevent_overlapping_drawing (cairo_gl_context_t 		*ctx,
 	/* Enable the stencil buffer, even if we are not using it for clipping,
 	   so we can use it below to prevent overlapping shapes. We initialize
 	   it all to one here which represents infinite clip. */
-	glDepthMask (GL_TRUE);
+	if (! ctx->states_cache.depth_mask) {
+	    glDepthMask (GL_TRUE);
+	    ctx->states_cache.depth_mask = TRUE;
+	}
 	glEnable (GL_STENCIL_TEST);
 
 	/* If we don't have clip, then we will setup clip extents based on
