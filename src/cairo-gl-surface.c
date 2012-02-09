@@ -504,8 +504,20 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
         a = 1.0;
     }
 
+    if (ctx->states_cache.clear_red != r ||
+	ctx->states_cache.clear_green != g ||
+	ctx->states_cache.clear_blue != b ||
+	ctx->states_cache.clear_alpha != a) {
+
+	ctx->states_cache.clear_red = r;
+	ctx->states_cache.clear_green = g;
+	ctx->states_cache.clear_blue = b;
+	ctx->states_cache.clear_alpha = a;
+
+	glClearColor (r, g, b, a);
+    }
+
     glDisable (GL_SCISSOR_TEST);
-    glClearColor (r, g, b, a);
     glClear (GL_COLOR_BUFFER_BIT);
 
     return _cairo_gl_context_release (ctx, status);
