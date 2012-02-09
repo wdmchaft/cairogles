@@ -72,6 +72,7 @@ _egl_acquire (void *abstract_ctx)
         current_surface = surface->egl ;
     }
 
+    _cairo_gl_context_reset (&ctx->base);
     eglMakeCurrent (ctx->display,
 		    current_surface, current_surface, ctx->context);
 }
