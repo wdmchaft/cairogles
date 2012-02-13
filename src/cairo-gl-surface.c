@@ -2579,7 +2579,8 @@ _cairo_gl_surface_mask (void *abstract_surface,
 	
 	if (unlikely(status))
 		return status;
-    
+   
+    //long now = _get_tick(); 
     surface->require_aa = TRUE; 
     if(source->matrix.xy == 0)
         surface->require_aa = FALSE;
@@ -2928,7 +2929,7 @@ FINISH:
     //    glDisable(GL_SCISSOR_TEST);
     if (ctx)
     status = _cairo_gl_context_release(ctx, status);
-    
+    //printf ("\tmask takes %ld usec \n", _get_tick () - now);
     //glDepthMask(GL_FALSE);
     return status;
 }
@@ -3341,6 +3342,8 @@ _cairo_gl_surface_fill (void			*abstract_surface,
     if (unlikely (status))
 	return status;
 
+    //long now = _get_tick ();
+
     if (extents.is_bounded == 0) {
         _cairo_composite_rectangles_fini(&extents);
 	if (unlikely ((status = _cairo_gl_surface_prepare_mask_surface (surface))))
@@ -3526,6 +3529,7 @@ CLEANUP:
     if (clone != NULL)
 	cairo_surface_destroy (&clone->base);
     surface->require_aa = FALSE;
+    //printf ("\tfill takes %ld usec\n", _get_tick () - now);
     return status;
 }
 
@@ -3798,9 +3802,9 @@ cairo_gl_surface_get_texture(cairo_surface_t *abstract_surface)
 	if (unlikely (status))
 		return 0;
 
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	ctx->bound_fb = 0;
 	status = _cairo_gl_context_release (ctx, status);
+	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	ctx->bound_fb = 0;
 	return surface->tex;
 }
 

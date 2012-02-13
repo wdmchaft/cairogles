@@ -491,11 +491,11 @@ _cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
                               cairo_gl_surface_t *surface)
 {
     cairo_status_t status = CAIRO_STATUS_SUCCESS;
-    PFNGLRENDERBUFFERSTORAGEMULTISAMPLEIMGPROC
+    /*PFNGLRENDERBUFFERSTORAGEMULTISAMPLEIMGPROC
         pglRenderbufferStorageMultisampleIMG;
     PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEIMGPROC 
         pglFramebufferTexture2DMultisampleIMG;
-    
+    */
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
 	int sample_size = ctx->max_sample_size > SAMPLE_SIZE ? SAMPLE_SIZE : ctx->max_sample_size;
 	
@@ -508,6 +508,7 @@ _cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
 	//GLenum err;
 
 	// first create color renderbuffer
+/*
     if(sample_size > 1) {
         if(surface->ms_tex == 0)
         {
@@ -563,7 +564,7 @@ _cairo_gl_ensure_framebuffer_for_gles (cairo_gl_context_t *ctx,
                                               GL_RENDERBUFFER, 
                                               surface->ms_rb);
         }
-    }
+    } */
     //else 
     {
 	// create single sample buffer
