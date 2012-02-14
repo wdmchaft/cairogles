@@ -3030,7 +3030,6 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     long now, whole_now;
 	//cairo_rectangle_int_t *clip_extent, stroke_extent;
     
-    //now = _get_tick();
     //whole_now = now;
     //printf("&&&&&&&&&&&&&&&&&&& start stroke &&&&&&&&&&&&&&&&&&&&\n");
     status = _cairo_composite_rectangles_init_for_stroke (&extents,
@@ -3042,7 +3041,7 @@ _cairo_gl_surface_stroke (void			        *abstract_surface,
     if (unlikely (status))
 		return status;
     //printf("\tinit stroke %ld\n", _get_tick() - now);
-    
+    //now = _get_tick();
     if (extents.is_bounded == 0) {
         _cairo_composite_rectangles_fini(&extents);
 	if (unlikely ((status = _cairo_gl_surface_prepare_mask_surface (surface)))) {
@@ -3307,6 +3306,7 @@ CLEANUP:
     //if(has_alpha && clip_pt != NULL)
     //    cairo_surface_write_to_png(&surface->base, "/home/me/test.png");
     //printf("&&&&&&&&&&&&& finish stroke %ld &&&&&&&&&&&&&&&&&&\n\n", _get_tick() - whole_now);
+    //printf ("\tstroke takes %ld usec\n", _get_tick () - now);
     return status;
 }
 
@@ -3798,13 +3798,16 @@ cairo_gl_surface_get_texture(cairo_surface_t *abstract_surface)
 	cairo_gl_surface_t *surface = (cairo_gl_surface_t *)abstract_surface;
 	if(!_cairo_surface_is_gl(abstract_surface))
 		return 0;
-	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
+/*	status = _cairo_gl_context_acquire (surface->base.device, &ctx);
 	if (unlikely (status))
 		return 0;
+	surface->external_tex = TRUE;
+	surface->owns_tex = FALSE;
 
 	status = _cairo_gl_context_release (ctx, status);
 	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	ctx->bound_fb = 0;
+*/	
 	return surface->tex;
 }
 
