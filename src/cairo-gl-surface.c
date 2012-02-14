@@ -3805,7 +3805,6 @@ cairo_gl_surface_get_texture(cairo_surface_t *abstract_surface)
 	surface->owns_tex = FALSE;
 
 	status = _cairo_gl_context_release (ctx, status);
-	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	ctx->bound_fb = 0;
 */	
 	return surface->tex;

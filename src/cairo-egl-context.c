@@ -66,11 +66,11 @@ _egl_acquire (void *abstract_ctx)
     cairo_egl_context_t *ctx = abstract_ctx;
     EGLSurface current_surface;
    	cairo_egl_surface_t *surface = (cairo_egl_surface_t *) ctx->base.current_target;
-    /*
+    
 	EGLSurface current_su = eglGetCurrentSurface(EGL_DRAW);
 	EGLDisplay current_di = eglGetCurrentDisplay();
 	EGLContext current_co = eglGetCurrentContext();
-    */
+   
 	if(surface == NULL || _cairo_gl_surface_is_texture(ctx->base.current_target))
 	{
 		current_surface = ctx->dummy_surface;
@@ -78,9 +78,12 @@ _egl_acquire (void *abstract_ctx)
 	else 
 		current_surface = surface->egl;
 	
-	if(ctx->display != ctx->target_display ||
-		ctx->context != ctx->target_context ||
-		current_surface != ctx->target_surface)
+	//if(ctx->display != ctx->target_display ||
+	//	ctx->context != ctx->target_context ||
+	//	current_surface != ctx->target_surface)
+ 	if (ctx->display != current_di ||
+	    ctx->context != current_co ||
+	    current_surface != current_su)
 	{
             ctx->target_display = ctx->display;
             ctx->target_context = ctx->context;
