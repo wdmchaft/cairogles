@@ -80,6 +80,8 @@ static void
 _egl_release (void *abstract_ctx)
 {
     cairo_egl_context_t *ctx = abstract_ctx;
+    if (!ctx->base.thread_aware)
+	return;
 
     eglMakeCurrent (ctx->display,
 		    EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
@@ -112,6 +114,7 @@ _egl_destroy (void *abstract_ctx)
 
     eglMakeCurrent (ctx->display,
 		    EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+
     if (ctx->dummy_surface != EGL_NO_SURFACE)
         eglDestroySurface (ctx->display, ctx->dummy_surface);
 }
