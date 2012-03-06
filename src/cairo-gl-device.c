@@ -108,6 +108,11 @@ _gl_finish (void *device)
 
     _cairo_gl_context_fini_shaders (ctx);
 
+    if (ctx->shared_depth_stencil)
+	ctx->dispatch.DeleteRenderbuffers (1, &ctx->shared_depth_stencil);
+    if (ctx->shared_msaa_depth_stencil)
+	ctx->dispatch.DeleteRenderbuffers (1, &ctx->shared_msaa_depth_stencil);
+
     _gl_unlock (device);
 }
 
@@ -448,36 +453,54 @@ _cairo_gl_ensure_multisampling (cairo_gl_context_t *ctx,
 }
 #endif
 
+static void
+_cairo_gl_replace_msaa_depth_stencil_buffer (cairo_gl_context_t *ctx,
+					     int width,
+					     int height)
+{
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+
+    if (ctx->shared_msaa_depth_stencil)
+	dispatch->DeleteRenderbuffers (1, &ctx->shared_msaa_depth_stencil);
+
+    dispatch->GenRenderbuffers (1, &ctx->shared_msaa_depth_stencil);
+    dispatch->BindRenderbuffer (GL_RENDERBUFFER, ctx->shared_msaa_depth_stencil);
+    dispatch->RenderbufferStorageMultisample (GL_RENDERBUFFER, ctx->num_samples,
+					      _get_depth_stencil_format (ctx),
+					      width, height);
+    ctx->shared_msaa_depth_stencil_width = width;
+    ctx->shared_msaa_depth_stencil_height = height;
+}
+
 static cairo_bool_t
 _cairo_gl_ensure_msaa_depth_stencil_buffer (cairo_gl_context_t *ctx,
 					    cairo_gl_surface_t *surface)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
-    if (surface->msaa_depth_stencil)
-	return TRUE;
-
     _cairo_gl_ensure_framebuffer (ctx, surface);
 #if CAIRO_HAS_GL_SURFACE
     if (ctx->gl_flavor == CAIRO_GL_FLAVOR_DESKTOP)
 	_cairo_gl_ensure_multisampling (ctx, surface);
 #endif
 
-    dispatch->GenRenderbuffers (1, &surface->msaa_depth_stencil);
-    dispatch->BindRenderbuffer (GL_RENDERBUFFER,
-			        surface->msaa_depth_stencil);
+    if (! ctx->shared_msaa_depth_stencil ||
+        ctx->shared_msaa_depth_stencil_width < surface->width ||
+        ctx->shared_msaa_depth_stencil_height < surface->height) {
+	_cairo_gl_replace_msaa_depth_stencil_buffer (ctx,
+						     surface->width,
+						     surface->height);
+    }
 
-    dispatch->RenderbufferStorageMultisample (GL_RENDERBUFFER,
-					      ctx->num_samples,
-					      _get_depth_stencil_format (ctx),
-					      surface->width,
-					      surface->height);
+    assert (ctx->shared_msaa_depth_stencil);
+    if (surface->msaa_depth_stencil == ctx->shared_msaa_depth_stencil)
+	return TRUE;
 
 #if CAIRO_HAS_GL_SURFACE
     if (ctx->gl_flavor == CAIRO_GL_FLAVOR_DESKTOP) {
 	dispatch->FramebufferRenderbuffer (GL_FRAMEBUFFER,
 					   GL_DEPTH_STENCIL_ATTACHMENT,
 					   GL_RENDERBUFFER,
-					   surface->msaa_depth_stencil);
+					   ctx->shared_msaa_depth_stencil);
     }
 #endif
 
@@ -486,13 +509,15 @@ _cairo_gl_ensure_msaa_depth_stencil_buffer (cairo_gl_context_t *ctx,
 	dispatch->FramebufferRenderbuffer (GL_FRAMEBUFFER,
 					   GL_DEPTH_ATTACHMENT,
 					   GL_RENDERBUFFER,
-					   surface->msaa_depth_stencil);
+					   ctx->shared_msaa_depth_stencil);
 	dispatch->FramebufferRenderbuffer (GL_FRAMEBUFFER,
 					   GL_STENCIL_ATTACHMENT,
 					   GL_RENDERBUFFER,
-					   surface->msaa_depth_stencil);
+					   ctx->shared_msaa_depth_stencil);
     }
 #endif
+
+    surface->msaa_depth_stencil = ctx->shared_msaa_depth_stencil;
 
     if (dispatch->CheckFramebufferStatus (GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 	dispatch->DeleteRenderbuffers (1, &surface->msaa_depth_stencil);
@@ -503,27 +528,50 @@ _cairo_gl_ensure_msaa_depth_stencil_buffer (cairo_gl_context_t *ctx,
     return TRUE;
 }
 
+static void
+_cairo_gl_replace_depth_stencil_buffer (cairo_gl_context_t *ctx,
+					int width,
+					int height)
+{
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+
+    if (ctx->shared_depth_stencil)
+	dispatch->DeleteRenderbuffers (1, &ctx->shared_depth_stencil);
+
+    dispatch->GenRenderbuffers (1, &ctx->shared_depth_stencil);
+    dispatch->BindRenderbuffer (GL_RENDERBUFFER, ctx->shared_depth_stencil);
+    dispatch->RenderbufferStorage (GL_RENDERBUFFER,
+				   _get_depth_stencil_format (ctx),
+				   width, height);
+    ctx->shared_depth_stencil_width = width;
+    ctx->shared_depth_stencil_height = height;
+}
+
 static cairo_bool_t
 _cairo_gl_ensure_depth_stencil_buffer (cairo_gl_context_t *ctx,
 				       cairo_gl_surface_t *surface)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
 
-    if (surface->depth_stencil)
-	return TRUE;
-
     _cairo_gl_ensure_framebuffer (ctx, surface);
 
-    dispatch->GenRenderbuffers (1, &surface->depth_stencil);
-    dispatch->BindRenderbuffer (GL_RENDERBUFFER, surface->depth_stencil);
-    dispatch->RenderbufferStorage (GL_RENDERBUFFER,
-				   _get_depth_stencil_format (ctx),
-				   surface->width, surface->height);
+    if (! ctx->shared_depth_stencil ||
+        ctx->shared_depth_stencil_width < surface->width ||
+        ctx->shared_depth_stencil_height < surface->height) {
+	_cairo_gl_replace_depth_stencil_buffer (ctx,
+						surface->width,
+						surface->height);
+    }
+
+    if (surface->depth_stencil == ctx->shared_depth_stencil)
+	return TRUE;
 
     dispatch->FramebufferRenderbuffer (GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
-				       GL_RENDERBUFFER, surface->depth_stencil);
+				       GL_RENDERBUFFER, ctx->shared_depth_stencil);
     dispatch->FramebufferRenderbuffer (GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-				       GL_RENDERBUFFER, surface->depth_stencil);
+				       GL_RENDERBUFFER, ctx->shared_depth_stencil);
+    surface->depth_stencil = ctx->shared_depth_stencil;
+
     if (dispatch->CheckFramebufferStatus (GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 	dispatch->DeleteRenderbuffers (1, &surface->depth_stencil);
 	surface->depth_stencil = 0;
