@@ -162,6 +162,9 @@ _cairo_gl_msaa_compositor_draw_clip (cairo_gl_context_t		*ctx,
     cairo_antialias_t antialias;
     cairo_fill_rule_t fill_rule;
 
+    if (! clip)
+	return CAIRO_INT_STATUS_UNSUPPORTED;
+
     if (traps->num_traps == 0) {
 	status = _cairo_clip_get_polygon (clip, &polygon, &fill_rule,
 					  &antialias);
@@ -271,6 +274,9 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
     cairo_gl_surface_t *dst = (cairo_gl_surface_t *) composite->surface;
     cairo_gl_context_t *ctx = NULL;
     cairo_int_status_t status;
+    cairo_traps_t traps;
+
+    _cairo_traps_init (&traps);
 
     status = _cairo_gl_composite_init (&setup,
 				       CAIRO_OPERATOR_DEST_OUT,
@@ -292,7 +298,11 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
     if (unlikely (status))
 	goto finish;
 
-    _draw_int_rect (ctx, &setup, &composite->bounded);
+    if (! composite->clip)
+	status = _draw_int_rect (ctx, &setup, &composite->bounded);
+    else
+	status = _cairo_gl_msaa_compositor_draw_clip (ctx, &setup, composite->clip, &traps);
+
     _cairo_gl_composite_fini (&setup);
     status = _cairo_gl_context_release (ctx, status);
     ctx = NULL;
@@ -328,9 +338,13 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
     if (unlikely (status))
 	goto finish;
 
-    _draw_int_rect (ctx, &setup, &composite->bounded);
+    if (! composite->clip)
+	status = _draw_int_rect (ctx, &setup, &composite->bounded);
+    else
+	status = _cairo_gl_msaa_compositor_draw_clip (ctx, &setup, composite->clip, &traps);
 
 finish:
+    _cairo_traps_fini (&traps);
     _cairo_gl_composite_fini (&setup);
 
     if (ctx)
@@ -348,6 +362,7 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
     cairo_gl_context_t *ctx = NULL;
     cairo_int_status_t status;
     cairo_operator_t op = composite->op;
+    cairo_traps_t traps;
 
     if (should_fall_back (dst, CAIRO_ANTIALIAS_GOOD))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
@@ -428,7 +443,14 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
     if (unlikely (status))
 	goto finish;
 
-    _draw_int_rect (ctx, &setup, &composite->bounded);
+    _cairo_traps_init (&traps);
+
+    if (! composite->clip)
+	status = _draw_int_rect (ctx, &setup, &composite->bounded);
+    else
+	status = _cairo_gl_msaa_compositor_draw_clip (ctx, &setup, composite->clip, &traps);
+
+    _cairo_traps_fini (&traps);
 
 finish:
     _cairo_gl_composite_fini (&setup);
