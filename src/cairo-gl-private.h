@@ -813,6 +813,13 @@ _cairo_gl_glyph_cache_unlock (cairo_gl_glyph_cache_t *cache)
     _cairo_rtree_unpin (&cache->rtree);
 }
 
+static inline cairo_bool_t
+_cairo_gl_can_use_scissor_for_clip (cairo_clip_t *clip)
+{
+    return clip->num_boxes == 1 && clip->path == NULL;
+}
+
+
 
 slim_hidden_proto (cairo_gl_surface_create);
 slim_hidden_proto (cairo_gl_surface_create_for_texture);

@@ -537,7 +537,7 @@ _cairo_gl_composite_setup_painted_clipping (cairo_gl_composite_t *setup,
     cairo_gl_surface_t *dst = setup->dst;
     cairo_clip_t *clip = setup->clip;
 
-    if (clip->num_boxes == 1 && clip->path == NULL) {
+    if (_cairo_gl_can_use_scissor_for_clip (clip)) {
 	_scissor_to_box (dst, &clip->boxes[0]);
 	goto disable_stencil_buffer_and_return;
     }
