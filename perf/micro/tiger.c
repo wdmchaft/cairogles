@@ -38,8 +38,11 @@ do_tiger (cairo_t *cr, int width, int height, int loops)
     unsigned int i;
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_identity_matrix (cr);
 
 	cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);

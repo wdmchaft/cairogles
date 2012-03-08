@@ -40,6 +40,9 @@ typedef struct _cairo_stats {
     int iterations;
 } cairo_stats_t;
 
+/* XXX: add support for thread_aware for gl backend */
+void cairo_perf_set_thread_aware (cairo_t *cr, cairo_bool_t thread_aware);
+
 /* timers */
 
 void

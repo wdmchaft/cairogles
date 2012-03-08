@@ -62,8 +62,11 @@ draw (cairo_t *cr, int width, int height, int loops)
     cairo_set_line_width (cr, 1.);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_save (cr);
 	T (cr, t_width);
 

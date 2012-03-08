@@ -81,8 +81,11 @@ do_hash_table (cairo_t *cr, int width, int height, int loops)
     }
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+    	    cairo_perf_set_thread_aware (cr, TRUE); 
 	m.xx += 1.0;
 
 	/* Generate ITER new scaled fonts per loop */

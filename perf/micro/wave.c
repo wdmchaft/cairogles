@@ -66,8 +66,11 @@ do_wave (cairo_t *cr, int width, int height, int loops)
     wave = generate_random_waveform (cr, width, height);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	/* paint outline (and contents) */
 	cairo_set_source_rgb (cr, 1, 0, 0);
 	cairo_mask_surface (cr, wave, 0, 0);

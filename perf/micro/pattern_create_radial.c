@@ -59,10 +59,14 @@ static cairo_time_t
 do_pattern_create_radial (cairo_t *cr, int width, int height, int loops)
 {
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
 	cairo_pattern_t *pattern;
 	int i;
+
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 
 	for (i = 0; i < RADIALS_COUNT; i++) {
 	    pattern =

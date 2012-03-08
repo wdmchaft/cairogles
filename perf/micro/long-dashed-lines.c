@@ -50,9 +50,13 @@ do_long_dashed_lines (cairo_t *cr, int width, int height, int loops)
     }
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_stroke_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 

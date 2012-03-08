@@ -68,8 +68,12 @@ draw_random (cairo_t *cr, cairo_fill_rule_t fill_rule,
     cairo_close_path (cr);
 
     cairo_perf_timer_start ();
-    while (loops--)
+    cairo_perf_set_thread_aware (cr, FALSE);
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
         cairo_fill_preserve (cr);
+    }
     cairo_perf_timer_stop ();
 
     cairo_restore (cr);
@@ -110,8 +114,13 @@ draw_random_curve (cairo_t *cr, cairo_fill_rule_t fill_rule,
     cairo_close_path (cr);
 
     cairo_perf_timer_start ();
-    while (loops--)
+    cairo_perf_set_thread_aware (cr, FALSE);
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
         cairo_fill_preserve (cr);
+    }
+
     cairo_perf_timer_stop ();
 
     cairo_restore (cr);

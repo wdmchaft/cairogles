@@ -34,9 +34,13 @@ do_fill (cairo_t *cr, int width, int height, int loops)
 	       0, 2 * M_PI);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -73,9 +77,13 @@ do_fill_annuli (cairo_t *cr, int width, int height, int loops)
 	       2 * M_PI, 0);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+    	    cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -96,9 +104,13 @@ do_fill_eo_noaa (cairo_t *cr, int width, int height, int loops)
 	       0, 2 * M_PI);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+    	    cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 

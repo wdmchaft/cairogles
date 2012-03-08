@@ -64,8 +64,11 @@ do_pythagoras_tree (cairo_t *cr, int width, int height, int loops)
     double size = 128;
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+    	    cairo_perf_set_thread_aware (cr, TRUE); 
 	cairo_save (cr);
 	cairo_translate (cr, 0, height);
 	cairo_scale (cr, 1, -1);

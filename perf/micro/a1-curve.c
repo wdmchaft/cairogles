@@ -45,7 +45,11 @@ do_curve_stroke (cairo_t *cr, int width, int height, int loops)
     cairo_set_line_width (cr, 2.);
     cairo_perf_timer_start ();
 
+    cairo_perf_set_thread_aware (cr, FALSE);
+
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	double x1 = uniform_random (0, width);
 	double x2 = uniform_random (0, width);
 	double x3 = uniform_random (0, width);
@@ -67,8 +71,12 @@ do_curve_fill (cairo_t *cr, int width, int height, int loops)
 {
     state = 0xc0ffee;
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
+
 	double x0 = uniform_random (0, width);
 	double x1 = uniform_random (0, width);
 	double x2 = uniform_random (0, width);
