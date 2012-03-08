@@ -35,9 +35,13 @@ do_mask_solid (cairo_t *cr, int width, int height, int loops)
     mask = cairo_pattern_create_rgba (0, 0, 0, .5);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_mask (cr, mask);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -83,9 +87,13 @@ do_mask_image (cairo_t *cr, int width, int height, int loops)
     cairo_surface_destroy (surface);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_mask (cr, mask);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -110,9 +118,13 @@ do_mask_image_half (cairo_t *cr, int width, int height, int loops)
     cairo_pattern_set_matrix (mask, &matrix);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_mask (cr, mask);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -137,9 +149,13 @@ do_mask_image_double (cairo_t *cr, int width, int height, int loops)
     cairo_pattern_set_matrix (mask, &matrix);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_mask (cr, mask);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -162,9 +178,13 @@ do_mask_similar (cairo_t *cr, int width, int height, int loops)
     cairo_surface_destroy (surface);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_mask (cr, mask);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -190,9 +210,13 @@ do_mask_similar_half (cairo_t *cr, int width, int height, int loops)
     cairo_pattern_set_matrix (mask, &matrix);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_mask (cr, mask);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -218,9 +242,13 @@ do_mask_similar_double (cairo_t *cr, int width, int height, int loops)
     cairo_pattern_set_matrix (mask, &matrix);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_mask (cr, mask);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -239,9 +267,13 @@ do_mask_linear (cairo_t *cr, int width, int height, int loops)
     cairo_pattern_add_color_stop_rgba (mask, 0.0, 0, 0, 0, 1.0); /* 100% */
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_mask (cr, mask);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -261,9 +293,13 @@ do_mask_radial (cairo_t *cr, int width, int height, int loops)
     cairo_pattern_add_color_stop_rgba (mask, 0.0, 0, 0, 0, 1.0); /* 100% */
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_mask (cr, mask);
+    }
 
     cairo_perf_timer_stop ();
 

@@ -37,8 +37,11 @@ clip_paint (cairo_t *cr, int width, int height, int loops)
     int y = height/4, h = height/2;
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_reset_clip (cr);
 	cairo_rectangle (cr, x, y, w, h);
 	cairo_clip (cr);
@@ -57,8 +60,11 @@ rect_fill (cairo_t *cr, int width, int height, int loops)
     int y = height/4, h = height/2;
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_rectangle (cr, x, y, w, h);
 	cairo_fill (cr);
     }
@@ -95,8 +101,11 @@ direct (cairo_t *cr, int width, int height, int loops)
     }
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	pixman_fill ((uint32_t *)data, stride / sizeof(uint32_t), bpp,
 		     x, y, w, h,
 		     -1);

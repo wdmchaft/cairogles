@@ -58,8 +58,11 @@ do_composite_checker (cairo_t *cr,
     double yscale = height / (double) SRC_SIZE;
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	/* Fill the surface with our background. */
 	cairo_identity_matrix (cr);
 	cairo_set_source (cr, checkerboard);

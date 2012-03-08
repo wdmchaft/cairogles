@@ -45,8 +45,11 @@ do_rectangles (cairo_t *cr, int width, int height, int loops)
     int i;
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	for (i = 0; i < RECTANGLE_COUNT; i++) {
 	    cairo_rectangle (cr, rects[i].x, rects[i].y,
 			     rects[i].width, rects[i].height);
@@ -65,8 +68,11 @@ do_rectangles_once (cairo_t *cr, int width, int height, int loops)
     int i;
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	for (i = 0; i < RECTANGLE_COUNT; i++) {
 	    cairo_rectangle (cr, rects[i].x, rects[i].y,
 			     rects[i].width, rects[i].height);
@@ -84,8 +90,11 @@ static cairo_time_t
 do_rectangle (cairo_t *cr, int width, int height, int loops)
 {
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_rectangle (cr, 0, 0, width, height);
 	cairo_fill (cr);
     }

@@ -97,8 +97,13 @@ draw_spiral (cairo_t *cr,
     cairo_close_path (cr);
 
     cairo_perf_timer_start ();
-    while (loops--)
+    cairo_perf_set_thread_aware (cr, FALSE);
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
         cairo_fill_preserve (cr);
+    }
+
     cairo_perf_timer_stop ();
 
     cairo_restore (cr);
@@ -133,8 +138,13 @@ draw_spiral_box (cairo_t *cr,
     }
 
     cairo_perf_timer_start ();
-    while (loops--)
+    cairo_perf_set_thread_aware (cr, FALSE);
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
         cairo_fill_preserve (cr);
+    }
+
     cairo_perf_timer_stop ();
 
     cairo_restore (cr);
@@ -188,8 +198,13 @@ draw_spiral_stroke (cairo_t *cr,
     }
 
     cairo_perf_timer_start ();
-    while (loops--)
+    cairo_perf_set_thread_aware (cr, FALSE);
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
         cairo_stroke_preserve (cr);
+    }
+
     cairo_perf_timer_stop ();
 
     cairo_restore (cr);

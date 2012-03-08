@@ -107,14 +107,18 @@ do_tessellate (cairo_t *cr, int num_points, int loops)
 	cairo_line_to (cr, points[i].x, points[i].y);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     /* We'd like to measure just tessellation without
      * rasterization. For now, we can do that with cairo_in_fill. But
      * we'll have to be careful since cairo_in_fill might eventually
      * be optimized to have an implementation that doesn't necessarily
      * include tessellation. */
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_in_fill (cr, 50, 50);
+    }
 
     cairo_perf_timer_stop ();
 

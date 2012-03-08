@@ -22,8 +22,11 @@ do_twin (cairo_t *cr,
 			    CAIRO_FONT_WEIGHT_NORMAL);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	h = 2;
 	for (i = 8; i < 48; i >= 24 ? i+=3 : i++) {
 	    cairo_set_font_size (cr, i);
