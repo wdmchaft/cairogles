@@ -71,8 +71,11 @@ do_glyphs (double font_size,
 				     &extents);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	y = 0;
 	do {
 	    x = 0;

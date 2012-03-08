@@ -71,8 +71,11 @@ do_long_lines (cairo_t *cr, int width, int height, int loops, long_lines_crop_t 
     dy = outer_height / NUM_LINES;
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	for (i = 0; i <= NUM_LINES; i++) {
 	    cairo_move_to (cr, 0, 0);
 	    cairo_line_to (cr, x, min_y);

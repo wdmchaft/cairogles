@@ -37,9 +37,13 @@ do_stroke (cairo_t *cr, int width, int height, int loops)
     cairo_set_line_width (cr, width/5.0);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_stroke_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -75,9 +79,13 @@ do_strokes (cairo_t *cr, int width, int height, int loops)
     cairo_set_line_width (cr, 2.);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_stroke_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 

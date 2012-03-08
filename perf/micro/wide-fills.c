@@ -58,9 +58,13 @@ do_wide_fills_ha (cairo_t *cr, int width, int height, int loops)
     }
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -82,9 +86,13 @@ do_wide_fills_h (cairo_t *cr, int width, int height, int loops)
     }
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -106,9 +114,13 @@ do_wide_fills_va (cairo_t *cr, int width, int height, int loops)
     }
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -130,9 +142,13 @@ do_wide_fills_v (cairo_t *cr, int width, int height, int loops)
     }
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -159,9 +175,13 @@ do_wide_fills (cairo_t *cr, int width, int height, int loops)
     }
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 

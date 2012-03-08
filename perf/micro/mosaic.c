@@ -118,7 +118,10 @@ mosaic_perform(cairo_t *cr, unsigned flags, int width, int height, int loops)
      * tessellating them as dictated by the flags.  */
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	mosaic_region_iter_init (&iter, flags & MOSAIC_CURVE_TO);
 	while (mosaic_next_path (cr, &iter)) {
 	    if (flags & MOSAIC_FILL) {
@@ -131,6 +134,7 @@ mosaic_perform(cairo_t *cr, unsigned flags, int width, int height, int loops)
 	    }
 	}
     }
+
     cairo_perf_timer_stop ();
 
     return cairo_perf_timer_elapsed ();

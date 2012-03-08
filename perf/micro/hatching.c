@@ -95,6 +95,7 @@ draw (cairo_t *cr,
     prepare (cr);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
     while (loops--) {
 	cairo_save (cr);
 	transform (cr, width, height);
@@ -102,6 +103,9 @@ draw (cairo_t *cr,
 	op (cr);
 	cairo_restore (cr);
     }
+
+    cairo_perf_set_thread_aware (cr, TRUE);
+
     cairo_perf_timer_stop ();
 
     cairo_restore (cr);

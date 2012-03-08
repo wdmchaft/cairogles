@@ -104,8 +104,11 @@ do_dragon (cairo_t *cr, int width, int height, int loops)
     r = .5 * MIN (width, height);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	pattern = cairo_pattern_create_radial (cx, cy, 0., cx, cy, r);
 	cairo_pattern_add_color_stop_rgb (pattern, 0., .0, .0, .0);
 	cairo_pattern_add_color_stop_rgb (pattern, 0.25, .5, .4, .4);
@@ -169,8 +172,11 @@ do_dragon_solid (cairo_t *cr, int width, int height, int loops)
     cx = cy = .5 * MAX (width, height);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_set_source_rgb (cr, 0, 0, 0);
 	cairo_paint (cr);
 
