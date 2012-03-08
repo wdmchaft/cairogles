@@ -53,9 +53,13 @@ box_outline_stroke (cairo_t *cr, int width, int height, int loops)
     cairo_set_source_rgb (cr, 1, 0, 0); /* red */
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_stroke_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -77,9 +81,13 @@ box_outline_alpha_stroke (cairo_t *cr, int width, int height, int loops)
     cairo_set_source_rgba (cr, 1, 0, 0, .5); /* red */
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_stroke_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -102,9 +110,13 @@ box_outline_aa_stroke (cairo_t *cr, int width, int height, int loops)
     cairo_set_source_rgb (cr, 1, 0, 0); /* red */
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_stroke_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -129,9 +141,13 @@ box_outline_fill (cairo_t *cr, int width, int height, int loops)
     cairo_set_source_rgb (cr, 0, 1, 0); /* green */
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -156,9 +172,13 @@ box_outline_alpha_fill (cairo_t *cr, int width, int height, int loops)
     cairo_set_source_rgba (cr, 0, 1, 0, .5); /* green */
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -184,9 +204,13 @@ box_outline_aa_fill (cairo_t *cr, int width, int height, int loops)
     cairo_set_source_rgb (cr, 0, 1, 0); /* green */
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 

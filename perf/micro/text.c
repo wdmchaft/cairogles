@@ -36,8 +36,11 @@ do_text (cairo_t *cr, int width, int height, int loops)
     cairo_set_font_size (cr, 9);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	do {
 	    cairo_move_to (cr, 0, j++ * 10);
 	    cairo_show_text (cr, text + i);

@@ -62,8 +62,11 @@ do_world_map (cairo_t *cr, int width, int height, int loops, int mode)
     cairo_set_line_width (cr, 0.2);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_set_source_rgb (cr, .68, .85, .90); /* lightblue */
 	cairo_rectangle (cr, 0, 0, 800, 400);
 	cairo_fill (cr);

@@ -35,9 +35,13 @@ horizontal (cairo_t *cr, int width, int height, int loops)
     cairo_line_to (cr, width, h);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_stroke_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -69,9 +73,13 @@ nearly_horizontal (cairo_t *cr, int width, int height, int loops)
     cairo_line_to (cr, width, h+1);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+	    cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_stroke_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -104,9 +112,13 @@ vertical (cairo_t *cr, int width, int height, int loops)
     cairo_line_to (cr, w, height);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_stroke_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -138,9 +150,13 @@ nearly_vertical (cairo_t *cr, int width, int height, int loops)
     cairo_line_to (cr, w+1, height);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_stroke_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -171,9 +187,13 @@ diagonal (cairo_t *cr, int width, int height, int loops)
     cairo_line_to (cr, width, height);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_stroke_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 

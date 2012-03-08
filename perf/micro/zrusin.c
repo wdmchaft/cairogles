@@ -50,14 +50,18 @@ zrusin_another_tessellate (cairo_t *cr, int width, int height, int loops)
     zrusin_another_path (cr);
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
     /* We'd like to measure just tessellation without
      * rasterization. For now, we can do that with cairo_in_fill. But
      * we'll have to be careful since cairo_in_fill might eventually
      * be optimized to have an implementation that doesn't necessarily
      * include tessellation. */
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_in_fill (cr, 50, 50);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -73,9 +77,13 @@ zrusin_another_fill (cairo_t *cr, int width, int height, int loops)
     cairo_set_source_rgb (cr, 0.0, 0.0, 0.8); /* blue */
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 

@@ -56,9 +56,13 @@ do_many_curves_stroked (cairo_t *cr, int width, int height, int loops)
     }
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_stroke_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 
@@ -107,9 +111,13 @@ do_many_curves_filled (cairo_t *cr, int width, int height, int loops)
     }
 
     cairo_perf_timer_start ();
+    cairo_perf_set_thread_aware (cr, FALSE);
 
-    while (loops--)
+    while (loops--) {
+	if (loops == 0)
+		cairo_perf_set_thread_aware (cr, TRUE);
 	cairo_fill_preserve (cr);
+    }
 
     cairo_perf_timer_stop ();
 

@@ -46,6 +46,19 @@
 #include <sched.h>
 #endif
 
+/* XXX: add thread-aware for gl backend */
+#if CAIRO_HAS_GL_SURFACE || CAIRO_HAS_GLESV2_SURFACE
+#include <cairo-gl.h>
+#endif
+void cairo_perf_set_thread_aware (cairo_t *cr, cairo_bool_t thread_aware)
+{
+#if CAIRO_HAS_GL_SURFACE || CAIRO_HAS_GLESV2_SURFACE
+    cairo_device_t *device = cairo_surface_get_device (cairo_get_target (cr));
+    if (cairo_device_get_type (device) == CAIRO_DEVICE_TYPE_GL)
+	cairo_gl_device_set_thread_aware (device, thread_aware);
+#endif
+}
+
 
 /* timers */
 static cairo_time_t timer;
