@@ -92,17 +92,6 @@ _glx_query_current_state (cairo_glx_context_t * ctx)
     ctx->previous_drawable = glXGetCurrentDrawable ();
     ctx->previous_display = glXGetCurrentDisplay ();
     ctx->previous_context = glXGetCurrentContext ();
-
-    /* If any of the values were none, assume they are all none. Not all
-       drivers seem well behaved when it comes to using these values across
-       multiple threads. */
-    if (ctx->previous_drawable == None
-	|| ctx->previous_display == None
-	|| ctx->previous_context == None) {
-	ctx->previous_drawable = None;
-	ctx->previous_display = None;
-	ctx->previous_context = None;
-    }
 }
 
 static void
@@ -133,15 +122,10 @@ _glx_release (void *abstract_ctx)
 {
     cairo_glx_context_t *ctx = abstract_ctx;
 
-    if (ctx->has_multithread_makecurrent || !ctx->base.thread_aware ||
-	!_context_acquisition_changed_glx_state (ctx,
-						_glx_get_current_drawable (ctx))) {
+    if (ctx->has_multithread_makecurrent || !ctx->base.thread_aware)
 	return;
-    }
 
-    glXMakeCurrent (ctx->previous_display ? ctx->previous_display : ctx->display,
-		    ctx->previous_drawable,
-		    ctx->previous_context);
+    glXMakeCurrent (ctx->display, None, None);
 }
 
 static void
@@ -162,9 +146,7 @@ _glx_destroy (void *abstract_ctx)
     if (ctx->dummy_window != None)
 	XDestroyWindow (ctx->display, ctx->dummy_window);
 
-    glXMakeCurrent (ctx->previous_display ? ctx->previous_display : ctx->display,
-		    ctx->previous_drawable,
-		    ctx->previous_context);
+    glXMakeCurrent (ctx->display, None, None);
 }
 
 static cairo_status_t
@@ -230,10 +212,6 @@ cairo_glx_device_create (Display *dpy, GLXContext gl_ctx)
     ctx = calloc (1, sizeof (cairo_glx_context_t));
     if (unlikely (ctx == NULL))
 	return _cairo_gl_context_create_in_error (CAIRO_STATUS_NO_MEMORY);
-
-    /* We query the current state so that information is
-       accurate during release that happens later. */
-    _glx_query_current_state (ctx);
 
     status = _glx_dummy_ctx (dpy, gl_ctx, &dummy);
     if (unlikely (status)) {
