@@ -286,6 +286,88 @@ _cairo_gl_msaa_compositor_set_clip (cairo_composite_rectangles_t *composite,
     _cairo_gl_composite_set_clip (setup, composite->clip);
 }
 
+/* We use two passes to paint with SOURCE operator */
+/* The first pass, we use mask as source, to get dst1 = (1 - ma) * dst) with
+ * DEST_OUT operator.  In the second pass, we use ADD operator to achieve
+ * result = (src * ma) + dst1.  Combining two passes, we have
+ * result = (src * ma) + (1 - ma) * dst
+ */
+static cairo_int_status_t
+_cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compositor,
+						cairo_composite_rectangles_t *composite)
+{
+    cairo_gl_composite_t setup;
+    cairo_gl_surface_t *dst = (cairo_gl_surface_t *) composite->surface;
+    cairo_gl_context_t *ctx = NULL;
+    cairo_int_status_t status;
+
+    status = _cairo_gl_composite_init (&setup,
+				       CAIRO_OPERATOR_DEST_OUT,
+				       dst,
+				       FALSE /* assume_component_alpha */);
+    if (unlikely (status))
+	return status;
+
+    status = _cairo_gl_composite_set_source (&setup,
+					     &composite->mask_pattern.base,
+					     &composite->mask_sample_area,
+					     &composite->bounded);
+    if (unlikely (status))
+	goto finish;
+
+    _cairo_gl_composite_set_clip (&setup, composite->clip);
+
+    status = _cairo_gl_composite_begin_multisample (&setup, &ctx, TRUE);
+    if (unlikely (status))
+	goto finish;
+
+    _draw_int_rect (ctx, &setup, &composite->bounded);
+    _cairo_gl_composite_fini (&setup);
+    status = _cairo_gl_context_release (ctx, status);
+    ctx = NULL;
+    if (unlikely (status))
+        return status;
+
+     /* second pass */
+    status = _cairo_gl_composite_init (&setup,
+				       CAIRO_OPERATOR_ADD,
+				       dst,
+				       FALSE /* assume_component_alpha */);
+    if (unlikely (status))
+	return status;
+
+    status = _cairo_gl_composite_set_source (&setup,
+					     &composite->source_pattern.base,
+					     &composite->source_sample_area,
+					     &composite->bounded);
+    if (unlikely (status))
+	goto finish;
+
+    status = _cairo_gl_composite_set_mask (&setup,
+				           &composite->mask_pattern.base,
+					   &composite->source_sample_area,
+					   &composite->bounded);
+    if (unlikely (status))
+	goto finish;
+
+    _cairo_gl_composite_set_clip (&setup, composite->clip);
+    /* We always use multisampling here, because we do not yet have the smarts
+       to calculate when the clip or the source requires it. */
+    status = _cairo_gl_composite_begin_multisample (&setup, &ctx, TRUE);
+    if (unlikely (status))
+	goto finish;
+
+    _draw_int_rect (ctx, &setup, &composite->bounded);
+
+finish:
+    _cairo_gl_composite_fini (&setup);
+
+    if (ctx)
+	status = _cairo_gl_context_release (ctx, status);
+
+    return status;
+}
+
 static cairo_int_status_t
 _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 				cairo_composite_rectangles_t	*composite)
@@ -313,7 +395,7 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 				      &composite->source_sample_area))
 	    op = CAIRO_OPERATOR_OVER;
 	else
-	    return CAIRO_INT_STATUS_UNSUPPORTED;
+	    return _cairo_gl_msaa_compositor_mask_source_operator (compositor, composite);
     }
 
     if (_should_use_unbounded_surface (composite)) {
@@ -709,7 +791,8 @@ _cairo_gl_msaa_compositor_glyphs (const cairo_compositor_t	*compositor,
     info.font = scaled_font;
     info.glyphs = glyphs;
     info.num_glyphs = num_glyphs;
-    info.use_mask = overlap || ! composite->is_bounded;
+    info.use_mask = overlap || ! composite->is_bounded ||
+		    composite->op == CAIRO_OPERATOR_SOURCE;
     info.extents = composite->bounded;
 
     _cairo_scaled_font_freeze_cache (scaled_font);
