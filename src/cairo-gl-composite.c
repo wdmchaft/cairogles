@@ -51,6 +51,7 @@
 #include "cairo-clip-private.h"
 #include "cairo-error-private.h"
 #include "cairo-image-surface-private.h"
+#include "cairo-traps-private.h"
 
 cairo_int_status_t
 _cairo_gl_composite_set_source (cairo_gl_composite_t *setup,
@@ -550,6 +551,7 @@ _cairo_gl_composite_setup_painted_clipping (cairo_gl_composite_t *setup,
 
     cairo_gl_surface_t *dst = setup->dst;
     cairo_clip_t *clip = setup->clip;
+    cairo_traps_t traps;
 
     if (clip->num_boxes == 1 && clip->path == NULL) {
 	_scissor_to_box (dst, &clip->boxes[0]);
@@ -576,7 +578,9 @@ _cairo_gl_composite_setup_painted_clipping (cairo_gl_composite_t *setup,
     glStencilFunc (GL_EQUAL, 1, 0xffffffff);
     glColorMask (0, 0, 0, 0);
 
-    status = _cairo_gl_msaa_compositor_draw_clip (ctx, setup, clip);
+    _cairo_traps_init (&traps);
+    status = _cairo_gl_msaa_compositor_draw_clip (ctx, setup, clip, &traps);
+    _cairo_traps_fini (&traps);
 
     if (unlikely (status)) {
 	glColorMask (1, 1, 1, 1);

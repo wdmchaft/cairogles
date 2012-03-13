@@ -809,7 +809,8 @@ _cairo_gl_pattern_to_source (cairo_surface_t *dst,
 cairo_private cairo_int_status_t
 _cairo_gl_msaa_compositor_draw_clip (cairo_gl_context_t *ctx,
 				     cairo_gl_composite_t *setup,
-				     cairo_clip_t *clip);
+				     cairo_clip_t *clip,
+				     cairo_traps_t *traps);
 
 cairo_private cairo_surface_t *
 _cairo_gl_white_source (void);
