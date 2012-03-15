@@ -43,7 +43,7 @@
 
 /* Don't allow any differences greater than this value, even if pdiff
  * claims that the images are identical */
-#define PERCEPTUAL_DIFF_THRESHOLD 25
+#define PERCEPTUAL_DIFF_THRESHOLD 256
 
 /* Compare two buffers, returning the number of pixels that are
  * different and the maximum difference of any single color channel in
@@ -135,7 +135,10 @@ compare_surfaces (const cairo_test_context_t  *ctx,
     double gamma = 2.2;
     double luminance = 100.0;
     double field_of_view = 45.0;
+    float pixels_changed_percentage = 0.05;
     int discernible_pixels_changed;
+    int pixels_tolerance;
+    int width, height;
 
     /* First, we run cairo's old buffer_diff algorithm which looks for
      * pixel-perfect images, (we do this first since the test suite
@@ -167,9 +170,12 @@ compare_surfaces (const cairo_test_context_t  *ctx,
      * is lower than a threshold, otherwise some problems could be masked.
      */
     if (result->max_diff < PERCEPTUAL_DIFF_THRESHOLD) {
+	width = cairo_image_surface_get_width (surface_a);
+	height = cairo_image_surface_get_height (surface_a);
+	pixels_tolerance = width * height * pixels_changed_percentage;
         discernible_pixels_changed = pdiff_compare (surface_a, surface_b,
                                                     gamma, luminance, field_of_view);
-        if (discernible_pixels_changed == 0) {
+        if (discernible_pixels_changed <= pixels_tolerance) {
             result->pixels_changed = 0;
             cairo_test_log (ctx,
 		            "But perceptual diff finds no visually discernible difference.\n"
