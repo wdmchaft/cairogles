@@ -182,6 +182,7 @@ cairo_gl_context_get_glyph_cache (cairo_gl_context_t *ctx,
 {
     cairo_gl_glyph_cache_t *cache;
     cairo_content_t content;
+    cairo_bool_t true_alpha = FALSE;
 
     switch (format) {
     case CAIRO_FORMAT_RGB30:
@@ -195,6 +196,7 @@ cairo_gl_context_get_glyph_cache (cairo_gl_context_t *ctx,
     case CAIRO_FORMAT_A1:
 	cache = &ctx->glyph_cache[1];
         content = CAIRO_CONTENT_ALPHA;
+	true_alpha = TRUE;
 	break;
     default:
     case CAIRO_FORMAT_INVALID:
@@ -205,10 +207,12 @@ cairo_gl_context_get_glyph_cache (cairo_gl_context_t *ctx,
     if (unlikely (cache->surface == NULL)) {
         cairo_surface_t *surface;
 
-        surface = cairo_gl_surface_create (&ctx->base,
-                                           content,
-                                           GLYPH_CACHE_WIDTH,
-                                           GLYPH_CACHE_HEIGHT);
+	surface = _cairo_gl_surface_create_scratch (ctx,
+						    content,
+						    GLYPH_CACHE_WIDTH,
+						    GLYPH_CACHE_HEIGHT,
+						    true_alpha);
+
         if (unlikely (surface->status))
             return surface->status;
 

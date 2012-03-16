@@ -137,7 +137,9 @@ _cairo_gl_subsurface_clone_operand_init (cairo_gl_operand_t *operand,
 	    _cairo_gl_surface_create_scratch (ctx,
 					      sub->target->content,
 					      sub->extents.width,
-					      sub->extents.height);
+					      sub->extents.height,
+					      FALSE);
+
 	if (surface->base.status)
 	    return _cairo_gl_context_release (ctx, surface->base.status);
 
@@ -307,7 +309,8 @@ _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
     surface = (cairo_gl_surface_t *)
 	_cairo_gl_surface_create_scratch (ctx,
 					  CAIRO_CONTENT_COLOR_ALPHA,
-					  extents->width, extents->height);
+					  extents->width, extents->height,
+					  FALSE);
     image = cairo_surface_map_to_image (&surface->base, NULL);
 
     /* If the pattern is a GL surface, it belongs to some other GL context,
