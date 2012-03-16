@@ -770,7 +770,8 @@ cairo_private cairo_surface_t *
 _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 				  cairo_content_t	content,
 				  int			width,
-				  int			height);
+				  int			height,
+				  cairo_bool_t		true_alpha);
 
 cairo_private cairo_surface_t *
 _cairo_gl_pattern_to_source (cairo_surface_t *dst,
