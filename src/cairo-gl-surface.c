@@ -428,7 +428,8 @@ cairo_surface_t *
 _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 				  cairo_content_t	content,
 				  int			width,
-				  int			height)
+				  int			height,
+				  cairo_bool_t		true_alpha)
 {
     cairo_gl_surface_t *surface;
     GLenum format;
@@ -457,7 +458,10 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
 	break;
     case CAIRO_CONTENT_ALPHA:
 	/* We want to be trying GL_ALPHA framebuffer objects here. */
-	format = GL_RGBA;
+	if (true_alpha)
+	    format = GL_ALPHA;
+	else
+	    format = GL_RGBA;
 	break;
     case CAIRO_CONTENT_COLOR:
 	/* GL_RGB is almost what we want here -- sampling 1 alpha when
@@ -524,7 +528,7 @@ _cairo_gl_surface_create_and_clear_scratch (cairo_gl_context_t *ctx,
     cairo_int_status_t status;
 
     surface = (cairo_gl_surface_t *)
-	_cairo_gl_surface_create_scratch (ctx, content, width, height);
+	_cairo_gl_surface_create_scratch (ctx, content, width, height, FALSE);
     if (unlikely (surface->base.status))
 	return &surface->base;
 
@@ -919,7 +923,7 @@ _cairo_gl_surface_draw_image (cairo_gl_surface_t *dst,
 
         tmp = _cairo_gl_surface_create_scratch (ctx,
                                                 dst->base.content,
-                                                width, height);
+                                                width, height, FALSE);
         if (unlikely (tmp->status))
             goto FAIL;
 
