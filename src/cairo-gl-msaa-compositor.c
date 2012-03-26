@@ -272,7 +272,8 @@ static void
 _cairo_gl_msaa_compositor_set_clip (cairo_composite_rectangles_t *composite,
 				    cairo_gl_composite_t *setup)
 {
-    if (_cairo_composite_rectangles_can_reduce_clip (composite, composite->clip))
+    if (_cairo_clip_is_all_clipped (composite->clip) ||
+	_cairo_composite_rectangles_can_reduce_clip (composite, composite->clip))
 	return;
     _cairo_gl_composite_set_clip (setup, composite->clip);
 }
