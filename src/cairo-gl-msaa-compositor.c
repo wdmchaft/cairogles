@@ -46,6 +46,7 @@
 #include "cairo-compositor-private.h"
 #include "cairo-gl-private.h"
 #include "cairo-traps-private.h"
+#include "cairo-surface-subsurface-inline.h"
 
 static cairo_bool_t
 can_use_msaa_compositor (cairo_gl_surface_t *surface,
@@ -307,6 +308,44 @@ _cairo_gl_msaa_compositor_set_clip (cairo_composite_rectangles_t *composite,
     _cairo_gl_composite_set_clip (setup, composite->clip);
 }
 
+static void
+_gl_pattern_fix_reference_count (const cairo_pattern_t *pattern)
+{
+   cairo_pattern_type_t pattern_type = cairo_pattern_get_type ((cairo_pattern_t *)pattern);
+
+   /* We need to increase reference count on surface and gradient if
+      the original_source_pattern is a cairo_gl_source_t type. */
+    if (pattern_type == CAIRO_PATTERN_TYPE_SURFACE) {
+
+	cairo_surface_pattern_t *surface_pattern = (cairo_surface_pattern_t *)pattern;
+	cairo_surface_t *pattern_surface = surface_pattern->surface;
+
+	if (cairo_surface_get_type (pattern_surface) == CAIRO_SURFACE_TYPE_GL &&
+	    ! pattern_surface->device &&
+	    ! _cairo_surface_is_subsurface (pattern_surface)) {
+
+	    cairo_gl_source_t *_source = (cairo_gl_source_t *)pattern_surface;
+
+	    switch (_source->operand.type) {
+	    case CAIRO_GL_OPERAND_TEXTURE:
+		cairo_surface_reference (&(_source->operand.texture.owns_surface)->base);
+		break;
+	    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+	    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
+	    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
+	    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+		_cairo_gl_gradient_reference (_source->operand.gradient.gradient);
+		break;
+	    default:
+	    case CAIRO_GL_OPERAND_NONE:
+	    case CAIRO_GL_OPERAND_CONSTANT:
+	    case CAIRO_GL_OPERAND_COUNT:
+		break;
+	    }
+	}
+    }
+}
+
 /* We use two passes to paint with SOURCE operator */
 /* The first pass, we use mask as source, to get dst1 = (1 - ma) * dst) with
  * DEST_OUT operator.  In the second pass, we use ADD operator to achieve
@@ -331,6 +370,8 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
 				       FALSE /* assume_component_alpha */);
     if (unlikely (status))
 	goto finish;
+
+    _gl_pattern_fix_reference_count (composite->original_mask_pattern);
 
     status = _cairo_gl_composite_set_source (&setup,
 					     &composite->mask_pattern.base,
@@ -361,6 +402,8 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
 				       FALSE /* assume_component_alpha */);
     if (unlikely (status))
 	goto finish;
+
+    _gl_pattern_fix_reference_count (composite->original_source_pattern);
 
     status = _cairo_gl_composite_set_source (&setup,
 					     &composite->source_pattern.base,
@@ -462,6 +505,8 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 				       FALSE /* assume_component_alpha */);
     if (unlikely (status))
 	goto finish;
+
+    _gl_pattern_fix_reference_count (composite->original_source_pattern);
 
     status = _cairo_gl_composite_set_source (&setup,
 					     &composite->source_pattern.base,
