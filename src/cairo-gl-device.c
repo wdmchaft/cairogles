@@ -793,8 +793,6 @@ cairo_gl_device_set_thread_aware (cairo_device_t	*device,
 
 void _cairo_gl_context_reset (cairo_gl_context_t *ctx)
 {
-    ctx->current_shader = NULL;
-
     ctx->states_cache.viewport_box.width = 0;
     ctx->states_cache.viewport_box.height = 0;
 
