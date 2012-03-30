@@ -107,7 +107,8 @@ typedef enum cairo_gl_flavor {
 enum {
     CAIRO_GL_VERTEX_ATTRIB_INDEX = 0,
     CAIRO_GL_COLOR_ATTRIB_INDEX  = 1,
-    CAIRO_GL_TEXCOORD0_ATTRIB_INDEX = 2,
+    CAIRO_GL_COVERAGE_ATTRIB_INDEX  = 2,
+    CAIRO_GL_TEXCOORD0_ATTRIB_INDEX = 3,
     CAIRO_GL_TEXCOORD1_ATTRIB_INDEX = CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + 1
 };
 
@@ -147,6 +148,7 @@ typedef struct cairo_gl_operand {
 	} gradient;
     };
     unsigned int vertex_offset;
+    cairo_bool_t use_color_attribute;
 } cairo_gl_operand_t;
 
 typedef struct cairo_gl_source {
@@ -208,6 +210,7 @@ typedef enum cairo_gl_shader_in {
 
 typedef enum cairo_gl_var_type {
   CAIRO_GL_VAR_NONE,
+  CAIRO_GL_VAR_COLOR,
   CAIRO_GL_VAR_TEXCOORDS,
 } cairo_gl_var_type_t;
 
@@ -216,8 +219,8 @@ typedef enum cairo_gl_primitive_type {
     CAIRO_GL_PRIMITIVE_TYPE_TRISTRIPS
 } cairo_gl_primitive_type_t;
 
-#define cairo_gl_var_type_hash(src,mask,spans,dest) ((spans) << 3) | ((mask) << 2 | (src << 1) | (dest))
-#define CAIRO_GL_VAR_TYPE_MAX ((CAIRO_GL_VAR_TEXCOORDS << 3) | (CAIRO_GL_VAR_TEXCOORDS << 2) | (CAIRO_GL_VAR_TEXCOORDS << 1) | CAIRO_GL_VAR_TEXCOORDS)
+#define cairo_gl_var_type_hash(src,mask,spans,dest) ((spans) << 5) | ((mask) << 3 | (src << 1) | (dest))
+#define CAIRO_GL_VAR_TYPE_MAX ((CAIRO_GL_VAR_TEXCOORDS << 5) | (CAIRO_GL_VAR_TEXCOORDS << 3) | (CAIRO_GL_VAR_TEXCOORDS << 1) | CAIRO_GL_VAR_TEXCOORDS)
 
 typedef void (*cairo_gl_generic_func_t)(void);
 typedef cairo_gl_generic_func_t (*cairo_gl_get_proc_addr_func_t)(const char *procname);
@@ -521,7 +524,8 @@ cairo_private cairo_int_status_t
 _cairo_gl_composite_set_source (cairo_gl_composite_t *setup,
 			        const cairo_pattern_t *pattern,
 				const cairo_rectangle_int_t *sample,
-				const cairo_rectangle_int_t *extents);
+				const cairo_rectangle_int_t *extents,
+				cairo_bool_t use_color_attribute);
 
 cairo_private void
 _cairo_gl_composite_set_solid_source (cairo_gl_composite_t *setup,
@@ -691,7 +695,8 @@ _cairo_gl_operand_init (cairo_gl_operand_t *operand,
 		        const cairo_pattern_t *pattern,
 		        cairo_gl_surface_t *dst,
 			const cairo_rectangle_int_t *sample,
-			const cairo_rectangle_int_t *extents);
+			const cairo_rectangle_int_t *extents,
+			cairo_bool_t use_color_attribute);
 
 cairo_private void
 _cairo_gl_solid_operand_init (cairo_gl_operand_t *operand,
@@ -707,12 +712,13 @@ cairo_private cairo_extend_t
 _cairo_gl_operand_get_extend (cairo_gl_operand_t *operand);
 
 cairo_private unsigned int
-_cairo_gl_operand_get_vertex_size (cairo_gl_operand_type_t type);
+_cairo_gl_operand_get_vertex_size (cairo_gl_operand_t *operand);
 
 cairo_private cairo_bool_t
 _cairo_gl_operand_needs_setup (cairo_gl_operand_t *dest,
                                cairo_gl_operand_t *source,
-                               unsigned int        vertex_offset);
+                               unsigned int        vertex_offset,
+                               cairo_bool_t        *needs_flush);
 
 cairo_private void
 _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
