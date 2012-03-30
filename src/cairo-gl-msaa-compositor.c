@@ -347,7 +347,8 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
     status = _cairo_gl_composite_set_source (&setup,
 					     &composite->mask_pattern.base,
 					     &composite->mask_sample_area,
-					     &composite->bounded);
+					     &composite->bounded,
+					     FALSE);
     if (unlikely (status))
 	goto finish;
 
@@ -379,7 +380,8 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
     status = _cairo_gl_composite_set_source (&setup,
 					     &composite->source_pattern.base,
 					     &composite->source_sample_area,
-					     &composite->bounded);
+					     &composite->bounded,
+					     FALSE);
     if (unlikely (status))
 	goto finish;
 
@@ -421,6 +423,7 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
     cairo_int_status_t status;
     cairo_operator_t op = composite->op;
     cairo_traps_t traps;
+    cairo_bool_t use_color_attribute = FALSE;
 
     if (should_fall_back (dst, CAIRO_ANTIALIAS_GOOD))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
@@ -479,10 +482,15 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 
     _gl_pattern_fix_reference_count (composite->original_source_pattern);
 
+    if (! composite->clip ||
+	(composite->clip->num_boxes == 1 && ! composite->clip->path))
+	use_color_attribute = TRUE;
+
     status = _cairo_gl_composite_set_source (&setup,
 					     &composite->source_pattern.base,
 					     &composite->source_sample_area,
-					     &composite->bounded);
+					     &composite->bounded,
+					     use_color_attribute);
     if (unlikely (status))
 	goto finish;
 
@@ -569,6 +577,10 @@ _prevent_overlapping_drawing (cairo_gl_context_t *ctx,
 	return CAIRO_INT_STATUS_SUCCESS;
 
    if (glIsEnabled (GL_STENCIL_TEST) == FALSE) {
+       /* In case we have pending operations we have to flush before
+	  adding the stencil buffer. */
+       _cairo_gl_composite_flush (ctx);
+
 	/* Enable the stencil buffer, even if we are not using it for clipping,
 	   so we can use it below to prevent overlapping shapes. We initialize
 	   it all to one here which represents infinite clip. */
@@ -698,7 +710,8 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
     status = _cairo_gl_composite_set_source (&info.setup,
 					     &composite->source_pattern.base,
 					     &composite->source_sample_area,
-					     &composite->bounded);
+					     &composite->bounded,
+					     FALSE);
     if (unlikely (status))
 	goto finish;
 
@@ -759,7 +772,8 @@ _cairo_gl_msaa_compositor_fill_rectilinear (const cairo_compositor_t *compositor
     status = _cairo_gl_composite_set_source (&setup,
 					     &composite->source_pattern.base,
 					     &composite->source_sample_area,
-					     &composite->bounded);
+					     &composite->bounded,
+					     TRUE);
     if (unlikely (status))
 	goto cleanup_setup;
 
@@ -861,7 +875,8 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
     status = _cairo_gl_composite_set_source (&setup,
 					     &composite->source_pattern.base,
 					     &composite->source_sample_area,
-					     &composite->bounded);
+					     &composite->bounded,
+					     FALSE);
     if (unlikely (status))
 	goto cleanup_setup;
 
