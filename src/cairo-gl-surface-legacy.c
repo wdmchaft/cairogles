@@ -251,7 +251,8 @@ _cairo_gl_surface_composite (cairo_operator_t		  op,
     status = _cairo_gl_composite_set_source (&setup, src,
                                              src_x, src_y,
                                              dst_x, dst_y,
-                                             width, height);
+                                             width, height,
+                                             FALSE);
     if (unlikely (status))
         goto CLEANUP;
 
@@ -368,7 +369,8 @@ _cairo_gl_surface_fill_rectangles (void			   *abstract_dst,
     status = _cairo_gl_composite_set_source (&setup, &solid.base,
                                              0, 0,
                                              0, 0,
-                                             0, 0);
+                                             0, 0,
+                                             FALSE);
     if (unlikely (status))
         goto CLEANUP;
 
@@ -580,7 +582,8 @@ _cairo_gl_surface_create_span_renderer (cairo_operator_t	 op,
     status = _cairo_gl_composite_set_source (&renderer->setup, src,
                                              extents->x, extents->y,
                                              extents->x, extents->y,
-                                             extents->width, extents->height);
+                                             extents->width, extents->height,
+                                             FALSE);
     if (unlikely (status))
         goto FAIL;
 

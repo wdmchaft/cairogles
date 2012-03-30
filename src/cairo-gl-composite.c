@@ -52,15 +52,21 @@
 #include "cairo-error-private.h"
 #include "cairo-image-surface-private.h"
 
+union fi {
+    float f;
+    GLbyte bytes[4];
+} fi;
+
 cairo_int_status_t
 _cairo_gl_composite_set_source (cairo_gl_composite_t *setup,
 			        const cairo_pattern_t *pattern,
 				const cairo_rectangle_int_t *sample,
-				const cairo_rectangle_int_t *extents)
+				const cairo_rectangle_int_t *extents,
+				cairo_bool_t use_color_attribute)
 {
     _cairo_gl_operand_destroy (&setup->src);
     return _cairo_gl_operand_init (&setup->src, pattern, setup->dst,
-				   sample, extents);
+				   sample, extents, use_color_attribute);
 }
 
 void
@@ -95,7 +101,7 @@ _cairo_gl_composite_set_mask (cairo_gl_composite_t *setup,
        if op is CAIRO_OPERATOR_CLEAR AND pattern is a surface_pattern
      */
     status = _cairo_gl_operand_init (&setup->mask, pattern, setup->dst,
-				   sample, extents);
+                                     sample, extents, FALSE);
     if (unlikely (status))
 	return status;
 
@@ -225,15 +231,17 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
     cairo_bool_t needs_setup;
+    cairo_bool_t needs_flush = TRUE;
 
     /* XXX: we need to do setup when switching from shaders
      * to no shaders (or back) */
     needs_setup = ctx->vertex_size != vertex_size;
     needs_setup |= _cairo_gl_operand_needs_setup (&ctx->operands[tex_unit],
                                                  operand,
-                                                 vertex_offset);
+                                                 vertex_offset,
+                                                 &needs_flush);
 
-    if (needs_setup) {
+    if (needs_setup && needs_flush) {
         _cairo_gl_composite_flush (ctx);
         _cairo_gl_context_destroy_operand (ctx, tex_unit);
     }
@@ -252,6 +260,12 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
         break;
         /* fall through */
     case CAIRO_GL_OPERAND_CONSTANT:
+        if (operand->use_color_attribute) {
+            dispatch->VertexAttribPointer (CAIRO_GL_COLOR_ATTRIB_INDEX, 4,
+                                           GL_UNSIGNED_BYTE, GL_TRUE, vertex_size,
+                                           ctx->vb + vertex_offset);
+            dispatch->EnableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
+        }
         break;
     case CAIRO_GL_OPERAND_TEXTURE:
         glActiveTexture (GL_TEXTURE0 + tex_unit);
@@ -292,15 +306,15 @@ _cairo_gl_context_setup_spans (cairo_gl_context_t *ctx,
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
 
     if (! spans_enabled) {
-	dispatch->DisableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
+	dispatch->DisableVertexAttribArray (CAIRO_GL_COVERAGE_ATTRIB_INDEX);
 	ctx->spans = FALSE;
 	return;
     }
 
-    dispatch->VertexAttribPointer (CAIRO_GL_COLOR_ATTRIB_INDEX, 4,
+    dispatch->VertexAttribPointer (CAIRO_GL_COVERAGE_ATTRIB_INDEX, 4,
 				   GL_UNSIGNED_BYTE, GL_TRUE, vertex_size,
 				   ctx->vb + vertex_offset);
-    dispatch->EnableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
+    dispatch->EnableVertexAttribArray (CAIRO_GL_COVERAGE_ATTRIB_INDEX);
     ctx->spans = TRUE;
 }
 
@@ -321,6 +335,8 @@ _cairo_gl_context_destroy_operand (cairo_gl_context_t *ctx,
         break;
         /* fall through */
     case CAIRO_GL_OPERAND_CONSTANT:
+        if (ctx->operands[tex_unit].use_color_attribute)
+            ctx->dispatch.DisableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
         break;
     case CAIRO_GL_OPERAND_TEXTURE:
         dispatch->DisableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
@@ -721,8 +737,8 @@ _cairo_gl_set_operands_and_operator (cairo_gl_composite_t *setup,
     status = CAIRO_STATUS_SUCCESS;
 
     dst_size = 2 * sizeof (GLfloat);
-    src_size = _cairo_gl_operand_get_vertex_size (setup->src.type);
-    mask_size = _cairo_gl_operand_get_vertex_size (setup->mask.type);
+    src_size = _cairo_gl_operand_get_vertex_size (&setup->src);
+    mask_size = _cairo_gl_operand_get_vertex_size (&setup->mask);
     vertex_size = dst_size + src_size + mask_size;
 
     if (setup->spans)
