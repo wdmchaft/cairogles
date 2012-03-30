@@ -234,7 +234,8 @@ render_glyphs (cairo_gl_surface_t	*dst,
 	       cairo_surface_t	*source,
 	       cairo_composite_glyphs_info_t *info,
 	       cairo_bool_t		*has_component_alpha,
-	       cairo_clip_t *clip)
+	       cairo_clip_t *clip,
+	       cairo_bool_t via_msaa_compositor)
 {
     cairo_format_t last_format = CAIRO_FORMAT_INVALID;
     cairo_gl_glyph_cache_t *cache = NULL;
@@ -242,6 +243,7 @@ render_glyphs (cairo_gl_surface_t	*dst,
     cairo_gl_composite_t setup;
     cairo_int_status_t status;
     int i = 0;
+    cairo_bool_t is_argb32;
 
     TRACE ((stderr, "%s (%d, %d)x(%d, %d)\n", __FUNCTION__,
 	    info->extents.x, info->extents.y,
@@ -253,7 +255,22 @@ render_glyphs (cairo_gl_surface_t	*dst,
     if (unlikely (status))
 	return status;
 
-    status = _cairo_gl_composite_init (&setup, op, dst, TRUE);
+    /* Traps compositor never has CLEAR operator. */
+    is_argb32 =
+	info->font->options.antialias == CAIRO_ANTIALIAS_SUBPIXEL ||
+	info->font->options.antialias == CAIRO_ANTIALIAS_BEST;
+
+    /* If we are invoked by traps compositor, we keep what is in code
+       otherwise, we handle non-subpixel/best directly in msaa
+       compositor. */
+    if (!via_msaa_compositor)
+            status = _cairo_gl_composite_init (&setup, op, dst, TRUE);
+    else if (info->font->options.antialias == CAIRO_ANTIALIAS_SUBPIXEL ||
+       info->font->options.antialias == CAIRO_ANTIALIAS_BEST)
+        status = _cairo_gl_composite_init (&setup, op, dst, TRUE);
+    else
+        status = _cairo_gl_composite_init (&setup, op, dst, FALSE);
+
     if (unlikely (status))
 	goto FINISH;
 
@@ -294,6 +311,15 @@ render_glyphs (cairo_gl_surface_t	*dst,
 
 	    last_format = scaled_glyph->surface->format;
 
+	    /* In msaa compositor, clear operator needs component alpha,
+	       we need to reset to FALSE if previously clear operator
+	       has set it to TRUE. */
+	    if (via_msaa_compositor) {
+		if (op == CAIRO_OPERATOR_CLEAR || is_argb32)
+		    cache->surface->operand.texture.attributes.has_component_alpha = TRUE;
+		else
+		    cache->surface->operand.texture.attributes.has_component_alpha = FALSE;
+	    }
 	    _cairo_gl_composite_set_mask_operand (&setup, &cache->surface->operand);
 	    *has_component_alpha |= cache->surface->operand.texture.attributes.has_component_alpha;
 
@@ -344,6 +370,7 @@ render_glyphs (cairo_gl_surface_t	*dst,
     }
 
     status = CAIRO_STATUS_SUCCESS;
+
   FINISH:
     status = _cairo_gl_context_release (ctx, status);
 
@@ -357,7 +384,8 @@ render_glyphs_via_mask (cairo_gl_surface_t *dst,
 			cairo_operator_t  op,
 			cairo_surface_t *source,
 			cairo_composite_glyphs_info_t *info,
-			cairo_clip_t *clip)
+			cairo_clip_t *clip,
+			cairo_bool_t via_msaa_compositor)
 {
     cairo_surface_t *mask;
     cairo_status_t status;
@@ -376,7 +404,8 @@ render_glyphs_via_mask (cairo_gl_surface_t *dst,
     status = render_glyphs ((cairo_gl_surface_t *) mask,
 			    info->extents.x, info->extents.y,
 			    CAIRO_OPERATOR_ADD, NULL,
-			    info, &has_component_alpha, NULL);
+			    info, &has_component_alpha, NULL,
+			    via_msaa_compositor);
     if (likely (status == CAIRO_STATUS_SUCCESS)) {
 	cairo_surface_pattern_t mask_pattern;
 	cairo_surface_pattern_t source_pattern;
@@ -433,7 +462,8 @@ _cairo_gl_composite_glyphs_with_clip (void			    *_dst,
 				      int			     dst_x,
 				      int			     dst_y,
 				      cairo_composite_glyphs_info_t *info,
-				      cairo_clip_t		    *clip)
+				      cairo_clip_t			     *clip,
+				      cairo_bool_t			     via_msaa_compositor)
 {
     cairo_gl_surface_t *dst = _dst;
     cairo_bool_t has_component_alpha;
@@ -454,12 +484,14 @@ _cairo_gl_composite_glyphs_with_clip (void			    *_dst,
 
     if (info->use_mask) {
 	return render_glyphs_via_mask (dst, dst_x, dst_y,
-				       op, _src, info, clip);
+					   op, _src, info, clip,
+					   via_msaa_compositor);
     } else {
 	return render_glyphs (dst, dst_x, dst_y,
 			      op, _src, info,
 			      &has_component_alpha,
-			      clip);
+			      clip,
+			      via_msaa_compositor);
      }
 
 }
@@ -475,7 +507,7 @@ _cairo_gl_composite_glyphs (void			*_dst,
 			    cairo_composite_glyphs_info_t *info)
 {
     return _cairo_gl_composite_glyphs_with_clip (_dst, op, _src, src_x, src_y,
-					 	 dst_x, dst_y, info, NULL);
+						 dst_x, dst_y, info, NULL, FALSE);
 }
 
 void
