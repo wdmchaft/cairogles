@@ -169,6 +169,17 @@ _cairo_composite_rectangles_init_for_glyphs (cairo_composite_rectangles_t *exten
 					     cairo_bool_t		*overlap);
 
 cairo_private cairo_int_status_t
+_cairo_composite_rectangles_lazy_init_for_glyphs (cairo_composite_rectangles_t *extents,
+						  cairo_surface_t *surface,
+						  cairo_operator_t op,
+						  const cairo_pattern_t *source,
+						  cairo_scaled_font_t *scaled_font,
+						  cairo_glyph_t *glyphs,
+						  int num_glyphs,
+						  const cairo_clip_t *clip,
+						  cairo_bool_t *overlap);
+
+cairo_private cairo_int_status_t
 _cairo_composite_rectangles_intersect_source_extents (cairo_composite_rectangles_t *extents,
 						      const cairo_box_t *box);
 

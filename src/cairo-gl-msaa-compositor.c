@@ -894,7 +894,7 @@ _cairo_gl_msaa_compositor_glyphs (const cairo_compositor_t	*compositor,
     }
 
     src = _cairo_gl_pattern_to_source (&dst->base,
-				       &composite->source_pattern.base,
+				       composite->original_source_pattern,
 				       FALSE,
 				       &composite->bounded,
 				       &composite->source_sample_area,
