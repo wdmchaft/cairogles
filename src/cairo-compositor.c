@@ -332,19 +332,43 @@ _cairo_compositor_glyphs (const cairo_compositor_t		*compositor,
     cairo_composite_rectangles_t extents;
     cairo_bool_t overlap;
     cairo_int_status_t status;
+    cairo_bool_t initialized = TRUE;
 
     TRACE ((stderr, "%s\n", __FUNCTION__));
-    status = _cairo_composite_rectangles_init_for_glyphs (&extents, surface,
-							  op, source,
-							  scaled_font,
-							  glyphs, num_glyphs,
-							  clip, &overlap);
+
+    if (compositor->lazy_init) {
+	status = _cairo_composite_rectangles_lazy_init_for_glyphs (&extents, surface,
+								  op, source,
+								  scaled_font,
+								  glyphs, num_glyphs,
+								  clip, &overlap);
+	initialized = FALSE;
+    } else
+	status = _cairo_composite_rectangles_init_for_glyphs (&extents, surface,
+							     op, source,
+							     scaled_font,
+							     glyphs, num_glyphs,
+							     clip, &overlap);
     if (unlikely (status))
 	return status;
 
     do {
 	while (compositor->glyphs == NULL)
 	    compositor = compositor->delegate;
+
+	if (! compositor->lazy_init && ! initialized) {
+	    /* XXX: we should do better instead of re-init */
+	    _cairo_composite_rectangles_fini (&extents);
+	    status = _cairo_composite_rectangles_init_for_glyphs (&extents, surface,
+								 op, source,
+								 scaled_font,
+								 glyphs, num_glyphs,
+								 clip, &overlap);
+	    initialized = TRUE;
+
+	    if (unlikely (status))
+		return status;
+	}
 
 	status = compositor->glyphs (compositor, &extents,
 				     scaled_font, glyphs, num_glyphs, overlap);
