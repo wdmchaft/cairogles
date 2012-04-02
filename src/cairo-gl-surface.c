@@ -975,11 +975,16 @@ _cairo_gl_surface_finish (void *abstract_surface)
         return status;
 
     if (ctx->operands[CAIRO_GL_TEX_SOURCE].type == CAIRO_GL_OPERAND_TEXTURE &&
-        ctx->operands[CAIRO_GL_TEX_SOURCE].texture.surface == surface)
+        ctx->operands[CAIRO_GL_TEX_SOURCE].texture.surface == surface) {
+	_cairo_gl_composite_flush (ctx);
         _cairo_gl_context_destroy_operand (ctx, CAIRO_GL_TEX_SOURCE);
-    if (ctx->operands[CAIRO_GL_TEX_MASK].type == CAIRO_GL_OPERAND_TEXTURE &&
-        ctx->operands[CAIRO_GL_TEX_MASK].texture.surface == surface)
+    }
+    else if (ctx->operands[CAIRO_GL_TEX_MASK].type == CAIRO_GL_OPERAND_TEXTURE &&
+        ctx->operands[CAIRO_GL_TEX_MASK].texture.surface == surface) {
+	_cairo_gl_composite_flush (ctx);
         _cairo_gl_context_destroy_operand (ctx, CAIRO_GL_TEX_MASK);
+    }
+
     if (ctx->current_target == surface)
 	ctx->current_target = NULL;
 
