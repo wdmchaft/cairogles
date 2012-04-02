@@ -646,6 +646,36 @@ _cairo_composite_rectangles_init_for_glyphs (cairo_composite_rectangles_t *exten
     return _cairo_composite_rectangles_intersect (extents, clip);
 }
 
+cairo_int_status_t
+_cairo_composite_rectangles_lazy_init_for_glyphs (cairo_composite_rectangles_t *extents,
+						  cairo_surface_t *surface,
+						  cairo_operator_t op,
+						  const cairo_pattern_t *source,
+						  cairo_scaled_font_t *scaled_font,
+						  cairo_glyph_t *glyphs,
+						  int num_glyphs,
+						  const cairo_clip_t *clip,
+						  cairo_bool_t *overlap)
+{
+    cairo_status_t status;
+    cairo_bool_t should_be_lazy = TRUE;
+
+    if (! _cairo_composite_rectangles_init (extents, surface, op, source,
+					    clip, &should_be_lazy))
+	return CAIRO_INT_STATUS_NOTHING_TO_DO;
+
+    status = _cairo_scaled_font_glyph_device_extents (scaled_font,
+						      glyphs, num_glyphs,
+						      &extents->source,
+						      overlap);
+    if (unlikely (status))
+	return status;
+
+    extents->clip = _cairo_clip_copy (clip);
+
+    return CAIRO_INT_STATUS_SUCCESS;
+}
+
 cairo_bool_t
 _cairo_composite_rectangles_can_reduce_clip (cairo_composite_rectangles_t *composite,
 					     cairo_clip_t *clip)
