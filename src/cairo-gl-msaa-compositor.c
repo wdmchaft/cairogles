@@ -347,7 +347,6 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 	goto finish;
 
     _draw_int_rect (ctx, &setup, &composite->bounded);
-    _cairo_gl_composite_flush (ctx);
 
 finish:
     _cairo_gl_composite_fini (&setup);
@@ -556,8 +555,6 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
     if (unlikely (status))
 	goto finish;
 
-    _cairo_gl_composite_flush (info.ctx);
-
 finish:
     _cairo_gl_composite_fini (&info.setup);
 
@@ -635,7 +632,6 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
     if (unlikely (status))
         goto cleanup_setup;
 
-    _cairo_gl_composite_flush (ctx);
 cleanup_setup:
     _cairo_gl_composite_fini (&setup);
 
