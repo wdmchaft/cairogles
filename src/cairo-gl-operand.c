@@ -50,6 +50,7 @@
 #include "cairo-image-surface-private.h"
 #include "cairo-surface-backend-private.h"
 #include "cairo-surface-offset-private.h"
+#include "cairo-surface-snapshot-inline.h"
 #include "cairo-surface-subsurface-inline.h"
 
 static cairo_int_status_t
@@ -263,8 +264,28 @@ _cairo_gl_surface_operand_init (cairo_gl_operand_t *operand,
 	if (_cairo_surface_is_subsurface (&surface->base))
 	    return _cairo_gl_subsurface_operand_init (operand, _src, dst,
 						      sample, extents);
+	else if (_cairo_surface_is_snapshot (src->surface)) {
+	    cairo_surface_snapshot_t *surface_snapshot;
+	    cairo_pattern_t *sub_pattern;
 
-	return CAIRO_INT_STATUS_UNSUPPORTED;
+	    surface_snapshot = (cairo_surface_snapshot_t *)src->surface;
+	    surface = (cairo_gl_surface_t *)surface_snapshot->target;
+	    if (surface->base.type != CAIRO_SURFACE_TYPE_GL)
+	        return CAIRO_INT_STATUS_UNSUPPORTED;
+
+	    if (_cairo_surface_is_subsurface (&surface->base)) {
+		sub_pattern = cairo_pattern_create_for_surface (&surface->base);
+		status = _cairo_gl_subsurface_operand_init (operand,
+							    sub_pattern,
+							    dst,
+							    sample,
+							    extents);
+		cairo_pattern_destroy (sub_pattern);
+		return status;
+	    }
+	}
+	else
+	    return CAIRO_INT_STATUS_UNSUPPORTED;
     }
 
     if (surface->base.device &&
