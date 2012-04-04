@@ -97,6 +97,7 @@ _glx_acquire (void *abstract_ctx)
     if (!_context_acquisition_changed_glx_state (ctx))
 	return;
 
+    _cairo_gl_context_reset (&ctx->base);
     glXMakeCurrent (ctx->display, current_drawable, ctx->context);
 }
 
