@@ -73,6 +73,8 @@
 
 #define DEBUG_GL 0
 
+#define CAIRO_GL_ENUM_UNINITIALIZED 0xFFFF
+
 #if DEBUG_GL && __GNUC__
 #define UNSUPPORTED(reason) ({ \
     fprintf (stderr, \
@@ -429,6 +431,30 @@ typedef struct _cairo_gl_dispatch {
 					     GLint level, GLsizei samples);
 } cairo_gl_dispatch_t;
 
+typedef struct _cairo_gl_states {
+    cairo_rectangle_int_t viewport_box;
+
+    GLclampf clear_red;
+    GLclampf clear_green;
+    GLclampf clear_blue;
+    GLclampf clear_alpha;
+
+    cairo_bool_t blend_enabled;
+
+    GLenum src_color_factor;
+    GLenum dst_color_factor;
+    GLenum src_alpha_factor;
+    GLenum dst_alpha_factor;
+
+    GLenum active_texture;
+
+    cairo_bool_t depth_mask;
+
+    cairo_bool_t scissor_test_enabled;
+    cairo_bool_t stencil_test_enabled;
+
+} cairo_gl_states_t;
+
 struct _cairo_gl_context {
     cairo_device_t base;
 
@@ -484,6 +510,7 @@ struct _cairo_gl_context {
 
     cairo_gl_image_cache_t image_cache;
     cairo_gl_draw_mode_t draw_mode;
+    cairo_gl_states_t states_cache;
 
     void (*acquire) (void *ctx);
     void (*release) (void *ctx);
@@ -531,6 +558,9 @@ _cairo_gl_context_create_in_error (cairo_status_t status)
 
 cairo_private cairo_status_t
 _cairo_gl_context_init (cairo_gl_context_t *ctx);
+
+cairo_private void
+_cairo_gl_context_reset (cairo_gl_context_t *ctx);
 
 cairo_private void
 _cairo_gl_surface_init (cairo_device_t *device,
@@ -633,6 +663,42 @@ _cairo_gl_operator_is_supported (cairo_operator_t op);
 cairo_private cairo_bool_t
 _cairo_gl_ensure_stencil (cairo_gl_context_t *ctx,
 			  cairo_gl_surface_t *surface);
+
+static cairo_always_inline void
+_disable_stencil_buffer (cairo_gl_context_t *ctx)
+{
+    if (ctx->states_cache.stencil_test_enabled == TRUE) {
+        glDisable (GL_STENCIL_TEST);
+        ctx->states_cache.stencil_test_enabled = FALSE;
+    }
+}
+
+static cairo_always_inline void
+_disable_scissor_buffer (cairo_gl_context_t *ctx)
+{
+    if (ctx->states_cache.scissor_test_enabled == TRUE) {
+        glDisable (GL_SCISSOR_TEST);
+        ctx->states_cache.scissor_test_enabled = FALSE;
+    }
+}
+
+static cairo_always_inline void
+_enable_stencil_buffer (cairo_gl_context_t *ctx)
+{
+    if (ctx->states_cache.stencil_test_enabled == FALSE) {
+        glEnable (GL_STENCIL_TEST);
+        ctx->states_cache.stencil_test_enabled = TRUE;
+    }
+}
+
+static cairo_always_inline void
+_enable_scissor_buffer (cairo_gl_context_t *ctx)
+{
+    if (ctx->states_cache.scissor_test_enabled == FALSE) {
+        glEnable (GL_SCISSOR_TEST);
+        ctx->states_cache.scissor_test_enabled = TRUE;
+    }
+}
 
 cairo_private cairo_status_t
 _cairo_gl_composite_init (cairo_gl_composite_t *setup,

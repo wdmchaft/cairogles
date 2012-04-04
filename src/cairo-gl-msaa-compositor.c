@@ -626,9 +626,7 @@ _prevent_overlapping_strokes (cairo_gl_context_t 		*ctx,
 	_cairo_pattern_is_opaque_solid (pattern))
 	return CAIRO_INT_STATUS_SUCCESS;
 
-   if (glIsEnabled (GL_STENCIL_TEST) == FALSE) {
-	cairo_bool_t scissor_was_enabled;
-
+    if (ctx->states_cache.stencil_test_enabled == FALSE) {
        /* In case we have pending operations we have to flush before
 	  adding the stencil buffer. */
        _cairo_gl_composite_flush (ctx);
@@ -636,23 +634,27 @@ _prevent_overlapping_strokes (cairo_gl_context_t 		*ctx,
 	/* Enable the stencil buffer, even if we are not using it for clipping,
 	   so we can use it below to prevent overlapping shapes. We initialize
 	   it all to one here which represents infinite clip. */
-	glDepthMask (GL_TRUE);
+	if (! ctx->states_cache.depth_mask) {
+	    glDepthMask (GL_TRUE);
+	    ctx->states_cache.depth_mask = TRUE;
+	}
 	glEnable (GL_STENCIL_TEST);
+	ctx->states_cache.stencil_test_enabled = TRUE;
 
 	/* We scissor here so that we don't have to clear the entire stencil
 	 * buffer. If the scissor test is already enabled, it was enabled
 	 * for clipping. In that case, instead of calculating an intersection,
 	 * we just reuse it, and risk clearing too much. */
-	scissor_was_enabled = glIsEnabled (GL_SCISSOR_TEST);
-	if (! scissor_was_enabled) {
+	if (ctx->states_cache.scissor_test_enabled == FALSE) {
 	    _cairo_path_fixed_approximate_stroke_extents (path, style, ctm,
 							  &stroke_extents);
 	    _cairo_gl_scissor_to_rectangle (setup->dst, &stroke_extents);
+            glEnable (GL_SCISSOR_TEST);
+            ctx->states_cache.scissor_test_enabled = TRUE;
 	}
 	glClearStencil (1);
 	glClear (GL_STENCIL_BUFFER_BIT);
-	if (! scissor_was_enabled)
-	    glDisable (GL_SCISSOR_TEST);
+	_disable_scissor_buffer (ctx);
 
 	glStencilFunc (GL_EQUAL, 1, 1);
     }

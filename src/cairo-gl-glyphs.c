@@ -130,7 +130,11 @@ _cairo_gl_glyph_cache_add_glyph (cairo_gl_context_t *ctx,
 	return status;
 
     /* XXX: Make sure we use the mask texture. This should work automagically somehow */
-    glActiveTexture (GL_TEXTURE1);
+    if(ctx->states_cache.active_texture != GL_TEXTURE1)
+    {
+        glActiveTexture (GL_TEXTURE1);
+        ctx->states_cache.active_texture = GL_TEXTURE1;
+    }
     status = _cairo_gl_surface_draw_image (cache->surface, glyph_surface,
                                            0, 0,
                                            glyph_surface->width, glyph_surface->height,

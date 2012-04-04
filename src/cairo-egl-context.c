@@ -94,6 +94,7 @@ _egl_acquire (void *abstract_ctx)
     if (!_context_acquisition_changed_egl_state (ctx, current_surface))
 	return;
 
+    _cairo_gl_context_reset (&ctx->base);
     eglMakeCurrent (ctx->display,
 		    current_surface, current_surface, ctx->context);
 }
