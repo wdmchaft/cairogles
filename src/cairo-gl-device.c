@@ -93,7 +93,7 @@ _gl_flush (void *device)
 
     _cairo_gl_context_reset (ctx);
 
-    glDisable (GL_SCISSOR_TEST);
+    _disable_scissor_buffer ();
 
     if (ctx->states_cache.blend_enabled == TRUE ) {
 	glDisable (GL_BLEND);
@@ -462,7 +462,7 @@ _cairo_gl_ensure_multisampling (cairo_gl_context_t *ctx,
 					   surface->msaa_rb);
 
     /* Cairo surfaces start out initialized to transparent (black) */
-    glDisable (GL_SCISSOR_TEST);
+    _disable_scissor_buffer ();
     glClearColor (0, 0, 0, 0);
     // reset cached clear colors
     memset (&ctx->states_cache.clear_red, 0, sizeof (double) * 4);

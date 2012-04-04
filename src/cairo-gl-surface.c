@@ -521,7 +521,7 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
 	glClearColor (r, g, b, a);
     }
 
-    glDisable (GL_SCISSOR_TEST);
+    _disable_scissor_buffer ();
     glClear (GL_COLOR_BUFFER_BIT);
 
     return _cairo_gl_context_release (ctx, status);
