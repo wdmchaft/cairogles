@@ -91,7 +91,7 @@ _gl_flush (void *device)
 
     ctx->dispatch.BindBuffer (GL_ARRAY_BUFFER, 0);
 
-    glDisable (GL_SCISSOR_TEST);
+    _disable_scissor_test ();
     glDisable (GL_BLEND);
 
     return _cairo_gl_context_release (ctx, status);
@@ -467,7 +467,7 @@ _cairo_gl_ensure_multisampling (cairo_gl_context_t *ctx,
 					   surface->msaa_rb);
 
     /* Cairo surfaces start out initialized to transparent (black) */
-    glDisable (GL_SCISSOR_TEST);
+    _disable_scissor_test ();
     glClearColor (0, 0, 0, 0);
     glClear (GL_COLOR_BUFFER_BIT);
 }

@@ -546,11 +546,19 @@ _cairo_gl_composite_setup_vbo (cairo_gl_context_t *ctx,
     ctx->vertex_size = size_per_vertex;
 }
 
-static void
+void
 _disable_stencil_buffer (void)
 {
-    glDisable (GL_STENCIL_TEST);
+    if (glIsEnabled (GL_STENCIL_TEST))
+        glDisable (GL_STENCIL_TEST);
     glDepthMask (GL_FALSE);
+}
+
+void
+_disable_scissor_test (void)
+{
+    if (glIsEnabled (GL_SCISSOR_TEST))
+        glDisable (GL_SCISSOR_TEST);
 }
 
 static cairo_int_status_t
@@ -576,7 +584,7 @@ _cairo_gl_composite_setup_painted_clipping (cairo_gl_composite_t *setup,
     /* The clip is not rectangular, so use the stencil buffer. */
     glDepthMask (GL_TRUE);
     glEnable (GL_STENCIL_TEST);
-    glDisable (GL_SCISSOR_TEST);
+    _disable_scissor_test();
 
     /* Texture surfaces have private depth/stencil buffers, so we can
      * rely on any previous clip being cached there. */
@@ -594,7 +602,7 @@ _cairo_gl_composite_setup_painted_clipping (cairo_gl_composite_t *setup,
 
     glClearStencil (0);
     glClear (GL_STENCIL_BUFFER_BIT);
-    glDisable (GL_SCISSOR_TEST);
+    _disable_scissor_test();
 
     glStencilOp (GL_REPLACE, GL_REPLACE, GL_REPLACE);
     glStencilFunc (GL_EQUAL, 1, 0xffffffff);
@@ -664,7 +672,7 @@ _cairo_gl_composite_setup_clipping (cairo_gl_composite_t *setup,
                                                            vertex_size);
 disable_all_clipping:
     _disable_stencil_buffer ();
-    glDisable (GL_SCISSOR_TEST);
+    _disable_scissor_test ();
     return CAIRO_INT_STATUS_SUCCESS;
 }
 
