@@ -494,6 +494,12 @@ cairo_private cairo_bool_t
 _cairo_gl_ensure_stencil (cairo_gl_context_t *ctx,
 			  cairo_gl_surface_t *surface);
 
+cairo_private void
+_disable_scissor_buffer (void);
+
+cairo_private void
+_disable_stencil_buffer (void);
+
 cairo_private cairo_status_t
 _cairo_gl_composite_init (cairo_gl_composite_t *setup,
                           cairo_operator_t op,

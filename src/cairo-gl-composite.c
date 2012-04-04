@@ -534,11 +534,19 @@ _cairo_gl_composite_setup_vbo (cairo_gl_context_t *ctx,
     ctx->vertex_size = size_per_vertex;
 }
 
-static void
+void
 _disable_stencil_buffer (void)
 {
-    glDisable (GL_STENCIL_TEST);
+    if (glIsEnabled (GL_STENCIL_TEST))
+        glDisable (GL_STENCIL_TEST);
     glDepthMask (GL_FALSE);
+}
+
+void
+_disable_scissor_buffer (void)
+{
+    if (glIsEnabled (GL_SCISSOR_TEST))
+        glDisable (GL_SCISSOR_TEST);
 }
 
 static cairo_int_status_t
@@ -560,7 +568,7 @@ _cairo_gl_composite_setup_painted_clipping (cairo_gl_composite_t *setup,
 
     /* If we cannot reduce the clip to a rectangular region,
        we clip using the stencil buffer. */
-    glDisable (GL_SCISSOR_TEST);
+    _disable_scissor_buffer();
 
     if (! _cairo_gl_ensure_stencil (ctx, setup->dst)) {
 	status = CAIRO_INT_STATUS_UNSUPPORTED;
@@ -638,7 +646,7 @@ _cairo_gl_composite_setup_clipping (cairo_gl_composite_t *setup,
                                                            same_clip);
 
     _disable_stencil_buffer ();
-    glDisable (GL_SCISSOR_TEST);
+    _disable_scissor_buffer ();
     return CAIRO_INT_STATUS_SUCCESS;
 }
 
