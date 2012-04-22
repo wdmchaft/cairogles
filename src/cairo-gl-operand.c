@@ -324,7 +324,7 @@ _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
     cairo_gl_context_t *ctx;
     cairo_image_surface_t *image;
     cairo_bool_t src_is_gl_surface = FALSE;
-    cairo_rectangle_int_t map_extents;
+    pixman_format_code_t pixman_format;
 
     if (_src->type == CAIRO_PATTERN_TYPE_SURFACE) {
 	cairo_surface_t* src_surface = ((cairo_surface_pattern_t *) _src)->surface;
@@ -340,9 +340,29 @@ _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
 					  CAIRO_CONTENT_COLOR_ALPHA,
 					  extents->width, extents->height,
 					  FALSE);
-    map_extents = *extents;
-    map_extents.x = map_extents.y = 0;
-    image = _cairo_surface_map_to_image (&surface->base, &map_extents);
+
+    /* XXX: This is a hack for driver that does not support PBO, we
+       don't need an extra step of downloading newly created texture
+       to image, we can create image directly. */
+    if (! _cairo_is_little_endian ())
+	pixman_format = PIXMAN_r8g8b8a8;
+    else
+	pixman_format = PIXMAN_a8b8g8r8;
+    image = (cairo_image_surface_t*)
+	_cairo_image_surface_create_with_pixman_format (NULL,
+							pixman_format,
+							extents->width,
+							extents->height,
+							-1);
+    if (unlikely (image->base.status)) {
+	status = _cairo_gl_context_release (ctx, status);
+
+	/* The error status in the image is issue that caused the problem. */
+	status = image->base.status;
+
+	cairo_surface_destroy (&image->base);
+	goto fail;
+    }
 
     /* If the pattern is a GL surface, it belongs to some other GL context,
        so we need to release this device while we paint it to the image. */
