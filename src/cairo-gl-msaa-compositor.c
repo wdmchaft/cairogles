@@ -648,6 +648,7 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
     cairo_int_status_t status;
     cairo_gl_surface_t *dst = (cairo_gl_surface_t *) composite->surface;
     struct _tristrip_composite_info info;
+    cairo_bool_t use_color_attribute;
 
     if (! can_use_msaa_compositor (dst, antialias))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
@@ -679,12 +680,13 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
 	return status;
 
     info.ctx = NULL;
+    use_color_attribute = _cairo_path_fixed_stroke_is_rectilinear (path);
 
     status = _cairo_gl_composite_set_source (&info.setup,
 					     &composite->source_pattern.base,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     FALSE, FALSE);
+					     FALSE, use_color_attribute);
     if (unlikely (status))
 	goto finish;
 
