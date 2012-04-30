@@ -873,6 +873,47 @@ _cairo_gl_composite_prepare_buffer (cairo_gl_context_t *ctx,
 }
 
 static inline void
+_cairo_gl_composite_operand_emit (cairo_gl_operand_t *operand,
+                        GLfloat ** vb,
+                        GLfloat x,
+                        GLfloat y)
+{
+    switch (operand->type) {
+    default:
+    case CAIRO_GL_OPERAND_COUNT:
+        ASSERT_NOT_REACHED;
+    case CAIRO_GL_OPERAND_NONE:
+    case CAIRO_GL_OPERAND_CONSTANT:
+        break;
+    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
+    case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
+        {
+	    double s = x;
+	    double t = y;
+
+	    cairo_matrix_transform_point (&operand->gradient.m, &s, &t);
+
+	    *(*vb)++ = s;
+	    *(*vb)++ = t;
+        }
+	break;
+    case CAIRO_GL_OPERAND_TEXTURE:
+        {
+            cairo_surface_attributes_t *src_attributes = &operand->texture.attributes;
+            double s = x;
+            double t = y;
+
+            cairo_matrix_transform_point (&src_attributes->matrix, &s, &t);
+            *(*vb)++ = s;
+            *(*vb)++ = t;
+        }
+        break;
+    }
+}
+
+static inline void
 _cairo_gl_composite_emit_vertex (cairo_gl_context_t *ctx,
                                  GLfloat x,
                                  GLfloat y,
@@ -883,8 +924,8 @@ _cairo_gl_composite_emit_vertex (cairo_gl_context_t *ctx,
     *vb++ = x;
     *vb++ = y;
 
-    _cairo_gl_operand_emit (&ctx->operands[CAIRO_GL_TEX_SOURCE], &vb, x, y);
-    _cairo_gl_operand_emit (&ctx->operands[CAIRO_GL_TEX_MASK  ], &vb, x, y);
+    _cairo_gl_composite_operand_emit (&ctx->operands[CAIRO_GL_TEX_SOURCE], &vb, x, y);
+    _cairo_gl_composite_operand_emit (&ctx->operands[CAIRO_GL_TEX_MASK  ], &vb, x, y);
 
     if (ctx->spans) {
 	union fi {
@@ -902,7 +943,7 @@ _cairo_gl_composite_emit_vertex (cairo_gl_context_t *ctx,
     ctx->vb_offset += ctx->vertex_size;
 }
 
-static void
+static inline void
 _cairo_gl_composite_emit_point (cairo_gl_context_t	*ctx,
 				const cairo_point_t	*point,
 				uint8_t alpha)
@@ -945,7 +986,7 @@ _cairo_gl_composite_emit_glyph_vertex (cairo_gl_context_t *ctx,
     *vb++ = x;
     *vb++ = y;
 
-    _cairo_gl_operand_emit (&ctx->operands[CAIRO_GL_TEX_SOURCE], &vb, x, y);
+    _cairo_gl_composite_operand_emit (&ctx->operands[CAIRO_GL_TEX_SOURCE], &vb, x, y);
 
     *vb++ = glyph_x;
     *vb++ = glyph_y;
