@@ -732,12 +732,6 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
                                   cairo_gl_tex_t      tex_unit);
 
 cairo_private void
-_cairo_gl_operand_emit (cairo_gl_operand_t *operand,
-                        GLfloat ** vb,
-                        GLfloat x,
-                        GLfloat y);
-
-cairo_private void
 _cairo_gl_operand_copy (cairo_gl_operand_t *dst,
 			const cairo_gl_operand_t *src);
 
