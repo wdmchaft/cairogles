@@ -222,6 +222,7 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
     cairo_bool_t needs_setup;
     cairo_bool_t needs_flush = TRUE;
+    void *attrib_location = (void *) ((uintptr_t) vertex_offset);
 
     /* XXX: we need to do setup when switching from shaders
      * to no shaders (or back) */
@@ -242,6 +243,9 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
     if (! needs_setup)
         return;
 
+    if (! ctx->has_map_buffer)
+	attrib_location = (void *) (ctx->vb_mem + vertex_offset);
+
     switch (operand->type) {
     default:
     case CAIRO_GL_OPERAND_COUNT:
@@ -253,7 +257,7 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
         if (operand->use_color_attribute) {
             dispatch->VertexAttribPointer (CAIRO_GL_COLOR_ATTRIB_INDEX, 4,
                                            GL_FLOAT, GL_FALSE, vertex_size,
-                                           (void *) (uintptr_t) vertex_offset);
+                                           attrib_location);
             dispatch->EnableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
         }
         break;
@@ -270,7 +274,7 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
 
 	dispatch->VertexAttribPointer (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit, 2,
 					GL_FLOAT, GL_FALSE, vertex_size,
-					(void *) (uintptr_t) vertex_offset);
+					attrib_location);
 	dispatch->EnableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
         break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
@@ -287,7 +291,7 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
 
 	dispatch->VertexAttribPointer (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit, 2,
 				       GL_FLOAT, GL_FALSE, vertex_size,
-				       (void *) (uintptr_t) vertex_offset);
+				       attrib_location);
 	dispatch->EnableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
 	break;
     }
@@ -299,10 +303,14 @@ _cairo_gl_context_setup_spans (cairo_gl_context_t *ctx,
 			       unsigned int        vertex_offset)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    void *attrib_location = (void *) ((uintptr_t) vertex_offset);
+
+    if (! ctx->has_map_buffer)
+	attrib_location = (void *) (ctx->vb_mem + vertex_offset);
 
     dispatch->VertexAttribPointer (CAIRO_GL_COVERAGE_ATTRIB_INDEX, 4,
 				   GL_UNSIGNED_BYTE, GL_TRUE, vertex_size,
-				   (void *) (uintptr_t) vertex_offset);
+				   attrib_location);
     dispatch->EnableVertexAttribArray (CAIRO_GL_COVERAGE_ATTRIB_INDEX);
     ctx->spans = TRUE;
 }
@@ -547,14 +555,20 @@ static void
 _cairo_gl_composite_setup_vbo (cairo_gl_context_t *ctx,
 			       unsigned int size_per_vertex)
 {
+    void *attrib_location = NULL;
+
+    if (! ctx->has_map_buffer)
+	attrib_location = (void *) ctx->vb_mem;
+
     if (ctx->vertex_size != size_per_vertex)
         _cairo_gl_composite_flush (ctx);
 
     if (_cairo_gl_context_is_flushed (ctx)) {
+	if (ctx->has_map_buffer)
         ctx->dispatch.BindBuffer (GL_ARRAY_BUFFER, ctx->vbo);
 
 	ctx->dispatch.VertexAttribPointer (CAIRO_GL_VERTEX_ATTRIB_INDEX, 2,
-					   GL_FLOAT, GL_FALSE, size_per_vertex, NULL);
+					   GL_FLOAT, GL_FALSE, size_per_vertex, attrib_location);
 	ctx->dispatch.EnableVertexAttribArray (CAIRO_GL_VERTEX_ATTRIB_INDEX);
     }
     ctx->vertex_size = size_per_vertex;
@@ -845,9 +859,6 @@ _cairo_gl_composite_unmap_vertex_buffer (cairo_gl_context_t *ctx)
 {
     if (ctx->has_map_buffer)
 	ctx->dispatch.UnmapBuffer (GL_ARRAY_BUFFER);
-    else
-	ctx->dispatch.BufferData (GL_ARRAY_BUFFER, ctx->vb_offset,
-				  ctx->vb, GL_DYNAMIC_DRAW);
 
     ctx->vb = NULL;
     ctx->vb_offset = 0;
