@@ -217,10 +217,8 @@ _cairo_gl_subsurface_operand_init (cairo_gl_operand_t *operand,
     }
 
     surface = (cairo_gl_surface_t *) sub->target;
-    if (surface->base.device && surface->base.device != dst->base.device)
-	return CAIRO_INT_STATUS_UNSUPPORTED;
-
-    if (! _cairo_gl_surface_is_texture (surface))
+    if (surface->base.device && (surface->base.device != dst->base.device ||
+         (! _cairo_gl_surface_is_texture (surface) && ! surface->bounded_tex)))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
 
     status = _resolve_multisampling (surface);
@@ -278,7 +276,8 @@ _cairo_gl_surface_operand_init (cairo_gl_operand_t *operand,
     if (surface->base.device && surface->base.device != dst->base.device)
 	return CAIRO_INT_STATUS_UNSUPPORTED;
 
-    if (surface->base.device && ! _cairo_gl_surface_is_texture (surface))
+    if (surface->base.device && ! _cairo_gl_surface_is_texture (surface) &&
+	! surface->bounded_tex)
 	return CAIRO_INT_STATUS_UNSUPPORTED;
 
     status = _resolve_multisampling (surface);

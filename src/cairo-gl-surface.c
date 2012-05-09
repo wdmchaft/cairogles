@@ -1400,3 +1400,20 @@ static const cairo_surface_backend_t _cairo_gl_surface_backend = {
     NULL, /* fill/stroke */
     _cairo_gl_surface_glyphs,
 };
+
+cairo_status_t
+cairo_gl_surface_set_binding_texture (cairo_surface_t *abstract_surface,
+			       unsigned int    texture)
+{
+    cairo_gl_surface_t *surface = (cairo_gl_surface_t *) abstract_surface;
+
+    if ((cairo_surface_get_type (&surface->base) != CAIRO_SURFACE_TYPE_GL) ||
+	surface->tex)
+	return CAIRO_STATUS_SURFACE_TYPE_MISMATCH;
+
+    surface->bounded_tex = texture;
+    surface->operand.texture.tex = texture;
+
+    return CAIRO_STATUS_SUCCESS;
+}
+

@@ -186,6 +186,7 @@ struct _cairo_gl_surface {
     cairo_bool_t needs_update;
 
     cairo_region_t *clip_region;
+    GLuint bounded_tex;		/* bounded tex for non-texture surface */
 };
 
 typedef struct cairo_gl_glyph_cache {
