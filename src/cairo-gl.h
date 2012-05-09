@@ -92,6 +92,10 @@ cairo_public void
 cairo_gl_device_set_thread_aware (cairo_device_t	*device,
 				  cairo_bool_t		 thread_aware);
 
+cairo_public cairo_status_t
+cairo_gl_surface_set_binding_texture (cairo_surface_t *abstract_surface,
+				      unsigned int    texture);
+
 #if CAIRO_HAS_GLX_FUNCTIONS
 #include <GL/glx.h>
 
