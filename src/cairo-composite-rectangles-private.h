@@ -109,6 +109,14 @@ _cairo_composite_rectangles_init_for_fill (cairo_composite_rectangles_t *extents
 					   const cairo_clip_t		*clip);
 
 cairo_private cairo_int_status_t
+_cairo_composite_rectangles_lazy_init_for_fill (cairo_composite_rectangles_t *extents,
+						cairo_surface_t *surface,
+						cairo_operator_t op,
+						const cairo_pattern_t *source,
+						const cairo_path_fixed_t *path,
+						const cairo_clip_t *clip);
+
+cairo_private cairo_int_status_t
 _cairo_composite_rectangles_init_for_boxes (cairo_composite_rectangles_t *extents,
 					      cairo_surface_t		*surface,
 					      cairo_operator_t		 op,

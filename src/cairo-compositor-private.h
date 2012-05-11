@@ -86,6 +86,7 @@ struct cairo_compositor {
 				 cairo_glyph_t			*glyphs,
 				 int				 num_glyphs,
 				 cairo_bool_t			 overlap);
+    cairo_bool_t lazy_init;
 };
 
 struct cairo_mask_compositor {
