@@ -299,9 +299,18 @@ static void
 _cairo_gl_msaa_compositor_set_clip (cairo_composite_rectangles_t *composite,
 				    cairo_gl_composite_t *setup)
 {
+    uint32_t is_bounded;
+
+    /* We don't need to check CAIRO_OPERATOR_BOUND_BY_MASK in these
+       situations. */
+    is_bounded = composite->is_bounded;
+    composite->is_bounded = CAIRO_OPERATOR_BOUND_BY_SOURCE;
     if (_cairo_composite_rectangles_can_reduce_clip (composite, composite->clip))
 	return;
+
     _cairo_gl_composite_set_clip (setup, composite->clip);
+
+    composite->is_bounded = is_bounded;
 }
 
 /* Masking with the SOURCE operator requires two passes. In the first
