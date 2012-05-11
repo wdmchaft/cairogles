@@ -775,7 +775,7 @@ _cairo_gl_msaa_compositor_fill_rectilinear (const cairo_compositor_t *compositor
 	goto cleanup_setup;
 
     status = _cairo_gl_composite_set_source (&setup,
-					     &composite->source_pattern.base,
+					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
 					     TRUE);
@@ -878,7 +878,7 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
 	goto cleanup_traps;
 
     status = _cairo_gl_composite_set_source (&setup,
-					     &composite->source_pattern.base,
+					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
 					     FALSE);
@@ -992,6 +992,7 @@ _cairo_gl_msaa_compositor_init (cairo_compositor_t	 *compositor,
 				const cairo_compositor_t *delegate)
 {
     compositor->delegate = delegate;
+    compositor->lazy_init = TRUE;
 
     compositor->paint = _cairo_gl_msaa_compositor_paint;
     compositor->mask = _cairo_gl_msaa_compositor_mask;
