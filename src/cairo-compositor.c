@@ -137,18 +137,47 @@ _cairo_compositor_stroke (const cairo_compositor_t	*compositor,
 {
     cairo_composite_rectangles_t extents;
     cairo_int_status_t status;
+    cairo_bool_t initialized = TRUE;
 
     TRACE ((stderr, "%s\n", __FUNCTION__));
-    status = _cairo_composite_rectangles_init_for_stroke (&extents, surface,
-							  op, source,
-							  path, style, ctm,
-							  clip);
+
+    if (compositor->lazy_init) {
+	status = _cairo_composite_rectangles_lazy_init_for_stroke (&extents,
+								   surface,
+								   op, source,
+								   path, style,
+								   ctm, clip);
+	initialized = FALSE;
+    }
+    else
+	status = _cairo_composite_rectangles_init_for_stroke (&extents,
+							      surface,
+							      op, source,
+							      path, style,
+							      ctm, clip);
     if (unlikely (status))
 	return status;
 
     do {
 	while (compositor->stroke == NULL)
 	    compositor = compositor->delegate;
+
+	if (! compositor->lazy_init && ! initialized) {
+	    /* XXX: we should do better instead of re-init */
+	    _cairo_composite_rectangles_fini (&extents);
+	    status = _cairo_composite_rectangles_init_for_stroke (&extents,
+								  surface,
+								  op,
+								  source,
+								  path,
+								  style,
+								  ctm,
+								  clip);
+	    initialized = TRUE;
+
+	    if (unlikely (status))
+		return status;
+	}
 
 	status = compositor->stroke (compositor, &extents,
 				     path, style, ctm, ctm_inverse,
