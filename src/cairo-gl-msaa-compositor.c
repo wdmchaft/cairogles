@@ -784,6 +784,7 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
     cairo_gl_context_t *ctx = NULL;
     cairo_int_status_t status = CAIRO_INT_STATUS_SUCCESS;
     cairo_traps_t traps;
+    cairo_bool_t use_color_attr = FALSE;
 
     if (! can_use_msaa_compositor (dst, antialias))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
@@ -832,9 +833,16 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
     }
 
     _cairo_traps_init (&traps);
-    status = _cairo_path_fixed_fill_to_traps (path, fill_rule, tolerance, &traps);
-    if (unlikely (status))
-	goto cleanup_traps;
+    if (_cairo_path_fixed_fill_is_rectilinear (path)) {
+	status = _cairo_path_fixed_fill_rectilinear_to_traps (path,
+							      fill_rule,
+							      antialias,
+							      &traps);
+	use_color_attr = TRUE;
+    } else {
+	status = _cairo_path_fixed_fill_to_traps (path, fill_rule,
+						  tolerance, &traps);
+    }
 
     status = _cairo_gl_composite_init (&setup,
 				       composite->op,
@@ -847,7 +855,7 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
 					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     FALSE);
+					     use_color_attr);
     if (unlikely (status))
 	goto cleanup_setup;
 
