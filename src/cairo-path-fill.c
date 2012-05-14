@@ -339,3 +339,63 @@ _cairo_path_fixed_fill_rectilinear_to_boxes (const cairo_path_fixed_t *path,
 								   antialias,
 								   boxes);
 }
+
+cairo_status_t
+_cairo_path_fixed_fill_rectilinear_to_traps (const cairo_path_fixed_t *path,
+					     cairo_fill_rule_t	      fill_rule,
+					     cairo_antialias_t	      antialias,
+					     cairo_traps_t	      *traps)
+{
+    cairo_box_t box;
+    cairo_status_t status;
+
+    traps->is_rectilinear = TRUE;
+    traps->is_rectangular = TRUE;
+
+    if (_cairo_path_fixed_is_box (path, &box)) {
+	if (antialias == CAIRO_ANTIALIAS_NONE) {
+	    box.p1.x = _cairo_fixed_round_down (box.p1.x);
+	    box.p1.y = _cairo_fixed_round_down (box.p1.y);
+	    box.p2.x = _cairo_fixed_round_down (box.p2.x);
+	    box.p2.y = _cairo_fixed_round_down (box.p2.y);
+	}
+	return _cairo_traps_tessellate_rectangle (traps, &box.p1, &box.p2);
+    } else {
+	cairo_path_fixed_iter_t iter;
+
+	_cairo_path_fixed_iter_init (&iter, path);
+	while (_cairo_path_fixed_iter_is_fill_box (&iter, &box)) {
+	    if (box.p1.y > box.p2.y) {
+		cairo_fixed_t t;
+
+		t = box.p1.y;
+		box.p1.y = box.p2.y;
+		box.p2.y = t;
+
+		t = box.p1.x;
+		box.p1.x = box.p2.x;
+		box.p2.x = t;
+	    }
+
+	    if (antialias == CAIRO_ANTIALIAS_NONE) {
+		box.p1.x = _cairo_fixed_round_down (box.p1.x);
+		box.p1.y = _cairo_fixed_round_down (box.p1.y);
+		box.p2.x = _cairo_fixed_round_down (box.p2.x);
+		box.p2.y = _cairo_fixed_round_down (box.p2.y);
+	    }
+
+	    status = _cairo_traps_tessellate_rectangle (traps,
+							&box.p1, &box.p2);
+	    if (unlikely (status)) {
+		_cairo_traps_clear (traps);
+		return status;
+	    }
+	}
+
+	if (_cairo_path_fixed_iter_at_end (&iter))
+	    return _cairo_bentley_ottmann_tessellate_rectangular_traps (traps, fill_rule);
+
+	_cairo_traps_clear (traps);
+	return CAIRO_INT_STATUS_UNSUPPORTED;
+    }
+}
