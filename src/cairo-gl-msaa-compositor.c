@@ -561,12 +561,16 @@ _prevent_overlapping_strokes (cairo_gl_context_t 		*ctx,
 			      const cairo_matrix_t		*ctm)
 {
     cairo_rectangle_int_t stroke_extents;
+    const cairo_pattern_t *pattern = composite->original_source_pattern;
+    cairo_pattern_type_t type = cairo_pattern_get_type ((cairo_pattern_t *) pattern);
 
     if (! _cairo_gl_ensure_stencil (ctx, setup->dst))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
 
-    if (_cairo_pattern_is_opaque (&composite->source_pattern.base,
-				  &composite->source_sample_area))
+    /* XXX: improve me - since we have lazy init, we cannot use sample
+       area */
+    if (type == CAIRO_PATTERN_TYPE_SOLID &&
+	_cairo_pattern_is_opaque_solid (pattern))
 	return CAIRO_INT_STATUS_SUCCESS;
 
    if (glIsEnabled (GL_STENCIL_TEST) == FALSE) {
@@ -692,7 +696,7 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
     use_color_attribute = _cairo_path_fixed_stroke_is_rectilinear (path);
 
     status = _cairo_gl_composite_set_source (&info.setup,
-					     &composite->source_pattern.base,
+					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
 					     FALSE, use_color_attribute);

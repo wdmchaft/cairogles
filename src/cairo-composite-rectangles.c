@@ -403,6 +403,35 @@ _cairo_composite_rectangles_init_for_stroke (cairo_composite_rectangles_t *exten
 }
 
 cairo_int_status_t
+_cairo_composite_rectangles_lazy_init_for_stroke (cairo_composite_rectangles_t *extents,
+						  cairo_surface_t *surface,
+						  cairo_operator_t op,
+						  const cairo_pattern_t *source,
+						  const cairo_path_fixed_t *path,
+						  const cairo_stroke_style_t *style,
+						  const cairo_matrix_t *ctm,
+						  const cairo_clip_t *clip)
+{
+    cairo_bool_t should_be_lazy = TRUE;
+
+    if (! _cairo_composite_rectangles_init (extents,
+					    surface, op, source, clip,
+					    &should_be_lazy))
+    {
+	return CAIRO_INT_STATUS_NOTHING_TO_DO;
+    }
+
+    if (! should_be_lazy) {
+	_cairo_path_fixed_approximate_stroke_extents (path, style, ctm,
+						      &extents->mask);
+	return _cairo_composite_rectangles_intersect (extents, clip);
+    }
+
+    extents->clip = _cairo_clip_copy (clip);
+    return CAIRO_INT_STATUS_SUCCESS;
+}
+
+cairo_int_status_t
 _cairo_composite_rectangles_init_for_fill (cairo_composite_rectangles_t *extents,
 					   cairo_surface_t *surface,
 					   cairo_operator_t		 op,
