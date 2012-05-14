@@ -1046,6 +1046,12 @@ _cairo_path_fixed_fill_to_traps (const cairo_path_fixed_t   *path,
 				 double			     tolerance,
 				 cairo_traps_t		    *traps);
 
+cairo_private cairo_status_t
+_cairo_path_fixed_fill_rectilinear_to_traps (const cairo_path_fixed_t *path,
+					     cairo_fill_rule_t	      fill_rule,
+					     cairo_antialias_t	      antialias,
+					     cairo_traps_t		  *traps);
+
 /* cairo-path-stroke.c */
 cairo_private cairo_status_t
 _cairo_path_fixed_stroke_to_polygon (const cairo_path_fixed_t	*path,
