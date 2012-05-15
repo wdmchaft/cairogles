@@ -54,7 +54,7 @@ _cairo_composite_rectangles_check_lazy_init (cairo_composite_rectangles_t *exten
 {
     cairo_pattern_type_t type;
 
-    if (! extents->is_bounded || extents->op == CAIRO_OPERATOR_SOURCE)
+    if (! extents->is_bounded)
 	return FALSE;
 
     type = cairo_pattern_get_type ((cairo_pattern_t *)pattern);
@@ -376,6 +376,51 @@ _cairo_composite_rectangles_init_for_mask (cairo_composite_rectangles_t *extents
     _cairo_pattern_get_extents (&extents->mask_pattern.base, &extents->mask);
 
     return _cairo_composite_rectangles_intersect (extents, clip);
+}
+
+cairo_int_status_t
+_cairo_composite_rectangles_lazy_init_for_mask (cairo_composite_rectangles_t *extents,
+						cairo_surface_t *surface,
+						cairo_operator_t op,
+						const cairo_pattern_t *source,
+						const cairo_pattern_t *mask,
+						const cairo_clip_t *clip)
+{
+	cairo_bool_t ret;
+	cairo_bool_t should_be_lazy = (op == CAIRO_OPERATOR_SOURCE) ? FALSE : TRUE;
+
+
+	if (! _cairo_composite_rectangles_init (extents,
+						surface, op, source, clip,
+						&should_be_lazy))
+    {
+	return CAIRO_INT_STATUS_NOTHING_TO_DO;
+    }
+
+	extents->original_mask_pattern = mask;
+
+	if (! should_be_lazy) {
+		_cairo_composite_reduce_pattern (mask, &extents->mask_pattern);
+		_cairo_pattern_get_extents (&extents->mask_pattern.base,
+					&extents->mask);
+		return _cairo_composite_rectangles_intersect (extents, clip);
+	}
+
+	_cairo_pattern_get_extents (extents->original_mask_pattern,
+				&extents->mask);
+
+	ret = _cairo_rectangle_intersect (&extents->bounded, &extents->mask);
+	if (! ret && extents->is_bounded & CAIRO_OPERATOR_BOUND_BY_MASK)
+		return CAIRO_INT_STATUS_NOTHING_TO_DO;
+
+	if (extents->is_bounded == (CAIRO_OPERATOR_BOUND_BY_MASK | CAIRO_OPERATOR_BOUND_BY_SOURCE))
+		extents->unbounded = extents->bounded;
+	else if ((extents->is_bounded & CAIRO_OPERATOR_BOUND_BY_MASK) &&
+			 (!_cairo_rectangle_intersect (&extents->unbounded, &extents->mask)))
+			 return CAIRO_INT_STATUS_NOTHING_TO_DO;
+
+	extents->clip = _cairo_clip_copy (clip);
+	return CAIRO_INT_STATUS_SUCCESS;
 }
 
 cairo_int_status_t
