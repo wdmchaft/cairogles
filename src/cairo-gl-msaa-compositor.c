@@ -358,7 +358,7 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
     if (unlikely (status))
 	return status;
     status = _cairo_gl_composite_set_source (&setup,
-					     &composite->mask_pattern.base,
+					     composite->original_mask_pattern,
 					     &composite->mask_sample_area,
 					     &composite->bounded,
 					     FALSE);
@@ -380,14 +380,14 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
     if (unlikely (status))
         goto finish;
     status = _cairo_gl_composite_set_source (&setup,
-					     &composite->source_pattern.base,
+					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
 					     FALSE);
     if (unlikely (status))
 	goto finish;
     status = _cairo_gl_composite_set_mask (&setup,
-				           &composite->mask_pattern.base,
+					   composite->original_mask_pattern,
 					   &composite->source_sample_area,
 					   &composite->bounded);
     if (unlikely (status))
@@ -484,7 +484,7 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 	use_color_attribute = TRUE;
 
     status = _cairo_gl_composite_set_source (&setup,
-					     &composite->source_pattern.base,
+					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
 					     use_color_attribute);
@@ -493,7 +493,7 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 
     if (composite->original_mask_pattern != NULL) {
 	status = _cairo_gl_composite_set_mask (&setup,
-					       &composite->mask_pattern.base,
+					       composite->original_mask_pattern,
 					       &composite->mask_sample_area,
 					       &composite->bounded);
     }
