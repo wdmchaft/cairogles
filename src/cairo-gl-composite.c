@@ -629,8 +629,12 @@ _cairo_gl_composite_setup_clipping (cairo_gl_composite_t *setup,
 				    cairo_gl_context_t *ctx,
 				    int vertex_size)
 {
-    cairo_bool_t same_clip = _cairo_clip_equal (ctx->clip, setup->clip);
+    cairo_bool_t same_clip;
 
+    if (! ctx->clip && ! setup->clip && ! ctx->clip_region)
+	goto finish;
+
+    same_clip = _cairo_clip_equal (ctx->clip, setup->clip);
     if (! _cairo_gl_context_is_flushed (ctx) &&
 	(! cairo_region_equal (ctx->clip_region, setup->clip_region) ||
 	 ! same_clip))
@@ -657,6 +661,7 @@ _cairo_gl_composite_setup_clipping (cairo_gl_composite_t *setup,
                                                            vertex_size,
                                                            same_clip);
 
+finish:
     _disable_stencil_buffer ();
     _disable_scissor_buffer ();
     return CAIRO_INT_STATUS_SUCCESS;
