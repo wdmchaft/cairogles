@@ -726,8 +726,10 @@ _cairo_gl_set_operands_and_operator (cairo_gl_composite_t *setup,
     _cairo_gl_context_setup_operand (ctx, CAIRO_GL_TEX_MASK, &setup->mask, vertex_size, dst_size + src_size);
     if (setup->spans)
 	_cairo_gl_context_setup_spans (ctx, vertex_size, dst_size + src_size + mask_size);
-    else
-	ctx->dispatch.DisableVertexAttribArray (CAIRO_GL_COVERAGE_ATTRIB_INDEX);
+    else {
+        ctx->dispatch.DisableVertexAttribArray (CAIRO_GL_COVERAGE_ATTRIB_INDEX);
+        ctx->spans = FALSE;
+    }
 
     /* XXX: Shoot me - we have converted CLEAR to DEST_OUT,
        so the dst_factor would be GL_ONE_MINUS_SRC_ALPHA, if the
