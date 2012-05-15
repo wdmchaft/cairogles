@@ -187,6 +187,38 @@ _cairo_composite_rectangles_init_for_paint (cairo_composite_rectangles_t *extent
     return CAIRO_STATUS_SUCCESS;
 }
 
+cairo_int_status_t
+_cairo_composite_rectangles_lazy_init_for_paint (cairo_composite_rectangles_t *extents,
+						 cairo_surface_t *surface,
+						 cairo_operator_t op,
+						 const cairo_pattern_t *source,
+						 const cairo_clip_t *clip)
+{
+    cairo_bool_t should_be_lazy = TRUE;
+    if (! _cairo_composite_rectangles_init (extents,
+					    surface, op, source, clip,
+					    &should_be_lazy))
+    {
+	return CAIRO_INT_STATUS_NOTHING_TO_DO;
+    }
+
+    if (! should_be_lazy) {
+	extents->mask = extents->destination;
+
+	extents->clip = _cairo_clip_reduce_for_composite (clip, extents);
+	if (_cairo_clip_is_all_clipped (extents->clip))
+	    return CAIRO_INT_STATUS_NOTHING_TO_DO;
+
+	if (extents->source_pattern.base.type != CAIRO_PATTERN_TYPE_SOLID)
+	    _cairo_pattern_sampled_area (&extents->source_pattern.base,
+					 &extents->bounded,
+					 &extents->source_sample_area);
+    } else
+	extents->clip = _cairo_clip_copy (clip);
+
+    return CAIRO_STATUS_SUCCESS;
+}
+
 static cairo_int_status_t
 _cairo_composite_rectangles_intersect (cairo_composite_rectangles_t *extents,
 				       const cairo_clip_t *clip)
