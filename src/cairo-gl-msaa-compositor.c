@@ -106,24 +106,37 @@ _draw_traps (cairo_gl_context_t		*ctx,
 }
 
 static cairo_int_status_t
+_cairo_gl_msaa_compositor_draw_quad (cairo_gl_context_t 	*ctx,
+				     cairo_gl_composite_t	*setup,
+				     cairo_box_t		*box)
+{
+    cairo_point_t quad[4];
+
+    quad[0].x = box->p1.x;
+    quad[0].y = box->p1.y;
+
+    quad[1].x = box->p1.x;
+    quad[1].y = box->p2.y;
+
+    quad[2].x = box->p2.x;
+    quad[2].y = box->p2.y;
+
+    quad[3].x = box->p2.x;
+    quad[3].y = box->p1.y;
+
+    return _cairo_gl_composite_emit_quad_as_tristrip (ctx, setup, quad);
+}
+
+static cairo_int_status_t
 _draw_int_rect (cairo_gl_context_t	*ctx,
 		cairo_gl_composite_t	*setup,
 		cairo_rectangle_int_t	*rect)
 {
     cairo_box_t box;
-    cairo_point_t quad[4];
 
     _cairo_box_from_rectangle (&box, rect);
-    quad[0].x = box.p1.x;
-    quad[0].y = box.p1.y;
-    quad[1].x = box.p1.x;
-    quad[1].y = box.p2.y;
-    quad[2].x = box.p2.x;
-    quad[2].y = box.p2.y;
-    quad[3].x = box.p2.x;
-    quad[3].y = box.p1.y;
 
-    return _cairo_gl_composite_emit_quad_as_tristrip (ctx, setup, quad);
+    return _cairo_gl_msaa_compositor_draw_quad (ctx, setup, &box);
 }
 
 static cairo_int_status_t
@@ -167,6 +180,10 @@ _cairo_gl_msaa_compositor_draw_clip (cairo_gl_context_t		*ctx,
 
     if (! clip)
 	return CAIRO_INT_STATUS_UNSUPPORTED;
+
+    if (clip->num_boxes == 1 && ! clip->path)
+	return _cairo_gl_msaa_compositor_draw_quad (ctx, setup,
+						    &clip->boxes[0]);
 
     if (traps->num_traps == 0) {
 	status = _cairo_clip_get_polygon (clip, &polygon, &fill_rule,
