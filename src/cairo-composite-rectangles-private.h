@@ -83,6 +83,13 @@ _cairo_composite_rectangles_init_for_paint (cairo_composite_rectangles_t *extent
 					    const cairo_clip_t		*clip);
 
 cairo_private cairo_int_status_t
+_cairo_composite_rectangles_lazy_init_for_paint (cairo_composite_rectangles_t *extents,
+						 cairo_surface_t *surface,
+						 cairo_operator_t op,
+						 const cairo_pattern_t *source,
+						 const cairo_clip_t *clip);
+
+cairo_private cairo_int_status_t
 _cairo_composite_rectangles_init_for_mask (cairo_composite_rectangles_t *extents,
 					   cairo_surface_t *surface,
 					   cairo_operator_t	 op,
