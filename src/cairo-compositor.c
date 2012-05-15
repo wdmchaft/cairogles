@@ -91,17 +91,40 @@ _cairo_compositor_mask (const cairo_compositor_t	*compositor,
 {
     cairo_composite_rectangles_t extents;
     cairo_int_status_t status;
+    cairo_bool_t initialized = TRUE;
 
     TRACE ((stderr, "%s\n", __FUNCTION__));
-    status = _cairo_composite_rectangles_init_for_mask (&extents, surface,
-							op, source, mask,
-							clip);
+
+    if (compositor->lazy_init) {
+	status = _cairo_composite_rectangles_lazy_init_for_mask (&extents,
+								 surface,
+								 op, source,
+								 mask, clip);
+	initialized = FALSE;
+    } else
+	status = _cairo_composite_rectangles_init_for_mask (&extents,
+							    surface,
+							    op, source,
+							    mask, clip);
     if (unlikely (status))
 	return status;
 
     do {
 	while (compositor->mask == NULL)
 	    compositor = compositor->delegate;
+
+	if (! compositor->lazy_init && ! initialized) {
+	    /* XXX: we should do better instead of re-init */
+	    _cairo_composite_rectangles_fini (&extents);
+	    status = _cairo_composite_rectangles_init_for_mask (&extents,
+								surface,
+								op, source,
+								mask, clip);
+	    initialized = TRUE;
+
+	    if (unlikely (status))
+		return status;
+	}
 
 	status = compositor->mask (compositor, &extents);
 
