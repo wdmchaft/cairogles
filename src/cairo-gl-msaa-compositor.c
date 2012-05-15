@@ -711,23 +711,40 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
     if (unlikely (status))
 	goto finish;
 
-    status = _prevent_overlapping_strokes (info.ctx, &info.setup,
-					   composite, path, style, ctm);
-    if (unlikely (status))
-	goto finish;
+    if (use_color_attribute || path->has_curve_to) {
+	cairo_traps_t traps;
 
-    status = _cairo_path_fixed_stroke_to_shaper ((cairo_path_fixed_t *) path,
-						 style,
-						 ctm,
-						 ctm_inverse,
-						 tolerance,
-						 _stroke_shaper_add_triangle,
-						 _stroke_shaper_add_triangle_fan,
-						 _stroke_shaper_add_quad,
-						 &info);
-    if (unlikely (status))
-	goto finish;
+	_cairo_traps_init (&traps);
 
+	status = _cairo_path_fixed_stroke_to_traps (path, style,
+						    ctm, ctm_inverse,
+						    tolerance, &traps);
+	if (unlikely (status)) {
+	    _cairo_traps_fini (&traps);
+	    goto finish;
+	}
+
+	status = _draw_traps (info.ctx, &info.setup, &traps);
+	_cairo_traps_fini (&traps);
+    } else {
+	status = _prevent_overlapping_strokes (info.ctx, &info.setup,
+					       composite, path, style, ctm);
+	if (unlikely (status))
+	    goto finish;
+
+	status =
+	    _cairo_path_fixed_stroke_to_shaper ((cairo_path_fixed_t *) path,
+						style,
+						ctm,
+						ctm_inverse,
+						tolerance,
+						_stroke_shaper_add_triangle,
+						_stroke_shaper_add_triangle_fan,
+						_stroke_shaper_add_quad,
+						&info);
+	if (unlikely (status))
+	    goto finish;
+    }
 finish:
     _cairo_gl_composite_fini (&info.setup);
 
