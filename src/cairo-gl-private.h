@@ -838,6 +838,9 @@ _cairo_gl_glyph_cache_unlock (cairo_gl_glyph_cache_t *cache)
     _cairo_rtree_unpin (&cache->rtree);
 }
 
+cairo_private void
+_cairo_gl_scissor_to_extents (cairo_gl_surface_t	*surface,
+			      const cairo_rectangle_int_t	*extents);
 
 slim_hidden_proto (cairo_gl_surface_create);
 slim_hidden_proto (cairo_gl_surface_create_for_texture);

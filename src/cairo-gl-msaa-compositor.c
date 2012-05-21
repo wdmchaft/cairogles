@@ -576,10 +576,14 @@ _stroke_shaper_add_quad (void			*closure,
 }
 
 static cairo_int_status_t
-_prevent_overlapping_drawing (cairo_gl_context_t *ctx,
-			      cairo_gl_composite_t *setup,
-			      cairo_composite_rectangles_t *composite)
+_prevent_overlapping_drawing (cairo_gl_context_t 		*ctx,
+			      cairo_gl_composite_t 		*setup,
+			      cairo_composite_rectangles_t 	*composite,
+			      const cairo_path_fixed_t		*path,
+			      const cairo_stroke_style_t	*style,
+			      const cairo_matrix_t		*ctm)
 {
+    cairo_rectangle_int_t stroke_extents;
     const cairo_pattern_t *pattern = composite->original_source_pattern;
     cairo_pattern_type_t type = cairo_pattern_get_type ((cairo_pattern_t *) pattern);
 
@@ -605,6 +609,15 @@ _prevent_overlapping_drawing (cairo_gl_context_t *ctx,
 	    ctx->states_cache.depth_mask = TRUE;
  	}
 	glEnable (GL_STENCIL_TEST);
+
+	/* If we don't have clip, then we will setup clip extents based on
+	   approximate stroke extent. */
+	if (! setup->clip) {
+	    _cairo_path_fixed_approximate_stroke_extents (path, style, ctm,
+							  &stroke_extents);
+	    _cairo_gl_scissor_to_extents (setup->dst, &stroke_extents);
+	}
+
 	glClearStencil (1);
 	glClear (GL_STENCIL_BUFFER_BIT);
 	glStencilFunc (GL_EQUAL, 1, 1);
@@ -756,7 +769,8 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
 	status = _draw_traps (info.ctx, &info.setup, &traps);
 	_cairo_traps_fini (&traps);
     } else {
-	status = _prevent_overlapping_drawing (info.ctx, &info.setup, composite);
+	status = _prevent_overlapping_drawing (info.ctx, &info.setup,
+					       composite, path, style, ctm);
 	if (unlikely (status))
 	    goto finish;
 
