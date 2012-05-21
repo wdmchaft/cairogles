@@ -504,6 +504,22 @@ _cairo_gl_composite_begin_component_alpha  (cairo_gl_context_t *ctx,
     return CAIRO_STATUS_SUCCESS;
 }
 
+void
+_cairo_gl_scissor_to_extents (cairo_gl_surface_t	*surface,
+			      const cairo_rectangle_int_t	*extents)
+{
+    int x1, y1, height;
+
+    x1 = extents->x;
+    y1 = extents->y;
+    height = extents->height;
+
+    if (_cairo_gl_surface_is_texture (surface) == FALSE)
+	y1 = surface->height - (y1 + height);
+    glScissor (x1, y1, extents->width, height);
+    glEnable (GL_SCISSOR_TEST);
+}
+
 static void
 _scissor_to_doubles (cairo_gl_surface_t	*surface,
 		     double x1, double y1,
@@ -576,15 +592,12 @@ _cairo_gl_composite_setup_painted_clipping (cairo_gl_composite_t *setup,
     cairo_gl_surface_t *dst = setup->dst;
     cairo_clip_t *clip = setup->clip;
     cairo_traps_t traps;
+    const cairo_rectangle_int_t *clip_extents;
 
     if (clip->num_boxes == 1 && clip->path == NULL) {
 	_scissor_to_box (dst, &clip->boxes[0]);
 	goto disable_stencil_buffer_and_return;
     }
-
-    /* If we cannot reduce the clip to a rectangular region,
-       we clip using the stencil buffer. */
-    _disable_scissor_buffer();
 
     if (! _cairo_gl_ensure_stencil (ctx, setup->dst)) {
 	status = CAIRO_INT_STATUS_UNSUPPORTED;
@@ -593,6 +606,8 @@ _cairo_gl_composite_setup_painted_clipping (cairo_gl_composite_t *setup,
 
     glDepthMask (GL_TRUE);
     glEnable (GL_STENCIL_TEST);
+    clip_extents = _cairo_clip_get_extents ((const cairo_clip_t *)clip);
+    _cairo_gl_scissor_to_extents (dst, clip_extents);
 
     if (equal_clip)
 	return CAIRO_INT_STATUS_SUCCESS;
