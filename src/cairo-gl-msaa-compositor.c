@@ -555,10 +555,14 @@ _stroke_shaper_add_quad (void			*closure,
 }
 
 static cairo_int_status_t
-_prevent_overlapping_drawing (cairo_gl_context_t *ctx,
-			      cairo_gl_composite_t *setup,
-			      cairo_composite_rectangles_t *composite)
+_prevent_overlapping_strokes (cairo_gl_context_t 		*ctx,
+			      cairo_gl_composite_t 		*setup,
+			      cairo_composite_rectangles_t 	*composite,
+			      const cairo_path_fixed_t		*path,
+			      const cairo_stroke_style_t	*style,
+			      const cairo_matrix_t		*ctm)
 {
+    cairo_rectangle_int_t stroke_extents;
     const cairo_pattern_t *pattern = composite->original_source_pattern;
     cairo_pattern_type_t type = cairo_pattern_get_type ((cairo_pattern_t *) pattern);
 
@@ -572,6 +576,8 @@ _prevent_overlapping_drawing (cairo_gl_context_t *ctx,
 	return CAIRO_INT_STATUS_SUCCESS;
 
    if (glIsEnabled (GL_STENCIL_TEST) == FALSE) {
+	cairo_bool_t scissor_was_enabled;
+
        /* In case we have pending operations we have to flush before
 	  adding the stencil buffer. */
        _cairo_gl_composite_flush (ctx);
@@ -581,8 +587,22 @@ _prevent_overlapping_drawing (cairo_gl_context_t *ctx,
 	   it all to one here which represents infinite clip. */
 	glDepthMask (GL_TRUE);
 	glEnable (GL_STENCIL_TEST);
+
+	/* We scissor here so that we don't have to clear the entire stencil
+	 * buffer. If the scissor test is already enabled, it was enabled
+	 * for clipping. In that case, instead of calculating an intersection,
+	 * we just reuse it, and risk clearing too much. */
+	scissor_was_enabled = glIsEnabled (GL_SCISSOR_TEST);
+	if (! scissor_was_enabled) {
+	    _cairo_path_fixed_approximate_stroke_extents (path, style, ctm,
+							  &stroke_extents);
+	    _cairo_gl_scissor_to_rectangle (setup->dst, &stroke_extents);
+	}
 	glClearStencil (1);
 	glClear (GL_STENCIL_BUFFER_BIT);
+	if (! scissor_was_enabled)
+	    glDisable (GL_SCISSOR_TEST);
+
 	glStencilFunc (GL_EQUAL, 1, 1);
     }
 
@@ -709,7 +729,8 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
 	status = _draw_traps (info.ctx, &info.setup, &traps);
 	_cairo_traps_fini (&traps);
     } else {
-	status = _prevent_overlapping_drawing (info.ctx, &info.setup, composite);
+	status = _prevent_overlapping_strokes (info.ctx, &info.setup,
+					       composite, path, style, ctm);
 	if (unlikely (status))
 	    goto finish;
 

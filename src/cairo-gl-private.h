@@ -810,6 +810,10 @@ _cairo_gl_msaa_compositor_draw_clip (cairo_gl_context_t *ctx,
 cairo_private cairo_surface_t *
 _cairo_gl_white_source (void);
 
+void
+_cairo_gl_scissor_to_rectangle (cairo_gl_surface_t *surface,
+				const cairo_rectangle_int_t *r);
+
 static inline cairo_gl_operand_t *
 source_to_operand (cairo_surface_t *surface)
 {
@@ -828,8 +832,6 @@ _cairo_gl_can_use_scissor_for_clip (cairo_clip_t *clip)
 {
     return clip->num_boxes == 1 && clip->path == NULL;
 }
-
-
 
 slim_hidden_proto (cairo_gl_surface_create);
 slim_hidden_proto (cairo_gl_surface_create_for_texture);
