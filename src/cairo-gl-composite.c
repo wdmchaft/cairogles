@@ -183,7 +183,8 @@ _cairo_gl_texture_set_filter (cairo_gl_context_t *ctx,
 static void
 _cairo_gl_texture_set_extend (cairo_gl_context_t *ctx,
                               GLuint              target,
-                              cairo_extend_t      extend)
+                              cairo_extend_t      extend,
+                              cairo_bool_t 	      use_atlas)
 {
     GLint wrap_mode;
     assert (! _cairo_gl_device_requires_power_of_two_textures (&ctx->base) ||
@@ -271,7 +272,8 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
         glActiveTexture (GL_TEXTURE0 + tex_unit);
         glBindTexture (ctx->tex_target, operand->texture.tex);
         _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
-                                      operand->texture.attributes.extend);
+                                      operand->texture.attributes.extend,
+                                      operand->texture.use_atlas);
         _cairo_gl_texture_set_filter (ctx, ctx->tex_target,
                                       operand->texture.attributes.filter);
 
@@ -279,6 +281,19 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
 					GL_FLOAT, GL_FALSE, vertex_size,
 					ctx->vb + vertex_offset);
 	dispatch->EnableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
+
+	if (operand->texture.use_atlas) {
+	    dispatch->VertexAttribPointer (CAIRO_GL_START_COORD0_ATTRIB_INDEX + tex_unit,
+					   2, GL_FLOAT, GL_FALSE,
+					   vertex_size,
+					   ctx->vb + vertex_offset + 2 * sizeof (float));
+	    dispatch->EnableVertexAttribArray (CAIRO_GL_START_COORD0_ATTRIB_INDEX + tex_unit);
+	    dispatch->VertexAttribPointer (CAIRO_GL_STOP_COORD0_ATTRIB_INDEX + tex_unit,
+					   2, GL_FLOAT, GL_FALSE,
+					   vertex_size,
+					   ctx->vb + vertex_offset + 4 * sizeof (float));
+	    dispatch->EnableVertexAttribArray (CAIRO_GL_STOP_COORD0_ATTRIB_INDEX + tex_unit);
+	}
         break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
@@ -286,7 +301,8 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
         glActiveTexture (GL_TEXTURE0 + tex_unit);
         glBindTexture (ctx->tex_target, operand->gradient.gradient->tex);
-        _cairo_gl_texture_set_extend (ctx, ctx->tex_target, operand->gradient.extend);
+        _cairo_gl_texture_set_extend (ctx, ctx->tex_target,
+				      operand->gradient.extend, FALSE);
         _cairo_gl_texture_set_filter (ctx, ctx->tex_target, CAIRO_FILTER_BILINEAR);
 
 	dispatch->VertexAttribPointer (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit, 2,
@@ -340,6 +356,10 @@ _cairo_gl_context_destroy_operand (cairo_gl_context_t *ctx,
         break;
     case CAIRO_GL_OPERAND_TEXTURE:
         dispatch->DisableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
+	if (ctx->operands[tex_unit].texture.use_atlas) {
+	    dispatch->DisableVertexAttribArray (CAIRO_GL_START_COORD0_ATTRIB_INDEX + tex_unit);
+	    dispatch->DisableVertexAttribArray (CAIRO_GL_STOP_COORD0_ATTRIB_INDEX + tex_unit);
+	}
         break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
@@ -890,6 +910,8 @@ _cairo_gl_composite_flush (cairo_gl_context_t *ctx)
 
     for (i = 0; i < ARRAY_LENGTH (&ctx->glyph_cache); i++)
 	_cairo_gl_glyph_cache_unlock (&ctx->glyph_cache[i]);
+
+    _cairo_gl_image_cache_unlock (ctx);
 }
 
 static void
