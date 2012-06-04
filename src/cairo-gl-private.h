@@ -57,6 +57,7 @@
 #include "cairo-scaled-font-private.h"
 #include "cairo-spans-compositor-private.h"
 #include "cairo-array-private.h"
+#include "cairo-stroke-dash-private.h"
 
 #include <assert.h>
 
@@ -134,6 +135,12 @@ typedef enum cairo_gl_operand_type {
 
     CAIRO_GL_OPERAND_COUNT
 } cairo_gl_operand_type_t;
+
+typedef enum cairo_gl_draw_mode {
+    CAIRO_GL_VERTEX,
+    CAIRO_GL_LINE_STRIP,
+    CAIRO_GL_LINES
+} cairo_gl_draw_mode_t;
 
 /* This union structure describes a potential source or mask operand to the
  * compositing equation.
@@ -244,6 +251,33 @@ typedef enum cairo_gl_shader_in {
 
     CAIRO_GL_SHADER_IN_COUNT
 } cairo_gl_shader_in_t;
+
+
+typedef struct _cairo_gl_hairline_closure
+{
+    cairo_gl_context_t *ctx;
+    double tolerance;
+    cairo_stroker_dash_t dash;
+    cairo_matrix_t *ctm;
+    cairo_matrix_t *ctm_inverse;
+    cairo_point_t current_point;
+
+    cairo_point_t stroke_first_point;  /* First stroke point at move_to. */
+    double stroke_first_dx;
+    double stroke_first_dy;
+    cairo_bool_t stroke_first_capped;
+    cairo_bool_t moved_to_stroke_first_point;
+
+    cairo_line_cap_t cap_style;
+
+    cairo_bool_t line_last_capped;
+
+    cairo_point_t line_last_point;
+    double line_last_dx;
+    double line_last_dy;
+
+    cairo_bool_t initialized;
+} cairo_gl_hairline_closure_t;
 
 typedef enum cairo_gl_var_type {
   CAIRO_GL_VAR_NONE,
@@ -419,6 +453,7 @@ struct _cairo_gl_context {
 
     cairo_gl_states_t states_cache;
     cairo_gl_image_cache_t image_cache;
+    cairo_gl_draw_mode_t draw_mode;
 
     void (*acquire) (void *ctx);
     void (*release) (void *ctx);
@@ -647,6 +682,15 @@ cairo_private cairo_int_status_t
 _cairo_gl_composite_emit_triangle_as_tristrip (cairo_gl_context_t	*ctx,
 					       cairo_gl_composite_t	*setup,
 					       const cairo_point_t	 triangle[3]);
+
+cairo_private cairo_int_status_t
+_cairo_gl_composite_emit_point_as_tristrip_line (cairo_gl_context_t  *ctx,
+						 const cairo_point_t point[2],
+						 cairo_bool_t	     start_point);
+
+cairo_private cairo_int_status_t
+_cairo_gl_composite_emit_point_as_single_line (cairo_gl_context_t  *ctx,
+					        const cairo_point_t point[2]);
 
 cairo_private void
 _cairo_gl_context_destroy_operand (cairo_gl_context_t *ctx,
@@ -891,6 +935,43 @@ _cairo_gl_glyph_cache_unlock (cairo_gl_glyph_cache_t *cache)
 cairo_private void
 _cairo_gl_scissor_to_extents (cairo_gl_surface_t	*surface,
 			      const cairo_rectangle_int_t	*extents);
+
+
+cairo_private cairo_bool_t
+_cairo_gl_hairline_style_is_hairline (const cairo_stroke_style_t *style,
+                                      const cairo_matrix_t       *ctm);
+
+cairo_private cairo_status_t
+_cairo_gl_hairline_move_to (void *closure,
+                            const cairo_point_t *point);
+
+cairo_private cairo_status_t
+_cairo_gl_hairline_line_to (void *closure,
+                            const cairo_point_t *point);
+
+cairo_private cairo_status_t
+_cairo_gl_hairline_line_to_dashed (void *closure,
+                                   const cairo_point_t *point);
+
+cairo_private cairo_status_t
+_cairo_gl_hairline_curve_to (void *closure,
+                             const cairo_point_t *p0,
+                             const cairo_point_t *p1,
+                             const cairo_point_t *p2);
+
+cairo_private cairo_status_t
+_cairo_gl_hairline_close_path (void *closure);
+
+cairo_private cairo_status_t
+_cairo_gl_path_fixed_stroke_to_hairline (const cairo_path_fixed_t *path,
+                                         cairo_gl_hairline_closure_t *closure,
+                                         const cairo_stroke_style_t *style,
+                                         const cairo_matrix_t *ctm,
+                                         const cairo_matrix_t *ctm_inverse,
+                                         cairo_path_fixed_move_to_func_t *move_to,
+                                         cairo_path_fixed_line_to_func_t *line_to,
+                                         cairo_path_fixed_curve_to_func_t *curve_to,
+                                         cairo_path_fixed_close_path_func_t *close_path);
 
 slim_hidden_proto (cairo_gl_surface_create);
 slim_hidden_proto (cairo_gl_surface_create_for_texture);

@@ -878,6 +878,31 @@ _cairo_gl_composite_draw_tristrip (cairo_gl_context_t *ctx)
 }
 
 static inline void
+_cairo_gl_composite_draw_line (cairo_gl_context_t *ctx)
+{
+    GLenum type = GL_LINE_STRIP;
+    cairo_array_t* indices = &ctx->tristrip_indices;
+    const unsigned short *indices_array = _cairo_array_index_const (indices, 0);
+
+    if (ctx->draw_mode == CAIRO_GL_LINES)
+	type = GL_LINES;
+
+    if (ctx->pre_shader) {
+	cairo_gl_shader_t *prev_shader = ctx->current_shader;
+
+	_cairo_gl_set_shader (ctx, ctx->pre_shader);
+	_cairo_gl_set_operator (ctx, CAIRO_OPERATOR_DEST_OUT, TRUE);
+	glDrawElements (type, _cairo_array_num_elements (indices), GL_UNSIGNED_SHORT, indices_array);
+
+	_cairo_gl_set_shader (ctx, prev_shader);
+	_cairo_gl_set_operator (ctx, CAIRO_OPERATOR_ADD, TRUE);
+    }
+
+    glDrawElements (type, _cairo_array_num_elements (indices), GL_UNSIGNED_SHORT, indices_array);
+    _cairo_array_truncate (indices, 0);
+}
+
+static inline void
 _cairo_gl_composite_draw (cairo_gl_context_t *ctx,
 			  unsigned int count)
 {
@@ -919,7 +944,11 @@ _cairo_gl_composite_flush (cairo_gl_context_t *ctx)
     _cairo_gl_composite_unmap_vertex_buffer (ctx);
 
     if ( _cairo_array_num_elements (&ctx->tristrip_indices) > 0) {
-	_cairo_gl_composite_draw_tristrip (ctx);
+	if (ctx->draw_mode == CAIRO_GL_LINE_STRIP ||
+	    ctx->draw_mode == CAIRO_GL_LINES)
+	    _cairo_gl_composite_draw_line (ctx);
+	else
+	    _cairo_gl_composite_draw_tristrip (ctx);
     } else if (ctx->clip_region) {
 	int i, num_rectangles = cairo_region_num_rectangles (ctx->clip_region);
 
@@ -1081,6 +1110,11 @@ _cairo_gl_composite_emit_rect (cairo_gl_context_t *ctx,
                                GLfloat y2,
                                uint8_t alpha)
 {
+    if (ctx->draw_mode != CAIRO_GL_VERTEX) {
+	_cairo_gl_composite_flush (ctx);
+	ctx->draw_mode = CAIRO_GL_VERTEX;
+    }
+
     _cairo_gl_composite_prepare_buffer (ctx, 6,
 					CAIRO_GL_GEOMETRY_TYPE_TRIANGLES);
 
@@ -1124,6 +1158,11 @@ _cairo_gl_composite_emit_glyph (cairo_gl_context_t *ctx,
                                 GLfloat glyph_x2,
                                 GLfloat glyph_y2)
 {
+    if (ctx->draw_mode != CAIRO_GL_VERTEX) {
+	_cairo_gl_composite_flush (ctx);
+	ctx->draw_mode = CAIRO_GL_VERTEX;
+    }
+
     _cairo_gl_composite_prepare_buffer (ctx, 6,
 					CAIRO_GL_GEOMETRY_TYPE_TRIANGLES);
 
@@ -1170,7 +1209,8 @@ _cairo_gl_composite_init (cairo_gl_composite_t *setup,
 
 static cairo_int_status_t
 _cairo_gl_composite_append_vertex_indices (cairo_gl_context_t	*ctx,
-					   int			 number_of_new_indices)
+					   int			 number_of_new_indices,
+					   cairo_bool_t		 is_connected)
 {
     cairo_int_status_t status = CAIRO_INT_STATUS_SUCCESS;
     cairo_array_t *indices = &ctx->tristrip_indices;
@@ -1183,7 +1223,7 @@ _cairo_gl_composite_append_vertex_indices (cairo_gl_context_t	*ctx,
     /* If any preexisting triangle triangle strip indices exist on this
        context, we insert a set of degenerate triangles from the last
        preexisting vertex to our first one. */
-    if (number_of_indices > 0) {
+    if (number_of_indices > 0 && is_connected) {
 	const unsigned short *indices_array = _cairo_array_index_const (indices, 0);
 	current_vertex_index = indices_array[number_of_indices - 1];
 
@@ -1195,7 +1235,8 @@ _cairo_gl_composite_append_vertex_indices (cairo_gl_context_t	*ctx,
 	status =_cairo_array_append (indices, &current_vertex_index);
 	if (unlikely (status))
 	    return status;
-    }
+    } else
+	current_vertex_index = (unsigned short) number_of_indices;
 
     for (i = 0; i < number_of_new_indices; i++) {
 	status = _cairo_array_append (indices, &current_vertex_index);
@@ -1212,6 +1253,11 @@ _cairo_gl_composite_emit_quad_as_tristrip (cairo_gl_context_t	*ctx,
 					   cairo_gl_composite_t	*setup,
 					   const cairo_point_t	quad[4])
 {
+    if (ctx->draw_mode != CAIRO_GL_VERTEX) {
+	_cairo_gl_composite_flush (ctx);
+	ctx->draw_mode = CAIRO_GL_VERTEX;
+    }
+
     _cairo_gl_composite_prepare_buffer (ctx, 4,
 					CAIRO_GL_GEOMETRY_TYPE_TRISTRIPS);
 
@@ -1224,7 +1270,7 @@ _cairo_gl_composite_emit_quad_as_tristrip (cairo_gl_context_t	*ctx,
     _cairo_gl_composite_emit_point (ctx, &quad[3], 0);
     _cairo_gl_composite_emit_point (ctx, &quad[2], 0);
 
-    return _cairo_gl_composite_append_vertex_indices (ctx, 4);
+    return _cairo_gl_composite_append_vertex_indices (ctx, 4, TRUE);
 }
 
 cairo_int_status_t
@@ -1232,11 +1278,34 @@ _cairo_gl_composite_emit_triangle_as_tristrip (cairo_gl_context_t	*ctx,
 					       cairo_gl_composite_t	*setup,
 					       const cairo_point_t	 triangle[3])
 {
+    if (ctx->draw_mode != CAIRO_GL_VERTEX) {
+	_cairo_gl_composite_flush (ctx);
+	ctx->draw_mode = CAIRO_GL_VERTEX;
+    }
+
     _cairo_gl_composite_prepare_buffer (ctx, 3,
 					CAIRO_GL_GEOMETRY_TYPE_TRISTRIPS);
 
     _cairo_gl_composite_emit_point (ctx, &triangle[0], 0);
     _cairo_gl_composite_emit_point (ctx, &triangle[1], 0);
     _cairo_gl_composite_emit_point (ctx, &triangle[2], 0);
-    return _cairo_gl_composite_append_vertex_indices (ctx, 3);
+    return _cairo_gl_composite_append_vertex_indices (ctx, 3, TRUE);
+}
+
+cairo_int_status_t
+_cairo_gl_composite_emit_point_as_single_line (cairo_gl_context_t  *ctx,
+					       const cairo_point_t point[2])
+{
+    int num_indices = 2;
+    if (ctx->draw_mode != CAIRO_GL_LINES)
+	_cairo_gl_composite_flush (ctx);
+
+    ctx->draw_mode = CAIRO_GL_LINES;
+
+    _cairo_gl_composite_prepare_buffer (ctx, 2,
+					CAIRO_GL_GEOMETRY_TYPE_TRISTRIPS);
+
+    _cairo_gl_composite_emit_point (ctx, &point[0], 0);
+    _cairo_gl_composite_emit_point (ctx, &point[1], 0);
+    return _cairo_gl_composite_append_vertex_indices (ctx, num_indices, FALSE);
 }
