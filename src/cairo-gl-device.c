@@ -44,8 +44,41 @@
 
 #include "cairo-error-private.h"
 #include "cairo-gl-private.h"
+#include "cairo-rtree-private.h"
 
 #define MAX_MSAA_SAMPLES 4
+
+static cairo_int_status_t
+_cairo_gl_image_cache_init (cairo_gl_context_t *ctx)
+{
+    cairo_surface_t *cache_surface = _cairo_gl_surface_create_scratch (ctx,
+						CAIRO_CONTENT_COLOR_ALPHA,
+						IMAGE_CACHE_WIDTH,
+						IMAGE_CACHE_HEIGHT,
+						FALSE);
+    if (unlikely (cache_surface->status)) {
+	cairo_surface_destroy (cache_surface);
+	return CAIRO_INT_STATUS_UNSUPPORTED;
+    }
+
+    _cairo_surface_release_device_reference (cache_surface);
+    ctx->image_cache.surface = (cairo_gl_surface_t *)cache_surface;
+
+    _cairo_rtree_init (&ctx->image_cache.rtree, IMAGE_CACHE_WIDTH,
+		       IMAGE_CACHE_HEIGHT, IMAGE_CACHE_MIN_SIZE,
+		       sizeof (cairo_gl_image_t),
+		       _cairo_gl_image_node_destroy);
+
+    return CAIRO_INT_STATUS_SUCCESS;
+}
+
+static void
+_cairo_gl_image_cache_fini (cairo_gl_context_t *ctx)
+{
+    _cairo_rtree_fini (&ctx->image_cache.rtree);
+    if (ctx->image_cache.surface)
+	cairo_surface_destroy (&ctx->image_cache.surface->base);
+}
 
 static void
 _gl_lock (void *device)
@@ -149,6 +182,8 @@ _gl_destroy (void *device)
 
     cairo_region_destroy (ctx->clip_region);
     _cairo_clip_destroy (ctx->clip);
+
+    _cairo_gl_image_cache_fini (ctx);
 
     free (ctx->vb_mem);
 
@@ -306,6 +341,8 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
 
     _cairo_gl_context_reset (ctx);
 
+    _cairo_gl_image_cache_init (ctx);
+
     return CAIRO_STATUS_SUCCESS;
 }
 
@@ -373,7 +410,7 @@ _cairo_gl_ensure_msaa_gles_framebuffer (cairo_gl_context_t *ctx,
 }
 #endif
 
-static void
+void
 _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,
                               cairo_gl_surface_t *surface)
 {

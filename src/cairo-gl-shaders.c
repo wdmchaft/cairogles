@@ -169,6 +169,14 @@ link_shader_core_2_0 (cairo_gl_context_t *ctx, GLuint *program,
 				  "MultiTexCoord0");
     dispatch->BindAttribLocation (*program, CAIRO_GL_TEXCOORD1_ATTRIB_INDEX,
 				  "MultiTexCoord1");
+    dispatch->BindAttribLocation (*program, CAIRO_GL_START_COORD0_ATTRIB_INDEX,
+				  "StartCoords0");
+    dispatch->BindAttribLocation (*program, CAIRO_GL_START_COORD1_ATTRIB_INDEX,
+				  "StartCoords1");
+    dispatch->BindAttribLocation (*program, CAIRO_GL_STOP_COORD0_ATTRIB_INDEX,
+				  "StopCoords0");
+    dispatch->BindAttribLocation (*program, CAIRO_GL_STOP_COORD1_ATTRIB_INDEX,
+				  "StopCoords1");
 
     dispatch->LinkProgram (*program);
     dispatch->GetProgramiv (*program, GL_LINK_STATUS, &gl_status);
@@ -442,6 +450,9 @@ typedef struct _cairo_shader_cache_entry {
     cairo_bool_t mask_border_fade;
     cairo_extend_t mask_extend;
 
+    cairo_bool_t src_use_atlas;
+    cairo_bool_t mask_use_atlas;
+
     cairo_gl_context_t *ctx; /* XXX: needed to destroy the program */
     cairo_gl_shader_t shader;
 } cairo_shader_cache_entry_t;
@@ -492,7 +503,7 @@ _cairo_gl_shader_cache_equal_gles2 (const void *key_a, const void *key_b)
 static unsigned long
 _cairo_gl_shader_cache_hash (const cairo_shader_cache_entry_t *entry)
 {
-    return (entry->src << 10) | (entry->mask << 7) | (entry->dest << 4) | (entry->in << 2) | (entry->use_color_attribute << 1) | entry->use_coverage;
+    return (entry->src << 16) | (entry->mask << 13) | (entry->dest << 10) | (entry->in << 8) | (entry->mask_extend << 6) | (entry->src_extend << 4) |(entry->mask_use_atlas << 3) | (entry->src_use_atlas << 2) |(entry->use_color_attribute << 1) | entry->use_coverage;
 }
 
 static void
@@ -637,7 +648,8 @@ cairo_gl_operand_get_var_type (cairo_gl_operand_type_t type,
 static void
 cairo_gl_shader_emit_variable (cairo_output_stream_t *stream,
                                cairo_gl_var_type_t type,
-                               cairo_gl_tex_t name)
+                               cairo_gl_tex_t name,
+                               cairo_bool_t use_atlas)
 {
     switch (type) {
     default:
@@ -652,6 +664,11 @@ cairo_gl_shader_emit_variable (cairo_output_stream_t *stream,
         _cairo_output_stream_printf (stream,
                                      "varying vec2 %s_texcoords;\n",
                                      operand_names[name]);
+        if (use_atlas)
+            _cairo_output_stream_printf (stream,
+                                         "varying vec2 %s_start_coords;\n"
+                                         "varying vec2 %s_stop_coords;\n",
+                                         operand_names[name], operand_names[name]);
         break;
     }
 }
@@ -690,20 +707,38 @@ cairo_gl_shader_def_coverage (cairo_output_stream_t *stream)
     _cairo_output_stream_printf (stream, "    coverage = Coverage.a;\n");
 }
 
+static void
+cairo_gl_shader_def_use_atlas (cairo_output_stream_t *stream,
+                               cairo_gl_var_type_t type,
+                               cairo_gl_tex_t name)
+{
+    if (type == CAIRO_GL_VAR_TEXCOORDS) {
+            _cairo_output_stream_printf (stream,
+					 "    %s_start_coords = StartCoords%d.xy;\n"
+					 "    %s_stop_coords = StopCoords%d.xy;\n",
+					 operand_names[name], name,
+					 operand_names[name], name);
+    }
+}
+
 static cairo_status_t
 cairo_gl_shader_get_vertex_source (cairo_gl_var_type_t src_type,
                                    cairo_gl_var_type_t mask_type,
-				   cairo_bool_t use_coverage,
+                                   cairo_bool_t src_use_atlas,
+                                   cairo_bool_t mask_use_atlas,
+                                   cairo_bool_t use_coverage,
                                    cairo_gl_var_type_t dest,
-				   char **out)
+                                   char **out)
 {
     cairo_output_stream_t *stream = _cairo_memory_stream_create ();
     unsigned char *source;
     unsigned long length;
     cairo_status_t status;
 
-    cairo_gl_shader_emit_variable (stream, src_type, CAIRO_GL_TEX_SOURCE);
-    cairo_gl_shader_emit_variable (stream, mask_type, CAIRO_GL_TEX_MASK);
+    cairo_gl_shader_emit_variable (stream, src_type, CAIRO_GL_TEX_SOURCE,
+				   src_use_atlas);
+    cairo_gl_shader_emit_variable (stream, mask_type, CAIRO_GL_TEX_MASK,
+				   mask_use_atlas);
     if (use_coverage)
 	cairo_gl_shader_dcl_coverage (stream);
 
@@ -713,6 +748,10 @@ cairo_gl_shader_get_vertex_source (cairo_gl_var_type_t src_type,
 				 "attribute vec4 Coverage;\n"
 				 "attribute vec4 MultiTexCoord0;\n"
 				 "attribute vec4 MultiTexCoord1;\n"
+				 "attribute vec2 StartCoords0;\n"
+				 "attribute vec2 StartCoords1;\n"
+				 "attribute vec2 StopCoords0;\n"
+				 "attribute vec2 StopCoords1;\n"
 				 "uniform mat4 ModelViewProjectionMatrix;\n"
 				 "void main()\n"
 				 "{\n"
@@ -723,6 +762,11 @@ cairo_gl_shader_get_vertex_source (cairo_gl_var_type_t src_type,
 
     if (use_coverage)
 	cairo_gl_shader_def_coverage (stream);
+
+    if (src_use_atlas)
+	cairo_gl_shader_def_use_atlas (stream, src_type, CAIRO_GL_TEX_SOURCE);
+    if (mask_use_atlas)
+	cairo_gl_shader_def_use_atlas (stream, mask_type, CAIRO_GL_TEX_MASK);
 
     _cairo_output_stream_write (stream,
 				"}\n\0", 3);
@@ -759,6 +803,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 {
     const char *namestr = operand_names[name];
     const char *rectstr = (ctx->tex_target == GL_TEXTURE_RECTANGLE ? "Rect" : "");
+    cairo_bool_t use_atlas = _cairo_gl_operand_get_use_atlas (op);
 
     switch (op->type) {
     case CAIRO_GL_OPERAND_COUNT:
@@ -792,13 +837,26 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
                                        namestr, namestr, namestr);
         break;
     case CAIRO_GL_OPERAND_TEXTURE:
-	_cairo_output_stream_printf (stream,
-	     "uniform sampler2D%s %s_sampler;\n"
-	     "uniform vec2 %s_texdims;\n"
-	     "varying vec2 %s_texcoords;\n"
-	     "vec4 get_%s()\n"
-	     "{\n",
-	     rectstr, namestr, namestr, namestr, namestr);
+	if (! use_atlas) {
+	    _cairo_output_stream_printf (stream,
+		"uniform sampler2D%s %s_sampler;\n"
+		"uniform vec2 %s_texdims;\n"
+		"varying vec2 %s_texcoords;\n"
+		"vec4 get_%s()\n"
+		"{\n",
+		rectstr, namestr, namestr, namestr, namestr);
+	} else {
+	    _cairo_output_stream_printf (stream,
+		"uniform sampler2D%s %s_sampler;\n"
+		"uniform vec2 %s_texdims;\n"
+		"varying vec2 %s_texcoords;\n"
+		"varying vec2 %s_start_coords;\n"
+		"varying vec2 %s_stop_coords;\n"
+		"vec4 get_%s()\n"
+		"{\n",
+		rectstr, namestr, namestr, namestr, namestr, namestr, namestr);
+	}
+
 	if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES &&
 	    _cairo_gl_shader_needs_border_fade (op))
 	{
@@ -811,10 +869,17 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	}
 	else
 	{
-	    _cairo_output_stream_printf (stream,
-		"    return texture2D%s (%s_sampler, %s_wrap (%s_texcoords));\n"
-		"}\n",
-		rectstr, namestr, namestr, namestr);
+	    if (! use_atlas) {
+		_cairo_output_stream_printf (stream,
+		    "    return texture2D%s (%s_sampler, %s_wrap (%s_texcoords));\n"
+		    "}\n",
+		    rectstr, namestr, namestr, namestr);
+	    } else {
+		_cairo_output_stream_printf (stream,
+		    "    return texture2D%s (%s_sampler, %s_wrap (%s_texcoords, %s_start_coords, %s_stop_coords));\n"
+		    "}\n",
+		    rectstr, namestr, namestr, namestr, namestr, namestr);
+	    }
 	}
         break;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
@@ -1027,26 +1092,79 @@ _cairo_gl_shader_emit_wrap (cairo_gl_context_t *ctx,
 {
     const char *namestr = operand_names[name];
     cairo_extend_t extend = _cairo_gl_operand_get_extend (operand);
+    cairo_bool_t use_atlas = _cairo_gl_operand_get_use_atlas (operand);
 
-    _cairo_output_stream_printf (stream,
-	"vec2 %s_wrap(vec2 coords)\n"
-	"{\n",
-	namestr);
+    if (use_atlas)
+	_cairo_output_stream_printf (stream,
+	    "vec2 %s_wrap (vec2 coords, vec2 start_coords, vec2 stop_coords)\n"
+	    "{\n",
+	    namestr);
+    else
+	_cairo_output_stream_printf (stream,
+	    "vec2 %s_wrap(vec2 coords)\n"
+	    "{\n",
+	    namestr);
 
-    if (! ctx->has_npot_repeat &&
-	(extend == CAIRO_EXTEND_REPEAT || extend == CAIRO_EXTEND_REFLECT))
-    {
+    if (use_atlas) {
 	if (extend == CAIRO_EXTEND_REPEAT) {
 	    _cairo_output_stream_printf (stream,
-		"    return fract(coords);\n");
-	} else { /* CAIRO_EXTEND_REFLECT */
+		"    vec2 range = stop_coords - start_coords;\n"
+		"    return mod (coords - start_coords, range) + start_coords;\n");
+	} else if (extend == CAIRO_EXTEND_REFLECT){
 	    _cairo_output_stream_printf (stream,
-		"    return mix(fract(coords), 1.0 - fract(coords), floor(mod(coords, 2.0)));\n");
+		"    vec2 range = stop_coords - start_coords;\n"
+		"    vec2 frac = mod (coords - start_coords, range);\n"
+		"    return mix(frac + start_coords, range - frac + start_coords,  mod(floor((coords - start_coords) / range), 2.0));\n");
+	}
+	else if (extend == CAIRO_EXTEND_PAD) {
+	    _cairo_output_stream_printf (stream,
+		"    bvec2 compare_to_start = lessThan (coords, start_coords);\n"
+		"    bvec2 compare_to_stop = greaterThan (coords, stop_coords);\n"
+		"    if (all (compare_to_start))\n"
+		"        return start_coords;\n"
+		"    else if (all (compare_to_stop))\n"
+		"        return stop_coords;\n"
+		"    else if (compare_to_start.x && compare_to_stop.y)\n"
+		"        return vec2 (start_coords.x, stop_coords.y);\n"
+		"    else if (compare_to_start.x && ! compare_to_stop.y)\n"
+		"        return vec2 (start_coords.x, coords.y);\n"
+		"    else if (compare_to_stop.x && compare_to_start.y)\n"
+		"        return vec2 (stop_coords.x, start_coords.y);\n"
+		"    else if (compare_to_stop.x && ! compare_to_stop.y)\n"
+		"        return vec2 (stop_coords.x, coords.y);\n"
+		"    else if (compare_to_start.y && ! compare_to_start.x)\n"
+		"        return vec2 (coords.x, start_coords.y);\n"
+		"    else if (compare_to_stop.y && ! compare_to_start.x)\n"
+		"        return vec2 (coords.x, stop_coords.y);\n"
+		"    else\n"
+		"        return coords;\n");
+	}
+	else {
+	    _cairo_output_stream_printf (stream,
+		"    if (any (lessThan (coords, start_coords)))\n"
+		"        return vec2 (-1.0);\n"
+		"    if (any (greaterThan (coords, stop_coords)))\n"
+		"        return vec2 (-1.0);\n"
+		"    else\n"
+		"        return coords;\n");
 	}
     }
-    else
-    {
-	_cairo_output_stream_printf (stream, "    return coords;\n");
+    else {
+	if (! ctx->has_npot_repeat &&
+	    (extend == CAIRO_EXTEND_REPEAT ||
+	     extend == CAIRO_EXTEND_REFLECT)) {
+	    if (extend == CAIRO_EXTEND_REPEAT) {
+		_cairo_output_stream_printf (stream,
+		    "    return fract(coords);\n");
+	    } else { /* CAIRO_EXTEND_REFLECT */
+		_cairo_output_stream_printf (stream,
+		    "    return mix(fract(coords), 1.0 - fract(coords), floor(mod(coords, 2.0)));\n");
+	    }
+	}
+	else
+	{
+	    _cairo_output_stream_printf (stream, "    return coords;\n");
+	}
     }
 
     _cairo_output_stream_printf (stream, "}\n");
@@ -1138,28 +1256,45 @@ _cairo_gl_shader_compile (cairo_gl_context_t *ctx,
     cairo_status_t status;
     cairo_gl_var_type_t src_type;
     cairo_gl_var_type_t mask_type;
+    cairo_extend_t src_atlas_extend = CAIRO_EXTEND_NONE;
+    cairo_extend_t mask_atlas_extend = CAIRO_EXTEND_NONE;
+    cairo_bool_t src_use_atlas = FALSE;
+    cairo_bool_t mask_use_atlas = FALSE;
 
     assert (shader->program == 0);
 
-    if (src != NULL)
+    if (src != NULL) {
       src_type = cairo_gl_operand_get_var_type (src->type,
                                                 src->use_color_attribute);
+      src_atlas_extend = _cairo_gl_operand_get_atlas_extend (src);
+      src_use_atlas = _cairo_gl_operand_get_use_atlas (src);
+    }
     else
       src_type = CAIRO_GL_VAR_NONE;
 
-    if (mask != NULL)
+    if (mask != NULL) {
       mask_type = cairo_gl_operand_get_var_type (mask->type,
                                                  mask->use_color_attribute);
+      mask_atlas_extend = _cairo_gl_operand_get_atlas_extend (mask);
+      mask_use_atlas = _cairo_gl_operand_get_use_atlas (mask);
+    }
     else
       mask_type = CAIRO_GL_VAR_NONE;
 
-    vertex_shader = cairo_gl_var_type_hash (src_type, mask_type, use_coverage,
+    vertex_shader = cairo_gl_var_type_hash (src_type, mask_type,
+					    src_atlas_extend,
+					    mask_atlas_extend,
+					    src_use_atlas,
+					    mask_use_atlas,
+					    use_coverage,
 					    CAIRO_GL_VAR_NONE);
     if (ctx->vertex_shaders[vertex_shader] == 0) {
 	char *source;
 
 	status = cairo_gl_shader_get_vertex_source (src_type,
 						    mask_type,
+						    src_use_atlas,
+						    mask_use_atlas,
 						    use_coverage,
 						    CAIRO_GL_VAR_NONE,
 						    &source);
@@ -1311,10 +1446,12 @@ _cairo_gl_get_shader_by_type (cairo_gl_context_t *ctx,
     lookup.in = in;
     lookup.src_gl_filter = _cairo_gl_operand_get_gl_filter (source);
     lookup.src_border_fade = _cairo_gl_shader_needs_border_fade (source);
-    lookup.src_extend = _cairo_gl_operand_get_extend (source);
+    lookup.src_extend = _cairo_gl_operand_get_atlas_extend (source);
     lookup.mask_gl_filter = _cairo_gl_operand_get_gl_filter (mask);
     lookup.mask_border_fade = _cairo_gl_shader_needs_border_fade (mask);
-    lookup.mask_extend = _cairo_gl_operand_get_extend (mask);
+    lookup.mask_extend = _cairo_gl_operand_get_atlas_extend (mask);
+    lookup.src_use_atlas = _cairo_gl_operand_get_use_atlas (source);
+    lookup.mask_use_atlas = _cairo_gl_operand_get_use_atlas (mask);
     lookup.base.hash = _cairo_gl_shader_cache_hash (&lookup);
     lookup.base.size = 1;
 
