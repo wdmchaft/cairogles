@@ -693,7 +693,8 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
 	return status;
 
     info.ctx = NULL;
-    use_color_attribute = _cairo_path_fixed_stroke_is_rectilinear (path);
+    use_color_attribute = _cairo_path_fixed_stroke_is_rectilinear (path) ||
+			  _cairo_gl_hairline_style_is_hairline (style, ctm);
 
     status = _cairo_gl_composite_set_source (&info.setup,
 					     composite->original_source_pattern,
@@ -710,6 +711,30 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
     status = _cairo_gl_composite_begin (&info.setup, &info.ctx);
     if (unlikely (status))
 	goto finish;
+
+    if (_cairo_gl_hairline_style_is_hairline (style, ctm)) {
+	cairo_gl_hairline_closure_t closure;
+
+	status = _prevent_overlapping_strokes (info.ctx, &info.setup,
+					       composite, path, style, ctm);
+	if (unlikely (status))
+	    goto finish;
+
+	closure.ctx = info.ctx;
+
+	closure.tolerance = tolerance;
+
+	status = _cairo_gl_path_fixed_stroke_to_hairline (path, &closure,
+							  style, ctm,
+							  ctm_inverse,
+							  _cairo_gl_hairline_move_to,
+							  style->dash ?
+							  _cairo_gl_hairline_line_to_dashed :
+							  _cairo_gl_hairline_line_to,
+							  _cairo_gl_hairline_curve_to,
+							  _cairo_gl_hairline_close_path);
+	goto finish;
+    }
 
     if (use_color_attribute || path->has_curve_to) {
 	cairo_traps_t traps;
