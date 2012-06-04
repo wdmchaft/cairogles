@@ -391,6 +391,7 @@ _cairo_gl_surface_init (cairo_device_t *device,
     surface->width = width;
     surface->height = height;
     surface->needs_update = FALSE;
+    surface->needs_to_cache = FALSE;
 
     _cairo_gl_surface_embedded_operand_init (surface);
 }
@@ -535,6 +536,7 @@ _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
     if (a == 0)
 	surface->base.is_clear = TRUE;
 
+    surface->content_changed = TRUE;
     return _cairo_gl_context_release (ctx, status);
 }
 
@@ -988,6 +990,8 @@ FAIL:
     if (clone)
         cairo_surface_destroy (&clone->base);
 
+    if (likely (status))
+	dst->content_changed = TRUE;
     return status;
 }
 
@@ -1294,6 +1298,9 @@ _cairo_gl_surface_paint (void			*surface,
 			 const cairo_pattern_t	*source,
 			 const cairo_clip_t	*clip)
 {
+    cairo_int_status_t status;
+    cairo_gl_surface_t *dst = (cairo_gl_surface_t *)surface;
+
     /* simplify the common case of clearing the surface */
     if (clip == NULL) {
         if (op == CAIRO_OPERATOR_CLEAR)
@@ -1306,8 +1313,11 @@ _cairo_gl_surface_paint (void			*surface,
         }
     }
 
-    return _cairo_compositor_paint (get_compositor (surface), surface,
-				    op, source, clip);
+    status = _cairo_compositor_paint (get_compositor (surface), surface,
+				      op, source, clip);
+    if (likely (status))
+	dst->content_changed = TRUE;
+    return status;
 }
 
 static cairo_int_status_t
@@ -1317,8 +1327,14 @@ _cairo_gl_surface_mask (void			 *surface,
 			const cairo_pattern_t	*mask,
 			const cairo_clip_t	*clip)
 {
-    return _cairo_compositor_mask (get_compositor (surface), surface,
-				   op, source, mask, clip);
+    cairo_int_status_t status;
+    cairo_gl_surface_t *dst = (cairo_gl_surface_t *) surface;
+
+    status = _cairo_compositor_mask (get_compositor (surface), surface,
+				     op, source, mask, clip);
+    if (likely (status))
+	dst->content_changed = TRUE;
+    return status;
 }
 
 static cairo_int_status_t
@@ -1333,10 +1349,16 @@ _cairo_gl_surface_stroke (void			        *surface,
                           cairo_antialias_t		 antialias,
                           const cairo_clip_t		*clip)
 {
-    return _cairo_compositor_stroke (get_compositor (surface), surface,
-				     op, source, path, style,
-				     ctm, ctm_inverse, tolerance, antialias,
-				     clip);
+    cairo_int_status_t status;
+    cairo_gl_surface_t *dst = (cairo_gl_surface_t *)surface;
+
+    status = _cairo_compositor_stroke (get_compositor (surface), surface,
+				       op, source, path, style,
+				       ctm, ctm_inverse, tolerance,
+				       antialias, clip);
+    if (likely (status))
+	dst->content_changed = TRUE;
+    return status;
 }
 
 static cairo_int_status_t
@@ -1349,10 +1371,16 @@ _cairo_gl_surface_fill (void			*surface,
                         cairo_antialias_t	 antialias,
                         const cairo_clip_t	*clip)
 {
-    return _cairo_compositor_fill (get_compositor (surface), surface,
-				   op, source, path,
-				   fill_rule, tolerance, antialias,
-				   clip);
+    cairo_int_status_t status;
+    cairo_gl_surface_t *dst = (cairo_gl_surface_t *)surface;
+
+    status = _cairo_compositor_fill (get_compositor (surface), surface,
+				     op, source, path,
+				     fill_rule, tolerance, antialias,
+				     clip);
+    if (likely (status))
+	dst->content_changed = TRUE;
+    return status;
 }
 
 static cairo_int_status_t
@@ -1364,9 +1392,15 @@ _cairo_gl_surface_glyphs (void			*surface,
 			  cairo_scaled_font_t	*font,
 			  const cairo_clip_t	*clip)
 {
-    return _cairo_compositor_glyphs (get_compositor (surface), surface,
-				     op, source, glyphs, num_glyphs, font,
-				     clip);
+    cairo_int_status_t status;
+    cairo_gl_surface_t *dst = (cairo_gl_surface_t *)surface;
+
+    status = _cairo_compositor_glyphs (get_compositor (surface), surface,
+				       op, source, glyphs, num_glyphs,
+				       font, clip);
+    if (likely (status))
+	dst->content_changed = TRUE;
+    return status;
 }
 
 static const cairo_surface_backend_t _cairo_gl_surface_backend = {
