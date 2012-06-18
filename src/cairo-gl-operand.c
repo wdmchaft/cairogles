@@ -589,6 +589,11 @@ _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
 							extents->height,
 							-1);
     if (unlikely (image->status)) {
+	status = _cairo_gl_context_release (ctx, status);
+
+	/* The error status in the image is issue that caused the problem. */
+	status = image->status;
+
 	cairo_surface_destroy (image);
 	goto fail;
     }
