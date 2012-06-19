@@ -50,6 +50,7 @@
 #include "cairo-region-private.h"
 #include "cairo-surface-inline.h"
 #include "cairo-tee-surface-private.h"
+#include "cairo-surface-subsurface-private.h"
 
 /**
  * SECTION:cairo-surface
@@ -125,6 +126,7 @@ const cairo_surface_t name = {					\
     0.0,				/* y_fallback_resolution */	\
     NULL,				/* snapshot_of */	\
     NULL,				/* snapshot_detach */	\
+    NULL,				/* snapshot_subsurface */	\
     { NULL, NULL },			/* snapshots */		\
     { NULL, NULL },			/* snapshot */		\
     { CAIRO_ANTIALIAS_DEFAULT,		/* antialias */		\
@@ -344,16 +346,22 @@ _cairo_surface_detach_snapshot (cairo_surface_t *snapshot)
     snapshot->snapshot_of = NULL;
     cairo_list_del (&snapshot->snapshot);
 
-    if (snapshot->snapshot_detach != NULL)
-	snapshot->snapshot_detach (snapshot);
+    if (snapshot->snapshot_detach != NULL) {
+	/* If this is a snapshot of a subsurface, call snapshot_detach with the
+	 * parent subsurface, so that it can clear its snapshot. */
+	if (snapshot->snapshot_subsurface)
+	    snapshot->snapshot_detach (snapshot->snapshot_subsurface);
+	else
+	    snapshot->snapshot_detach (snapshot);
+    }
 
     cairo_surface_destroy (snapshot);
 }
 
-void
-_cairo_surface_attach_snapshot (cairo_surface_t *surface,
-				 cairo_surface_t *snapshot,
-				 cairo_surface_func_t detach_func)
+static void
+_cairo_surface_attach_snapshot_internal (cairo_surface_t *surface,
+					 cairo_surface_t *snapshot,
+					 cairo_surface_func_t detach_func)
 {
     assert (surface != snapshot);
     assert (snapshot->snapshot_of != surface);
@@ -367,8 +375,25 @@ _cairo_surface_attach_snapshot (cairo_surface_t *surface,
     snapshot->snapshot_detach = detach_func;
 
     cairo_list_add (&snapshot->snapshot, &surface->snapshots);
+}
 
+void
+_cairo_surface_attach_snapshot (cairo_surface_t *surface,
+				 cairo_surface_t *snapshot,
+				 cairo_surface_func_t detach_func)
+{
+    _cairo_surface_attach_snapshot_internal (surface, snapshot, detach_func);
     assert (_cairo_surface_has_snapshot (surface, snapshot->backend) == snapshot);
+}
+
+void
+_cairo_surface_attach_subsurface_snapshot (cairo_surface_t *surface,
+					   cairo_surface_subsurface_t *subsurface,
+					   cairo_surface_t *snapshot,
+					   cairo_surface_func_t detach_func)
+{
+    _cairo_surface_attach_snapshot_internal (surface, snapshot, detach_func);
+    snapshot->snapshot_subsurface = &subsurface->base;
 }
 
 cairo_surface_t *
@@ -380,7 +405,8 @@ _cairo_surface_has_snapshot (cairo_surface_t *surface,
     cairo_list_foreach_entry (snapshot, cairo_surface_t,
 			      &surface->snapshots, snapshot)
     {
-	if (snapshot->backend == backend)
+	if (snapshot->backend == backend &&
+	    snapshot->snapshot_subsurface == NULL)
 	    return snapshot;
     }
 
@@ -434,6 +460,7 @@ _cairo_surface_init (cairo_surface_t			*surface,
 
     cairo_list_init (&surface->snapshots);
     surface->snapshot_of = NULL;
+    surface->snapshot_subsurface = NULL;
 
     surface->has_font_options = FALSE;
 }

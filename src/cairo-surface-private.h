@@ -92,6 +92,13 @@ struct _cairo_surface {
     /* A "snapshot" surface is immutable. See _cairo_surface_snapshot. */
     cairo_surface_t *snapshot_of;
     cairo_surface_func_t snapshot_detach;
+
+    /* A snapshot of a subsurface is stored as a snapshot of its target surface,
+     * because it needs to be detached when the target surface changes. It
+     * is never returned by _cairo_surface_has_snapshot as the subsurface is
+     * responsible for exposing it. */
+    cairo_surface_t *snapshot_subsurface;
+
     /* current snapshots of this surface*/
     cairo_list_t snapshots;
     /* place upon snapshot list */
