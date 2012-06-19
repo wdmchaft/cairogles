@@ -555,17 +555,11 @@ _cairo_surface_subsurface_set_snapshot (cairo_surface_t *surface,
     TRACE ((stderr, "%s: target=%d, snapshot=%d\n", __FUNCTION__,
 	    ss->target->unique_id, snapshot->unique_id));
 
-    /* FIXME: attaching the subsurface as a snapshot to its target creates
-     * a reference cycle.  Let's make this call as a no-op until that bug
-     * is fixed.
-     */
-    return;
-
     if (ss->snapshot)
 	_cairo_surface_detach_snapshot (ss->snapshot);
 
     ss->snapshot = cairo_surface_reference (snapshot);
 
-    _cairo_surface_attach_snapshot (ss->target, &ss->base,
-				    _cairo_surface_subsurface_detach_snapshot);
+    _cairo_surface_attach_subsurface_snapshot (ss->target, ss, snapshot,
+					       _cairo_surface_subsurface_detach_snapshot);
 }
