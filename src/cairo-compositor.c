@@ -261,23 +261,26 @@ _cairo_compositor_fill (const cairo_compositor_t	*compositor,
     cairo_composite_rectangles_t extents;
     cairo_int_status_t status;
     cairo_bool_t initialized = TRUE;
-
+    
     TRACE ((stderr, "%s\n", __FUNCTION__));
-
+    
     if (compositor->lazy_init) {
 	status = _cairo_composite_rectangles_lazy_init_for_fill (&extents,
 								 surface,
-								 op, source,
+								 op, 
+								 source,
 								 path, clip);
 	initialized = FALSE;
     }
     else
 	status = _cairo_composite_rectangles_init_for_fill (&extents,
 							    surface,
-							    op, source,
+							    op, 
+							    source,
 							    path, clip);
-    if (unlikely (status))
+    if (unlikely (status)) 
 	return status;
+    
 
     do {
 	while (compositor->fill == NULL)

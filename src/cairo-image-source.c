@@ -200,6 +200,26 @@ _pixman_white_image (void)
 }
 #endif /* !PIXMAN_HAS_ATOMIC_OPS */
 
+static pixman_fixed_t *
+_pixman_image_create_convolution_params (double *params,
+					 int size_1,
+					 int size_2,
+					 int length)
+{
+   int i;
+   pixman_fixed_t *pixman_params;
+
+   pixman_params = _cairo_malloc_ab (length + 2, sizeof (double));
+
+   pixman_params[0] = pixman_int_to_fixed (size_1);
+   pixman_params[1] = pixman_int_to_fixed (size_2);
+
+   for (i = 0; i < length; i++)
+	pixman_params[i + 2] = pixman_double_to_fixed (params[i]);
+
+    return pixman_params;
+}
+
 
 pixman_image_t *
 _pixman_image_for_color (const cairo_color_t *cairo_color)
@@ -578,11 +598,26 @@ _pixman_image_set_properties (pixman_image_t *pixman_image,
 	     * API. We could fix this by officially deprecating it, or
 	     * else inventing semantics and providing an actual
 	     * implementation for it. */
+	    pixman_filter = PIXMAN_FILTER_CONVOLUTION;
+	    break;
 	default:
 	    pixman_filter = PIXMAN_FILTER_BEST;
 	}
 
-	pixman_image_set_filter (pixman_image, pixman_filter, NULL, 0);
+	if (pixman_filter != PIXMAN_FILTER_CONVOLUTION)
+	    pixman_image_set_filter (pixman_image, pixman_filter, NULL, 0);
+	else {
+	    int size = pattern->radius * 2 + 1;
+	    int length = size * size;
+	    pixman_fixed_t *pixman_params = 
+		_pixman_image_create_convolution_params (pattern->convolution_matrix,
+							 size, size,
+							 length);
+	    pixman_image_set_filter (pixman_image, pixman_filter,
+				     (const pixman_fixed_t *)pixman_params,
+				     length + 2);
+	    free (pixman_params);
+	}
     }
 
     {

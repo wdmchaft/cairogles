@@ -75,6 +75,10 @@ struct _cairo_pattern {
 
     cairo_matrix_t		matrix;
     double			opacity;
+
+    double			*convolution_matrix;
+    double			sigma;
+    int				radius; // convolution matrix size 2*radius+1;
 };
 
 struct _cairo_solid_pattern {

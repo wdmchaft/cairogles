@@ -41,6 +41,7 @@
 #include "cairo-surface-snapshot-inline.h"
 
 #include <float.h>
+#include <math.h>
 
 #define PIXMAN_MAX_INT ((pixman_fixed_1 >> 1) - pixman_fixed_e) /* need to ensure deltas also fit */
 
@@ -236,6 +237,10 @@ _cairo_pattern_init (cairo_pattern_t *pattern, cairo_pattern_type_t type)
 
     cairo_matrix_init_identity (&pattern->matrix);
 
+    pattern->convolution_matrix = NULL;
+    pattern->radius = 2;
+    pattern->sigma = 0.0f;
+
     cairo_list_init (&pattern->observers);
 }
 
@@ -393,6 +398,13 @@ _cairo_pattern_init_static_copy (cairo_pattern_t	*pattern,
     }
 
     memcpy (pattern, other, size);
+    if (other->convolution_matrix) {
+	size = 2 * other->radius + 1;
+	size = size * size;
+	pattern->convolution_matrix = _cairo_malloc_ab (size, sizeof(double) * size);
+	memcpy (pattern->convolution_matrix, other->convolution_matrix,
+		sizeof (double) * size);	
+    }
 
     CAIRO_REFERENCE_COUNT_INIT (&pattern->ref_count, 0);
     _cairo_user_data_array_init (&pattern->user_data);
@@ -461,6 +473,11 @@ _cairo_pattern_fini (cairo_pattern_t *pattern)
 	break;
     }
 
+    if (pattern->convolution_matrix) {
+	free (pattern->convolution_matrix);
+	pattern->convolution_matrix = NULL;
+    }
+
 #if HAVE_VALGRIND
     switch (pattern->type) {
     case CAIRO_PATTERN_TYPE_SOLID:
@@ -490,6 +507,7 @@ _cairo_pattern_create_copy (cairo_pattern_t	  **pattern_out,
 {
     cairo_pattern_t *pattern;
     cairo_status_t status;
+    int size;
 
     if (other->status)
 	return other->status;
@@ -524,6 +542,16 @@ _cairo_pattern_create_copy (cairo_pattern_t	  **pattern_out,
     if (unlikely (status)) {
 	free (pattern);
 	return status;
+    }
+
+    pattern->sigma = other->sigma;
+    pattern->radius = other->radius;
+    if (other->convolution_matrix) {
+	size = 2 * other->radius + 1;
+	size = size * size;
+	pattern->convolution_matrix = _cairo_malloc_ab (size, sizeof(double) * size);
+	memcpy (pattern->convolution_matrix, other->convolution_matrix,
+		sizeof (double) * size);	
     }
 
     CAIRO_REFERENCE_COUNT_INIT (&pattern->ref_count, 1);
@@ -2034,6 +2062,38 @@ cairo_pattern_get_matrix (cairo_pattern_t *pattern, cairo_matrix_t *matrix)
     *matrix = pattern->matrix;
 }
 
+static double *
+_create_gaussian_matrix (int radius, double sigma)
+{
+    double scale2 = 2.0 * sigma * sigma;
+    double scale1 = 1.0 / (M_PI * scale2);
+    int size = 2 * radius + 1;
+    double *buffer;
+    int i, x, y;
+    double u, v;
+    double sum = 0.0;
+    int n = size * size;
+
+    // create convolution matrix
+    buffer = _cairo_malloc_ab (n, sizeof (double));
+
+    // compute guassian kernel
+    for (i = 0, sum = 0.0, x = -radius; x <= radius; x++) {
+	for (y = -radius; y <= radius; y++, i++) {
+	    u = x * x; 
+	    v = y * y;
+
+	    buffer[i] = scale1 * exp (-(u+v)/scale2);
+	    sum += buffer[i];
+	}
+    }
+    // normalize it
+    for (i = 0; i < n; i++)
+	buffer[i] /= sum;
+
+    return buffer;
+}
+
 /**
  * cairo_pattern_set_filter:
  * @pattern: a #cairo_pattern_t
@@ -2064,6 +2124,18 @@ cairo_pattern_set_filter (cairo_pattern_t *pattern, cairo_filter_t filter)
 
     pattern->filter = filter;
     _cairo_pattern_notify_observers (pattern, CAIRO_PATTERN_NOTIFY_FILTER);
+
+    /* XXX: we compute the gaussian parameters.  The default value is
+       sigma = 0, radius = 1;
+       code taken from ftp.sleipnir.fr/git/notify-lite/src/gaussian-blur.c
+       author Mico "MacSlow" Mueller
+    */
+    if (filter == CAIRO_FILTER_GAUSSIAN) {
+	double radiusf = abs (pattern->radius) + 1.0;
+	if (pattern->sigma == 0.0)
+	    pattern->sigma = sqrt (-(radiusf * radiusf) / (2.0f * log (1.0 / 255.0)));
+	pattern->convolution_matrix = _create_gaussian_matrix (pattern->radius, pattern->sigma);
+    }
 }
 
 /**
