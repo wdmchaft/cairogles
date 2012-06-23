@@ -1042,6 +1042,9 @@ _cairo_gstate_paint (cairo_gstate_t *gstate)
     if (_cairo_clip_is_all_clipped (gstate->clip))
 	return CAIRO_STATUS_SUCCESS;
 
+    if (gstate->source->filter == CAIRO_FILTER_GAUSSIAN)
+	_cairo_pattern_create_gaussian_matrix (gstate->source);
+
     op = _reduce_op (gstate);
     if (op == CAIRO_OPERATOR_CLEAR) {
 	pattern = &_cairo_pattern_clear.base;
@@ -1077,6 +1080,12 @@ _cairo_gstate_mask (cairo_gstate_t  *gstate,
 
     if (_cairo_clip_is_all_clipped (gstate->clip))
 	return CAIRO_STATUS_SUCCESS;
+
+    if (gstate->source->filter == CAIRO_FILTER_GAUSSIAN)
+	_cairo_pattern_create_gaussian_matrix (gstate->source);
+    
+    if (mask->filter == CAIRO_FILTER_GAUSSIAN)
+	_cairo_pattern_create_gaussian_matrix (mask);
 
     assert (gstate->opacity == 1.0);
 
@@ -1165,8 +1174,12 @@ _cairo_gstate_stroke (cairo_gstate_t *gstate, cairo_path_fixed_t *path)
 					      style.dash,
 					      &style.num_dashes);
     }
+    
+    if (gstate->source->filter == CAIRO_FILTER_GAUSSIAN)
+	_cairo_pattern_create_gaussian_matrix (gstate->source);
 
     _cairo_gstate_copy_transformed_source (gstate, &source_pattern.base);
+    
 
     return _cairo_surface_stroke (gstate->target,
 				  gstate->op,
@@ -1255,6 +1268,9 @@ _cairo_gstate_fill (cairo_gstate_t *gstate, cairo_path_fixed_t *path)
 
     assert (gstate->opacity == 1.0);
 
+    if (gstate->source->filter == CAIRO_FILTER_GAUSSIAN)
+	_cairo_pattern_create_gaussian_matrix (gstate->source);
+
     if (_cairo_path_fixed_fill_is_empty (path)) {
 	if (_cairo_operator_bounded_by_mask (gstate->op))
 	    return CAIRO_STATUS_SUCCESS;
@@ -1277,7 +1293,7 @@ _cairo_gstate_fill (cairo_gstate_t *gstate, cairo_path_fixed_t *path)
 	    _cairo_gstate_copy_transformed_source (gstate, &source_pattern.base);
 	    pattern = &source_pattern.base;
 	}
-
+    
 	/* Toolkits often paint the entire background with a fill */
 	if (_cairo_surface_get_extents (gstate->target, &extents) &&
 	    _cairo_path_fixed_is_box (path, &box) &&
@@ -1923,6 +1939,9 @@ _cairo_gstate_show_text_glyphs (cairo_gstate_t		   *gstate,
     if (unlikely (status))
 	return status;
 
+    if (gstate->source->filter == CAIRO_FILTER_GAUSSIAN)
+	_cairo_pattern_create_gaussian_matrix (gstate->source);
+
     transformed_glyphs = stack_transformed_glyphs;
     transformed_clusters = stack_transformed_clusters;
 
@@ -1968,7 +1987,7 @@ _cairo_gstate_show_text_glyphs (cairo_gstate_t		   *gstate,
 	_cairo_gstate_copy_transformed_source (gstate, &source_pattern.base);
 	pattern = &source_pattern.base;
     }
-
+    
     /* For really huge font sizes, we can just do path;fill instead of
      * show_glyphs, as show_glyphs would put excess pressure on the cache,
      * and moreover, not all components below us correctly handle huge font

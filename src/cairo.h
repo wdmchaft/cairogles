@@ -2892,6 +2892,9 @@ cairo_pattern_get_extend (cairo_pattern_t *pattern);
  *
  * Since: 1.0
  **/
+
+#define CAIRO_INVALID_RADIUS 0
+#define CAIRO_INVALID_SIGMA 0.0
 typedef enum _cairo_filter {
     CAIRO_FILTER_FAST,
     CAIRO_FILTER_GOOD,
@@ -2904,8 +2907,22 @@ typedef enum _cairo_filter {
 cairo_public void
 cairo_pattern_set_filter (cairo_pattern_t *pattern, cairo_filter_t filter);
 
+cairo_public void
+cairo_pattern_set_radius_for_gaussian_filter (cairo_pattern_t 	  *pattern,
+					      const unsigned int  radius);
+
+cairo_public void 
+cairo_pattern_set_sigma_for_gaussian_filter (cairo_pattern_t *pattern,
+					     const double	 rasigma);
+
 cairo_public cairo_filter_t
 cairo_pattern_get_filter (cairo_pattern_t *pattern);
+
+cairo_public unsigned int
+cairo_pattern_get_radius_for_gaussian_filter (cairo_pattern_t *pattern);
+
+cairo_public double
+cairo_pattern_get_sigma_for_gaussian_filter (cairo_pattern_t *pattern);
 
 cairo_public cairo_status_t
 cairo_pattern_get_rgba (cairo_pattern_t *pattern,

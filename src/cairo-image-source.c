@@ -607,11 +607,12 @@ _pixman_image_set_properties (pixman_image_t *pixman_image,
 	if (pixman_filter != PIXMAN_FILTER_CONVOLUTION)
 	    pixman_image_set_filter (pixman_image, pixman_filter, NULL, 0);
 	else {
-	    int size = pattern->radius * 2 + 1;
-	    int length = size * size;
+	    int x_size = pattern->x_radius * 2 + 1;
+	    int y_size = pattern->y_radius * 2 + 1;
+	    int length = x_size * y_size;
 	    pixman_fixed_t *pixman_params = 
 		_pixman_image_create_convolution_params (pattern->convolution_matrix,
-							 size, size,
+							 x_size, y_size,
 							 length);
 	    pixman_image_set_filter (pixman_image, pixman_filter,
 				     (const pixman_fixed_t *)pixman_params,

@@ -43,6 +43,9 @@
 
 #include <stdio.h> /* FILE* */
 
+#define CAIRO_GAUSSIAN_RADIUS 2
+#define CAIRO_GAUSSIAN_SIGMA 0.0
+
 CAIRO_BEGIN_DECLS
 
 typedef struct _cairo_pattern_observer cairo_pattern_observer_t;
@@ -78,7 +81,10 @@ struct _cairo_pattern {
 
     double			*convolution_matrix;
     double			sigma;
-    int				radius; // convolution matrix size 2*radius+1;
+    unsigned int		radius; // convolution matrix size 2*radius+1;
+    unsigned int		x_radius;
+    unsigned int		y_radius;
+    cairo_bool_t		convolution_matrix_changed;
 };
 
 struct _cairo_solid_pattern {
@@ -363,6 +369,9 @@ _cairo_raster_source_pattern_finish (cairo_pattern_t *abstract_pattern);
 
 cairo_private void
 _cairo_debug_print_pattern (FILE *file, const cairo_pattern_t *pattern);
+
+cairo_private void
+_cairo_pattern_create_gaussian_matrix (cairo_pattern_t *pattern);
 
 CAIRO_END_DECLS
 
