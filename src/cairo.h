@@ -2901,7 +2901,8 @@ typedef enum _cairo_filter {
     CAIRO_FILTER_BEST,
     CAIRO_FILTER_NEAREST,
     CAIRO_FILTER_BILINEAR,
-    CAIRO_FILTER_GAUSSIAN
+    CAIRO_FILTER_GAUSSIAN,
+    CAIRO_FILTER_CONVOLUTION,
 } cairo_filter_t;
 
 cairo_public void
@@ -2923,6 +2924,12 @@ cairo_pattern_get_radius_for_gaussian_filter (cairo_pattern_t *pattern);
 
 cairo_public double
 cairo_pattern_get_sigma_for_gaussian_filter (cairo_pattern_t *pattern);
+
+cairo_public void
+cairo_pattern_set_convolution_matrix (cairo_pattern_t *pattern,
+				      double	      *matrix,
+				      unsigned int     x_size,
+				      unsigned int     y_size);
 
 cairo_public cairo_status_t
 cairo_pattern_get_rgba (cairo_pattern_t *pattern,

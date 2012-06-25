@@ -373,6 +373,9 @@ _cairo_debug_print_pattern (FILE *file, const cairo_pattern_t *pattern);
 cairo_private void
 _cairo_pattern_create_gaussian_matrix (cairo_pattern_t *pattern);
 
+cairo_private void
+_cairo_pattern_normalize_convolution_matrix (cairo_pattern_t *pattern);
+
 CAIRO_END_DECLS
 
 #endif /* CAIRO_PATTERN_PRIVATE */

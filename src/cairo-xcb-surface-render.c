@@ -509,6 +509,7 @@ _cairo_xcb_picture_set_filter (cairo_xcb_picture_t *picture,
     default:
 	ASSERT_NOT_REACHED;
     case CAIRO_FILTER_GAUSSIAN:
+    case CAIRO_FILTER_CONVOLUTION:
 	render_filter = "best";
 	len = strlen ("best");
 	break;

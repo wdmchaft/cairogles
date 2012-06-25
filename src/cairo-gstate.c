@@ -1044,6 +1044,8 @@ _cairo_gstate_paint (cairo_gstate_t *gstate)
 
     if (gstate->source->filter == CAIRO_FILTER_GAUSSIAN)
 	_cairo_pattern_create_gaussian_matrix (gstate->source);
+    else if (gstate->source->filter == CAIRO_FILTER_CONVOLUTION)
+	_cairo_pattern_normalize_convolution_matrix (gstate->source);
 
     op = _reduce_op (gstate);
     if (op == CAIRO_OPERATOR_CLEAR) {
@@ -1083,9 +1085,13 @@ _cairo_gstate_mask (cairo_gstate_t  *gstate,
 
     if (gstate->source->filter == CAIRO_FILTER_GAUSSIAN)
 	_cairo_pattern_create_gaussian_matrix (gstate->source);
+    else if (gstate->source->filter == CAIRO_FILTER_CONVOLUTION)
+	_cairo_pattern_normalize_convolution_matrix (gstate->source);
     
     if (mask->filter == CAIRO_FILTER_GAUSSIAN)
 	_cairo_pattern_create_gaussian_matrix (mask);
+    else if (mask->filter == CAIRO_FILTER_CONVOLUTION)
+	_cairo_pattern_normalize_convolution_matrix (mask);
 
     assert (gstate->opacity == 1.0);
 
@@ -1177,6 +1183,8 @@ _cairo_gstate_stroke (cairo_gstate_t *gstate, cairo_path_fixed_t *path)
     
     if (gstate->source->filter == CAIRO_FILTER_GAUSSIAN)
 	_cairo_pattern_create_gaussian_matrix (gstate->source);
+    else if (gstate->source->filter == CAIRO_FILTER_CONVOLUTION)
+	_cairo_pattern_normalize_convolution_matrix (gstate->source);
 
     _cairo_gstate_copy_transformed_source (gstate, &source_pattern.base);
     
@@ -1270,6 +1278,8 @@ _cairo_gstate_fill (cairo_gstate_t *gstate, cairo_path_fixed_t *path)
 
     if (gstate->source->filter == CAIRO_FILTER_GAUSSIAN)
 	_cairo_pattern_create_gaussian_matrix (gstate->source);
+    else if (gstate->source->filter == CAIRO_FILTER_CONVOLUTION)
+	_cairo_pattern_normalize_convolution_matrix (gstate->source);
 
     if (_cairo_path_fixed_fill_is_empty (path)) {
 	if (_cairo_operator_bounded_by_mask (gstate->op))
@@ -1941,6 +1951,8 @@ _cairo_gstate_show_text_glyphs (cairo_gstate_t		   *gstate,
 
     if (gstate->source->filter == CAIRO_FILTER_GAUSSIAN)
 	_cairo_pattern_create_gaussian_matrix (gstate->source);
+    else if (gstate->source->filter == CAIRO_FILTER_CONVOLUTION)
+	_cairo_pattern_normalize_convolution_matrix (gstate->source);
 
     transformed_glyphs = stack_transformed_glyphs;
     transformed_clusters = stack_transformed_clusters;

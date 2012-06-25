@@ -2103,6 +2103,31 @@ _cairo_pattern_create_gaussian_matrix (cairo_pattern_t *pattern)
     pattern->convolution_matrix_changed = FALSE;
 }
 
+void
+_cairo_pattern_normalize_convolution_matrix (cairo_pattern_t *pattern)
+{
+    int length = pattern->x_radius * pattern->y_radius;
+    int i;
+    double sum = 0.0;
+    
+    if (pattern->status || ! pattern->convolution_matrix_changed)
+	return;
+
+    if (!pattern->convolution_matrix || length == 0)
+	return;
+    
+    for (i = 0; i < length; i++) {
+	sum += pattern->convolution_matrix [i];
+    }
+    if (sum == 0.0)
+	sum = 1.0;
+    // normalize it
+    for (i = 0; i < length; i++)
+	pattern->convolution_matrix[i] /= sum;
+
+    pattern->convolution_matrix_changed = FALSE;
+}
+
 /**
  * cairo_pattern_set_filter:
  * @pattern: a #cairo_pattern_t
@@ -2144,6 +2169,11 @@ cairo_pattern_set_filter (cairo_pattern_t *pattern, cairo_filter_t filter)
 	pattern->y_radius = CAIRO_GAUSSIAN_RADIUS;
 	pattern->sigma = CAIRO_GAUSSIAN_SIGMA;
 	pattern->convolution_matrix_changed = TRUE;
+    } 
+    else if (filter == CAIRO_FILTER_CONVOLUTION) {
+	pattern->convolution_matrix_changed = TRUE;
+	pattern->x_radius = 0.0;
+	pattern->y_radius = 0.0;
     }
 }
 
@@ -2173,6 +2203,27 @@ void cairo_pattern_set_sigma_for_gaussian_filter (cairo_pattern_t *pattern,
     }
 }
 
+void cairo_pattern_set_convolution_matrix (cairo_pattern_t *pattern,
+					   double 	   *matrix,
+					   unsigned int	    x_size,
+					   unsigned int     y_size)
+{
+    int length = x_size * y_size;
+    if (pattern->status || pattern->filter != CAIRO_FILTER_CONVOLUTION ||
+	length == 0)
+	return;
+
+    if (pattern->convolution_matrix)
+	free (pattern->convolution_matrix);
+
+    pattern->convolution_matrix = _cairo_malloc_ab (length, sizeof (double));
+    memcpy (pattern->convolution_matrix, matrix, length * sizeof (double));
+    pattern->x_radius = x_size;
+    pattern->y_radius = y_size;
+    pattern->convolution_matrix_changed = TRUE;
+}
+slim_hidden_def (cairo_pattern_set_convolution_matrix);
+
 double 
 cairo_pattern_get_sigma_for_gaussian_filter (cairo_pattern_t *pattern)
 {
@@ -2190,7 +2241,7 @@ cairo_pattern_get_radius_for_gaussian_filter (cairo_pattern_t *pattern)
 
     return pattern->x_radius;
 }
-    
+
 /**
  * cairo_pattern_get_filter:
  * @pattern: a #cairo_pattern_t
@@ -3499,6 +3550,7 @@ _cairo_pattern_analyze_filter (const cairo_pattern_t	*pattern,
     case CAIRO_FILTER_FAST:
     case CAIRO_FILTER_NEAREST:
     case CAIRO_FILTER_GAUSSIAN:
+    case CAIRO_FILTER_CONVOLUTION:
     default:
 	pad = 0.;
 	optimized_filter = pattern->filter;
@@ -4686,6 +4738,7 @@ _cairo_debug_print_pattern (FILE *file, const cairo_pattern_t *pattern)
     case CAIRO_FILTER_NEAREST: s = "nearest"; break;
     case CAIRO_FILTER_BILINEAR: s = "bilinear"; break;
     case CAIRO_FILTER_GAUSSIAN: s = "guassian"; break;
+    case CAIRO_FILTER_CONVOLUTION: s = "custom convolution"; break;
     default: s = "invalid"; ASSERT_NOT_REACHED; break;
     }
     fprintf (file, "  filter: %s\n", s);

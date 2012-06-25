@@ -490,8 +490,13 @@ upload_boxes (const cairo_spans_compositor_t *compositor,
 
     TRACE ((stderr, "%s\n", __FUNCTION__));
 
+
     src = _cairo_pattern_get_source(source, &limit);
     if (!(src->type == CAIRO_SURFACE_TYPE_IMAGE || src->type == dst->type))
+	return CAIRO_INT_STATUS_UNSUPPORTED;
+
+    if (source->base.filter == CAIRO_FILTER_GAUSSIAN ||
+	source->base.filter == CAIRO_FILTER_CONVOLUTION)
 	return CAIRO_INT_STATUS_UNSUPPORTED;
 
     if (! _cairo_matrix_is_integer_translation (&source->base.matrix, &tx, &ty))
