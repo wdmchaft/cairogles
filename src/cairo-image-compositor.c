@@ -2447,13 +2447,15 @@ inplace_renderer_init (cairo_image_span_renderer_t	*r,
 	    r->u.fill.data = dst->data;
 	    r->u.fill.stride = dst->stride;
 	}
-    } else if ((dst->format == CAIRO_FORMAT_ARGB32 || dst->format == CAIRO_FORMAT_RGB24) &&
+    } else if ((composite->source_pattern.base.filter != CAIRO_FILTER_GAUSSIAN && 
+	       (composite->source_pattern.base.filter != CAIRO_FILTER_CONVOLUTION)) &&
+	       ((dst->format == CAIRO_FORMAT_ARGB32 || dst->format == CAIRO_FORMAT_RGB24) &&
 	       (composite->op == CAIRO_OPERATOR_SOURCE ||
 		(composite->op == CAIRO_OPERATOR_OVER &&
 		 (dst->base.is_clear || (dst->base.content & CAIRO_CONTENT_ALPHA) == 0))) &&
 	       composite->source_pattern.base.type == CAIRO_PATTERN_TYPE_SURFACE &&
 	       composite->source_pattern.surface.surface->backend->type == CAIRO_SURFACE_TYPE_IMAGE &&
-	       to_image_surface(composite->source_pattern.surface.surface)->format == dst->format)
+	       to_image_surface(composite->source_pattern.surface.surface)->format == dst->format))
     {
        cairo_image_surface_t *src =
 	   to_image_surface(composite->source_pattern.surface.surface);
