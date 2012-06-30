@@ -79,12 +79,12 @@ struct _cairo_pattern {
     cairo_matrix_t		matrix;
     double			opacity;
 
-    double			*convolution_matrix;
+    double			*filter_matrix;
     double			sigma;
     unsigned int		radius; // convolution matrix size 2*radius+1;
     unsigned int		x_radius;
     unsigned int		y_radius;
-    cairo_bool_t		convolution_matrix_changed;
+    cairo_bool_t		filter_matrix_changed;
 };
 
 struct _cairo_solid_pattern {
@@ -375,6 +375,9 @@ _cairo_pattern_create_gaussian_matrix (cairo_pattern_t *pattern);
 
 cairo_private void
 _cairo_pattern_normalize_convolution_matrix (cairo_pattern_t *pattern);
+
+cairo_private void
+_cairo_pattern_normalize_color_matrix (cairo_pattern_t *pattern);
 
 CAIRO_END_DECLS
 

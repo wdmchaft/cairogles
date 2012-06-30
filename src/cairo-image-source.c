@@ -223,6 +223,23 @@ _pixman_image_create_convolution_params (double *params,
     return pixman_params;
 }
 
+static pixman_fixed_t *
+_pixman_image_create_color_params (double *params)
+{
+   int i;
+   pixman_fixed_t *pixman_params;
+
+   if (params == NULL)
+	return NULL;
+
+   /* color matrix is always 5 x 4 */
+   pixman_params = _cairo_malloc_ab (20, sizeof (double));
+
+   for (i = 0; i < 20; i++)
+	pixman_params[i] = pixman_double_to_fixed (params[i]);
+
+    return pixman_params;
+}
 
 pixman_image_t *
 _pixman_image_for_color (const cairo_color_t *cairo_color)
@@ -568,14 +585,15 @@ _pixman_image_set_properties (pixman_image_t *pixman_image,
 	/* If the transform is an identity, we don't need to set it
 	 * and we can use any filtering, so choose the fastest one. */
 	if (pattern->filter != CAIRO_FILTER_GAUSSIAN &&
-	    pattern->filter != CAIRO_FILTER_CONVOLUTION)
+	    pattern->filter != CAIRO_FILTER_CONVOLUTION &&
+	    pattern->filter != CAIRO_FILTER_COLOR)
 	    pixman_image_set_filter (pixman_image, PIXMAN_FILTER_NEAREST, NULL, 0);
 	else if (pattern->filter == CAIRO_FILTER_GAUSSIAN) {
 	    int x_size = pattern->x_radius * 2 + 1;
 	    int y_size = pattern->y_radius * 2 + 1;
 	    int length = x_size * y_size;
 	    pixman_fixed_t *pixman_params = 
-		_pixman_image_create_convolution_params (pattern->convolution_matrix,
+		_pixman_image_create_convolution_params (pattern->filter_matrix,
 							 x_size, y_size,
 							 length);
 	    pixman_image_set_filter (pixman_image, PIXMAN_FILTER_CONVOLUTION,
@@ -583,15 +601,15 @@ _pixman_image_set_properties (pixman_image_t *pixman_image,
 				     length + 2);
 	    free (pixman_params);
 	}
-	else {
+	else if (pattern->filter == CAIRO_FILTER_CONVOLUTION) {
 	    pixman_fixed_t *pixman_params = NULL;
 	    int length = pattern->x_radius * pattern->y_radius;
-	    if (length == 0 || ! pattern->convolution_matrix)
+	    if (length == 0 || ! pattern->filter_matrix)
 		pixman_image_set_filter (pixman_image, PIXMAN_FILTER_NEAREST,
 					 NULL, 0);
 
 	    pixman_params = 
-		_pixman_image_create_convolution_params (pattern->convolution_matrix,
+		_pixman_image_create_convolution_params (pattern->filter_matrix,
 							 pattern->x_radius,
 							 pattern->y_radius,
 							 length);
@@ -599,6 +617,20 @@ _pixman_image_set_properties (pixman_image_t *pixman_image,
 	    pixman_image_set_filter (pixman_image, PIXMAN_FILTER_CONVOLUTION,
 				     (const pixman_fixed_t *)pixman_params,
 				     length + 2);
+	    free (pixman_params);
+	}
+	else {
+	    pixman_fixed_t *pixman_params = NULL;
+	    if (! pattern->filter_matrix)
+		pixman_image_set_filter (pixman_image, PIXMAN_FILTER_NEAREST,
+					 NULL, 0);
+
+	    pixman_params = 
+		_pixman_image_create_color_params (pattern->filter_matrix);
+	
+	    pixman_image_set_filter (pixman_image, PIXMAN_FILTER_COLOR,
+				     (const pixman_fixed_t *)pixman_params,
+				     20);
 	    free (pixman_params);
 	}
     }
@@ -637,18 +669,21 @@ _pixman_image_set_properties (pixman_image_t *pixman_image,
 	     * implementation for it. */
 	    pixman_filter = PIXMAN_FILTER_CONVOLUTION;
 	    break;
+	case CAIRO_FILTER_COLOR:
+	    pixman_filter = PIXMAN_FILTER_COLOR;
 	default:
 	    pixman_filter = PIXMAN_FILTER_BEST;
 	}
 
-	if (pixman_filter != PIXMAN_FILTER_CONVOLUTION)
+	if (pixman_filter != PIXMAN_FILTER_CONVOLUTION &&
+	    pixman_filter != PIXMAN_FILTER_COLOR)
 	    pixman_image_set_filter (pixman_image, pixman_filter, NULL, 0);
 	else if (pattern->filter == CAIRO_FILTER_GAUSSIAN) {
 	    int x_size = pattern->x_radius * 2 + 1;
 	    int y_size = pattern->y_radius * 2 + 1;
 	    int length = x_size * y_size;
 	    pixman_fixed_t *pixman_params = 
-		_pixman_image_create_convolution_params (pattern->convolution_matrix,
+		_pixman_image_create_convolution_params (pattern->filter_matrix,
 							 x_size, y_size,
 							 length);
 	    pixman_image_set_filter (pixman_image, pixman_filter,
@@ -656,15 +691,15 @@ _pixman_image_set_properties (pixman_image_t *pixman_image,
 				     length + 2);
 	    free (pixman_params);
 	}
-	else {
+	else if (pattern->filter == CAIRO_FILTER_CONVOLUTION) {
 	    pixman_fixed_t *pixman_params = NULL;
 	    int length = pattern->x_radius * pattern->y_radius;
-	    if (length == 0 || ! pattern->convolution_matrix)
+	    if (length == 0 || ! pattern->filter_matrix)
 		pixman_image_set_filter (pixman_image, PIXMAN_FILTER_NEAREST,
 					 NULL, 0);
 
 	    pixman_params = 
-		_pixman_image_create_convolution_params (pattern->convolution_matrix,
+		_pixman_image_create_convolution_params (pattern->filter_matrix,
 							 pattern->x_radius,
 							 pattern->y_radius,
 							 length);
@@ -674,6 +709,21 @@ _pixman_image_set_properties (pixman_image_t *pixman_image,
 				     length + 2);
 	    free (pixman_params);
 	}
+	else {
+	    pixman_fixed_t *pixman_params = NULL;
+	    if (! pattern->filter_matrix)
+		pixman_image_set_filter (pixman_image, PIXMAN_FILTER_NEAREST,
+					 NULL, 0);
+
+	    pixman_params = 
+		_pixman_image_create_color_params (pattern->filter_matrix);
+	
+	    pixman_image_set_filter (pixman_image, pixman_filter,
+				     (const pixman_fixed_t *)pixman_params,
+				     20);
+	    free (pixman_params);
+	}
+	    
     }
 
     {

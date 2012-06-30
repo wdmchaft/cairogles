@@ -2448,7 +2448,8 @@ inplace_renderer_init (cairo_image_span_renderer_t	*r,
 	    r->u.fill.stride = dst->stride;
 	}
     } else if ((composite->source_pattern.base.filter != CAIRO_FILTER_GAUSSIAN && 
-	       (composite->source_pattern.base.filter != CAIRO_FILTER_CONVOLUTION)) &&
+	       (composite->source_pattern.base.filter != CAIRO_FILTER_CONVOLUTION)&&
+	       (composite->source_pattern.base.filter != CAIRO_FILTER_COLOR)) &&
 	       ((dst->format == CAIRO_FORMAT_ARGB32 || dst->format == CAIRO_FORMAT_RGB24) &&
 	       (composite->op == CAIRO_OPERATOR_SOURCE ||
 		(composite->op == CAIRO_OPERATOR_OVER &&

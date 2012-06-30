@@ -1875,6 +1875,7 @@ slim_hidden_proto (cairo_mesh_pattern_set_corner_color_rgba);
 slim_hidden_proto_no_warn (cairo_pattern_reference);
 slim_hidden_proto (cairo_pattern_set_matrix);
 slim_hidden_proto (cairo_pattern_set_convolution_matrix);
+slim_hidden_proto (cairo_pattern_set_color_matrix);
 slim_hidden_proto (cairo_pop_group);
 slim_hidden_proto (cairo_push_group_with_content);
 slim_hidden_proto_no_warn (cairo_path_destroy);

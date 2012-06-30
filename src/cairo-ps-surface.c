@@ -2419,6 +2419,7 @@ _cairo_ps_surface_emit_image (cairo_ps_surface_t    *surface,
     case CAIRO_FILTER_NEAREST:
     case CAIRO_FILTER_GAUSSIAN:
     case CAIRO_FILTER_CONVOLUTION:
+    case CAIRO_FILTER_COLOR:
 	interpolate = "false";
 	break;
     }

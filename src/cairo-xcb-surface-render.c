@@ -510,6 +510,7 @@ _cairo_xcb_picture_set_filter (cairo_xcb_picture_t *picture,
 	ASSERT_NOT_REACHED;
     case CAIRO_FILTER_GAUSSIAN:
     case CAIRO_FILTER_CONVOLUTION:
+    case CAIRO_FILTER_COLOR:
 	render_filter = "best";
 	len = strlen ("best");
 	break;

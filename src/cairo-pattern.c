@@ -237,11 +237,11 @@ _cairo_pattern_init (cairo_pattern_t *pattern, cairo_pattern_type_t type)
 
     cairo_matrix_init_identity (&pattern->matrix);
 
-    pattern->convolution_matrix = NULL;
+    pattern->filter_matrix = NULL;
     pattern->x_radius = CAIRO_GAUSSIAN_RADIUS;
     pattern->y_radius = CAIRO_GAUSSIAN_RADIUS;
     pattern->sigma = CAIRO_GAUSSIAN_SIGMA;
-    pattern->convolution_matrix_changed = TRUE;
+    pattern->filter_matrix_changed = TRUE;
 
     cairo_list_init (&pattern->observers);
 }
@@ -468,9 +468,9 @@ _cairo_pattern_fini (cairo_pattern_t *pattern)
 	break;
     }
 
-    if (pattern->convolution_matrix) {
-	free (pattern->convolution_matrix);
-	pattern->convolution_matrix = NULL;
+    if (pattern->filter_matrix) {
+	free (pattern->filter_matrix);
+	pattern->filter_matrix = NULL;
     }
 
 #if HAVE_VALGRIND
@@ -541,12 +541,12 @@ _cairo_pattern_create_copy (cairo_pattern_t	  **pattern_out,
 
     pattern->sigma = other->sigma;
     pattern->radius = other->radius;
-    if (other->convolution_matrix) {
+    if (other->filter_matrix) {
 	x_size = 2 * other->x_radius + 1;
 	y_size = 2 * other->y_radius + 1;
 	size = x_size * y_size;
-	pattern->convolution_matrix = _cairo_malloc_ab (size, sizeof(double));
-	memcpy (pattern->convolution_matrix, other->convolution_matrix,
+	pattern->filter_matrix = _cairo_malloc_ab (size, sizeof(double));
+	memcpy (pattern->filter_matrix, other->filter_matrix,
 		sizeof (double) * size);	
     }
 
@@ -2071,11 +2071,11 @@ _cairo_pattern_create_gaussian_matrix (cairo_pattern_t *pattern)
     double sum = 0.0;
     int n = (2 * size + 1) * (2 * size + 1);
     
-    if (pattern->status || ! pattern->convolution_matrix_changed)
+    if (pattern->status || ! pattern->filter_matrix_changed)
 	return;
 
-    if (pattern->convolution_matrix)
-	free (pattern->convolution_matrix);
+    if (pattern->filter_matrix)
+	free (pattern->filter_matrix);
     
     if (sigma == CAIRO_GAUSSIAN_SIGMA)
 	sigma = sqrt (-(radiusf * radiusf) / (2.0f * log (1.0 / 255.0)));
@@ -2083,7 +2083,7 @@ _cairo_pattern_create_gaussian_matrix (cairo_pattern_t *pattern)
     scale2 = 2.0 * sigma * sigma;
     scale1 = 1.0 / (M_PI * scale2);
 
-    // create convolution matrix
+    // create filter matrix
     buffer = _cairo_malloc_ab (n, sizeof (double));
 
     // compute guassian kernel
@@ -2099,8 +2099,8 @@ _cairo_pattern_create_gaussian_matrix (cairo_pattern_t *pattern)
     for (i = 0; i < n; i++)
 	buffer[i] /= sum;
 
-    pattern->convolution_matrix = buffer;
-    pattern->convolution_matrix_changed = FALSE;
+    pattern->filter_matrix = buffer;
+    pattern->filter_matrix_changed = FALSE;
 }
 
 void
@@ -2110,22 +2110,48 @@ _cairo_pattern_normalize_convolution_matrix (cairo_pattern_t *pattern)
     int i;
     double sum = 0.0;
     
-    if (pattern->status || ! pattern->convolution_matrix_changed)
+    if (pattern->status || ! pattern->filter_matrix_changed)
 	return;
 
-    if (!pattern->convolution_matrix || length == 0)
+    if (!pattern->filter_matrix || length == 0)
 	return;
     
     for (i = 0; i < length; i++) {
-	sum += pattern->convolution_matrix [i];
+	sum += pattern->filter_matrix [i];
     }
     if (sum == 0.0)
 	sum = 1.0;
     // normalize it
     for (i = 0; i < length; i++)
-	pattern->convolution_matrix[i] /= sum;
+	pattern->filter_matrix[i] /= sum;
 
-    pattern->convolution_matrix_changed = FALSE;
+    pattern->filter_matrix_changed = FALSE;
+}
+
+void
+_cairo_pattern_normalize_color_matrix (cairo_pattern_t *pattern)
+{
+    /* color matrix must be between 0 and 1 */
+    int i, j;
+    double sum = 0.0;
+
+    if (pattern->status || ! pattern->filter_matrix_changed)
+	return;
+
+    if (!pattern->filter_matrix)
+	return;
+    
+    for (i = 0; i < 4; i++) {
+	sum = 0.0;
+	for (j = 0; j < 5; j++) 
+	    sum += pattern->filter_matrix [i * 5 + j];
+	if (sum == 0.0)
+	    sum = 1.0;
+	for (j = 0; j < 5; j++)
+	    pattern->filter_matrix [i * 5 + j] /= sum;
+    }
+
+    pattern->filter_matrix_changed = FALSE;
 }
 
 /**
@@ -2168,13 +2194,15 @@ cairo_pattern_set_filter (cairo_pattern_t *pattern, cairo_filter_t filter)
 	pattern->x_radius = CAIRO_GAUSSIAN_RADIUS;
 	pattern->y_radius = CAIRO_GAUSSIAN_RADIUS;
 	pattern->sigma = CAIRO_GAUSSIAN_SIGMA;
-	pattern->convolution_matrix_changed = TRUE;
+	pattern->filter_matrix_changed = TRUE;
     } 
     else if (filter == CAIRO_FILTER_CONVOLUTION) {
-	pattern->convolution_matrix_changed = TRUE;
+	pattern->filter_matrix_changed = TRUE;
 	pattern->x_radius = 0.0;
 	pattern->y_radius = 0.0;
     }
+    else if (filter == CAIRO_FILTER_COLOR) 
+	pattern->filter_matrix_changed = TRUE;
 }
 
 void
@@ -2187,7 +2215,7 @@ cairo_pattern_set_radius_for_gaussian_filter (cairo_pattern_t 	 *pattern,
     if (pattern->x_radius != radius) {
 	pattern->x_radius = radius;
 	pattern->y_radius = radius;
-	pattern->convolution_matrix_changed = TRUE;
+	pattern->filter_matrix_changed = TRUE;
     }
 }
 
@@ -2199,7 +2227,7 @@ void cairo_pattern_set_sigma_for_gaussian_filter (cairo_pattern_t *pattern,
 
     if (pattern->sigma != sigma) {
 	pattern->sigma = sigma;
-	pattern->convolution_matrix_changed = TRUE;
+	pattern->filter_matrix_changed = TRUE;
     }
 }
 
@@ -2213,16 +2241,32 @@ void cairo_pattern_set_convolution_matrix (cairo_pattern_t *pattern,
 	length == 0)
 	return;
 
-    if (pattern->convolution_matrix)
-	free (pattern->convolution_matrix);
+    if (pattern->filter_matrix)
+	free (pattern->filter_matrix);
 
-    pattern->convolution_matrix = _cairo_malloc_ab (length, sizeof (double));
-    memcpy (pattern->convolution_matrix, matrix, length * sizeof (double));
+    pattern->filter_matrix = _cairo_malloc_ab (length, sizeof (double));
+    memcpy (pattern->filter_matrix, matrix, length * sizeof (double));
     pattern->x_radius = x_size;
     pattern->y_radius = y_size;
-    pattern->convolution_matrix_changed = TRUE;
+    pattern->filter_matrix_changed = TRUE;
 }
 slim_hidden_def (cairo_pattern_set_convolution_matrix);
+
+void cairo_pattern_set_color_matrix (cairo_pattern_t *pattern,
+				     double *matrix)
+{
+    if (pattern->status || pattern->filter != CAIRO_FILTER_COLOR)
+	return;
+
+    if (pattern->filter_matrix)
+	free (pattern->filter_matrix);
+
+    /* color matrix is always 5 x 4 */
+    pattern->filter_matrix = _cairo_malloc_ab (20, sizeof (double));
+    memcpy (pattern->filter_matrix, matrix, 20 * sizeof (double));
+    pattern->filter_matrix_changed = TRUE;
+}
+slim_hidden_def (cairo_pattern_set_color_matrix);
 
 double 
 cairo_pattern_get_sigma_for_gaussian_filter (cairo_pattern_t *pattern)
@@ -3551,6 +3595,7 @@ _cairo_pattern_analyze_filter (const cairo_pattern_t	*pattern,
     case CAIRO_FILTER_NEAREST:
     case CAIRO_FILTER_GAUSSIAN:
     case CAIRO_FILTER_CONVOLUTION:
+    case CAIRO_FILTER_COLOR:
     default:
 	pad = 0.;
 	optimized_filter = pattern->filter;
@@ -4739,6 +4784,7 @@ _cairo_debug_print_pattern (FILE *file, const cairo_pattern_t *pattern)
     case CAIRO_FILTER_BILINEAR: s = "bilinear"; break;
     case CAIRO_FILTER_GAUSSIAN: s = "guassian"; break;
     case CAIRO_FILTER_CONVOLUTION: s = "custom convolution"; break;
+    case CAIRO_FILTER_COLOR: s = "custom color"; break;
     default: s = "invalid"; ASSERT_NOT_REACHED; break;
     }
     fprintf (file, "  filter: %s\n", s);

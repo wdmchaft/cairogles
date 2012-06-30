@@ -2903,6 +2903,7 @@ typedef enum _cairo_filter {
     CAIRO_FILTER_BILINEAR,
     CAIRO_FILTER_GAUSSIAN,
     CAIRO_FILTER_CONVOLUTION,
+    CAIRO_FILTER_COLOR,
 } cairo_filter_t;
 
 cairo_public void
@@ -2930,6 +2931,10 @@ cairo_pattern_set_convolution_matrix (cairo_pattern_t *pattern,
 				      double	      *matrix,
 				      unsigned int     x_size,
 				      unsigned int     y_size);
+
+cairo_public void 
+cairo_pattern_set_color_matrix (cairo_pattern_t *pattern,
+				double	 	*matrix);
 
 cairo_public cairo_status_t
 cairo_pattern_get_rgba (cairo_pattern_t *pattern,

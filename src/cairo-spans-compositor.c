@@ -496,7 +496,8 @@ upload_boxes (const cairo_spans_compositor_t *compositor,
 	return CAIRO_INT_STATUS_UNSUPPORTED;
 
     if (source->base.filter == CAIRO_FILTER_GAUSSIAN ||
-	source->base.filter == CAIRO_FILTER_CONVOLUTION)
+	source->base.filter == CAIRO_FILTER_CONVOLUTION ||
+	source->base.filter == CAIRO_FILTER_COLOR)
 	return CAIRO_INT_STATUS_UNSUPPORTED;
 
     if (! _cairo_matrix_is_integer_translation (&source->base.matrix, &tx, &ty))

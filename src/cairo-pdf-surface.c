@@ -1340,6 +1340,7 @@ _cairo_pdf_surface_add_source_surface (cairo_pdf_surface_t	    *surface,
     case CAIRO_FILTER_NEAREST:
     case CAIRO_FILTER_GAUSSIAN:
     case CAIRO_FILTER_CONVOLUTION:
+    case CAIRO_FILTER_COLOR:
 	interpolate = FALSE;
 	break;
     }
@@ -2382,6 +2383,7 @@ _cairo_pdf_surface_emit_image (cairo_pdf_surface_t     *surface,
     case CAIRO_FILTER_NEAREST:
     case CAIRO_FILTER_GAUSSIAN:
     case CAIRO_FILTER_CONVOLUTION:
+    case CAIRO_FILTER_COLOR:
 	interpolate = "false";
 	break;
     }
