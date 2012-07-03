@@ -363,6 +363,10 @@ _cairo_gl_surface_embedded_operand_init (cairo_gl_surface_t *surface)
     operand->texture.surface = surface;
     operand->texture.tex = surface->tex;
 
+    operand->texture.filter_matrix = NULL;
+    operand->texture.x_size = 0;
+    operand->texture.y_size = 0;
+
     if (_cairo_gl_device_requires_power_of_two_textures (surface->base.device)) {
 	cairo_matrix_init_identity (&attributes->matrix);
     } else {
@@ -392,6 +396,8 @@ _cairo_gl_surface_init (cairo_device_t *device,
     surface->height = height;
     surface->needs_update = FALSE;
     surface->needs_to_cache = FALSE;
+    surface->x_fraction = -1.0;
+    surface->y_fraction = -1.0;
 
     _cairo_gl_surface_embedded_operand_init (surface);
 }
@@ -483,7 +489,7 @@ _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
     return &surface->base;
 }
 
-static cairo_status_t
+cairo_status_t
 _cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
                          const cairo_color_t *color)
 {
@@ -981,12 +987,18 @@ _cairo_gl_surface_finish (void *abstract_surface)
     if (unlikely (status))
         return status;
 
-    if (ctx->operands[CAIRO_GL_TEX_SOURCE].type == CAIRO_GL_OPERAND_TEXTURE &&
+    if ((ctx->operands[CAIRO_GL_TEX_SOURCE].type == CAIRO_GL_OPERAND_TEXTURE ||
+	 ctx->operands[CAIRO_GL_TEX_SOURCE].type == CAIRO_GL_OPERAND_GAUSSIAN ||
+	 ctx->operands[CAIRO_GL_TEX_SOURCE].type == CAIRO_GL_OPERAND_CONVOLUTION ||
+	 ctx->operands[CAIRO_GL_TEX_SOURCE].type == CAIRO_GL_OPERAND_COLOR) &&
         ctx->operands[CAIRO_GL_TEX_SOURCE].texture.surface == surface) {
 	_cairo_gl_composite_flush (ctx);
         _cairo_gl_context_destroy_operand (ctx, CAIRO_GL_TEX_SOURCE);
     }
-    else if (ctx->operands[CAIRO_GL_TEX_MASK].type == CAIRO_GL_OPERAND_TEXTURE &&
+    else if ((ctx->operands[CAIRO_GL_TEX_MASK].type == CAIRO_GL_OPERAND_TEXTURE ||
+	     ctx->operands[CAIRO_GL_TEX_MASK].type == CAIRO_GL_OPERAND_GAUSSIAN ||
+	     ctx->operands[CAIRO_GL_TEX_MASK].type == CAIRO_GL_OPERAND_CONVOLUTION ||
+	     ctx->operands[CAIRO_GL_TEX_MASK].type == CAIRO_GL_OPERAND_COLOR) &&
         ctx->operands[CAIRO_GL_TEX_MASK].texture.surface == surface) {
 	_cairo_gl_composite_flush (ctx);
         _cairo_gl_context_destroy_operand (ctx, CAIRO_GL_TEX_MASK);
@@ -1228,9 +1240,15 @@ _cairo_gl_surface_flush (void *abstract_surface)
     if (unlikely (status))
         return status;
 
-    if ((ctx->operands[CAIRO_GL_TEX_SOURCE].type == CAIRO_GL_OPERAND_TEXTURE &&
+    if (((ctx->operands[CAIRO_GL_TEX_SOURCE].type == CAIRO_GL_OPERAND_TEXTURE ||
+	 ctx->operands[CAIRO_GL_TEX_SOURCE].type == CAIRO_GL_OPERAND_GAUSSIAN ||
+	 ctx->operands[CAIRO_GL_TEX_SOURCE].type == CAIRO_GL_OPERAND_CONVOLUTION ||
+	 ctx->operands[CAIRO_GL_TEX_SOURCE].type == CAIRO_GL_OPERAND_COLOR) &&
          ctx->operands[CAIRO_GL_TEX_SOURCE].texture.surface == surface) ||
-        (ctx->operands[CAIRO_GL_TEX_MASK].type == CAIRO_GL_OPERAND_TEXTURE &&
+        ((ctx->operands[CAIRO_GL_TEX_MASK].type == CAIRO_GL_OPERAND_TEXTURE || 
+	     ctx->operands[CAIRO_GL_TEX_MASK].type == CAIRO_GL_OPERAND_GAUSSIAN ||
+	     ctx->operands[CAIRO_GL_TEX_MASK].type == CAIRO_GL_OPERAND_CONVOLUTION ||
+	     ctx->operands[CAIRO_GL_TEX_MASK].type == CAIRO_GL_OPERAND_COLOR) &&
          ctx->operands[CAIRO_GL_TEX_MASK].texture.surface == surface) ||
         (ctx->current_target == surface))
       _cairo_gl_composite_flush (ctx);

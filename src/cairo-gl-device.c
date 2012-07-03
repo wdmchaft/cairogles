@@ -152,6 +152,8 @@ _gl_finish (void *device)
     if (ctx->shared_msaa_depth_stencil)
 	ctx->dispatch.DeleteRenderbuffers (1, &ctx->shared_msaa_depth_stencil);
 
+    cairo_surface_destroy (&ctx->src_blur_surface->base);
+    cairo_surface_destroy (&ctx->mask_blur_surface->base);
     _gl_unlock (device);
 }
 
@@ -342,6 +344,9 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
     _cairo_gl_context_reset (ctx);
 
     _cairo_gl_image_cache_init (ctx);
+
+    ctx->src_blur_surface = NULL; 
+    ctx->mask_blur_surface = NULL;
 
     return CAIRO_STATUS_SUCCESS;
 }
@@ -849,4 +854,85 @@ void _cairo_gl_context_reset (cairo_gl_context_t *ctx)
     ctx->states_cache.active_texture = CAIRO_GL_ENUM_UNINITIALIZED;
 
     ctx->states_cache.depth_mask = FALSE;
+}
+
+cairo_status_t
+_cairo_gl_get_mask_surface (cairo_gl_surface_t *original_dst,
+			    cairo_surface_t    *surface,
+			    cairo_bool_t	is_src,
+			    cairo_gl_surface_t     **out_surface)
+{
+    cairo_status_t status;
+    cairo_gl_context_t *ctx = NULL;
+    cairo_gl_surface_t *dst;
+    cairo_rectangle_int_t area;
+
+    status = _cairo_gl_context_acquire (original_dst->base.device, &ctx);
+    if (unlikely (status))
+	return status;
+
+    _cairo_surface_get_extents (surface, &area);
+
+    if (is_src)
+	dst = ctx->src_blur_surface;
+    else
+	dst = ctx->mask_blur_surface;
+
+    if (dst != NULL && (dst->width < area.width || dst->height < area.height)) {
+	cairo_surface_destroy (&dst->base);	
+	dst = NULL;
+    }
+
+    if (dst == NULL) {
+	dst = (cairo_gl_surface_t *) _cairo_gl_surface_create_scratch (ctx, 
+					       CAIRO_CONTENT_COLOR_ALPHA,
+					       area.width, area.height,
+					       FALSE);
+
+	if (unlikely (dst->base.status)) 
+	    goto dst_fail;
+	
+	dst->x_fraction = 1.0;
+	dst->y_fraction = 1.0;
+
+	if (is_src)
+	    ctx->src_blur_surface = dst;
+	else
+	    ctx->mask_blur_surface = dst;
+
+    } else {
+	dst->x_fraction = (double)area.width / (double)dst->width;
+	dst->y_fraction = (double)area.height / (double)dst->height;
+    }
+
+    // clear 
+    status = _cairo_gl_surface_clear (dst, CAIRO_COLOR_TRANSPARENT);
+
+    
+    status = _cairo_gl_context_release (ctx, status);
+    *out_surface = dst;
+
+    return status;
+
+dst_fail:
+    cairo_surface_destroy (&dst->base);
+	    
+    if (is_src)
+	ctx->src_blur_surface = NULL;
+    else
+	ctx->mask_blur_surface = NULL;
+
+    status = _cairo_gl_context_release (ctx, status);
+    return status;
+}
+
+cairo_pattern_t *
+_cairo_gl_get_untransformed_pattern (const cairo_pattern_t *pattern)
+{
+    cairo_pattern_t *new_pattern;
+    cairo_surface_t *surface = ((cairo_surface_pattern_t *)pattern)->surface;
+
+    new_pattern = cairo_pattern_create_for_surface (surface);
+
+    return new_pattern;
 }

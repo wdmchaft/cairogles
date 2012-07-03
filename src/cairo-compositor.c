@@ -51,10 +51,14 @@ _cairo_compositor_paint (const cairo_compositor_t	*compositor,
     cairo_composite_rectangles_t extents;
     cairo_int_status_t status;
     cairo_bool_t initialized = TRUE;
+    cairo_pattern_type_t type = source->type;
 
     TRACE ((stderr, "%s\n", __FUNCTION__));
 
-    if (compositor->lazy_init) {
+    if (compositor->lazy_init &&
+	!(type != CAIRO_PATTERN_TYPE_SURFACE &&
+	(source->filter == CAIRO_FILTER_GAUSSIAN ||
+	 source->filter == CAIRO_FILTER_CONVOLUTION))) {
 	status = _cairo_composite_rectangles_lazy_init_for_paint (&extents,
 								  surface,
 								  op, source,

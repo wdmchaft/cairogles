@@ -58,11 +58,13 @@ _cairo_gl_composite_set_source (cairo_gl_composite_t *setup,
 			        const cairo_pattern_t *pattern,
 				const cairo_rectangle_int_t *sample,
 				const cairo_rectangle_int_t *extents,
-				cairo_bool_t use_color_attribute)
+				cairo_bool_t use_color_attribute,
+				cairo_bool_t first_pass)
 {
     _cairo_gl_operand_destroy (&setup->src);
     return _cairo_gl_operand_init (&setup->src, pattern, setup->dst,
-				   sample, extents, use_color_attribute);
+				   sample, extents, use_color_attribute,
+				   first_pass);
 }
 
 void
@@ -97,7 +99,7 @@ _cairo_gl_composite_set_mask (cairo_gl_composite_t *setup,
        if op is CAIRO_OPERATOR_CLEAR AND pattern is a surface_pattern
      */
     status = _cairo_gl_operand_init (&setup->mask, pattern, setup->dst,
-                                     sample, extents, FALSE);
+                                     sample, extents, FALSE, FALSE);
     if (unlikely (status))
 	return status;
 
@@ -161,11 +163,13 @@ _cairo_gl_texture_set_filter (cairo_gl_context_t *ctx,
     case CAIRO_FILTER_GOOD:
     case CAIRO_FILTER_BEST:
     case CAIRO_FILTER_BILINEAR:
+    case CAIRO_FILTER_GAUSSIAN:
+    case CAIRO_FILTER_CONVOLUTION:
+    case CAIRO_FILTER_COLOR:
 	glTexParameteri (target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri (target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	break;
     default:
-    case CAIRO_FILTER_GAUSSIAN:
 	ASSERT_NOT_REACHED;
     }
 }
@@ -263,6 +267,9 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
         }
         break;
     case CAIRO_GL_OPERAND_TEXTURE:
+    case CAIRO_GL_OPERAND_GAUSSIAN:
+    case CAIRO_GL_OPERAND_CONVOLUTION:
+    case CAIRO_GL_OPERAND_COLOR:
         if (ctx->states_cache.active_texture != GL_TEXTURE0 + tex_unit) {
 	    glActiveTexture (GL_TEXTURE0 + tex_unit);
 	    ctx->states_cache.active_texture = GL_TEXTURE0 + tex_unit;
@@ -352,6 +359,9 @@ _cairo_gl_context_destroy_operand (cairo_gl_context_t *ctx,
             ctx->dispatch.DisableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
         break;
     case CAIRO_GL_OPERAND_TEXTURE:
+    case CAIRO_GL_OPERAND_GAUSSIAN:
+    case CAIRO_GL_OPERAND_CONVOLUTION:
+    case CAIRO_GL_OPERAND_COLOR:
         dispatch->DisableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
 	if (ctx->operands[tex_unit].texture.use_atlas) {
 	    dispatch->DisableVertexAttribArray (CAIRO_GL_START_COORD0_ATTRIB_INDEX + tex_unit);
@@ -774,7 +784,7 @@ _cairo_gl_composite_begin_multisample (cairo_gl_composite_t *setup,
             ctx->pre_shader = NULL;
         }
     }
-
+    
     status = _cairo_gl_get_shader_by_type (ctx,
 					   &setup->src,
 					   &setup->mask,
@@ -1041,6 +1051,9 @@ _cairo_gl_composite_operand_emit (cairo_gl_operand_t *operand,
         }
 	break;
     case CAIRO_GL_OPERAND_TEXTURE:
+    case CAIRO_GL_OPERAND_GAUSSIAN:
+    case CAIRO_GL_OPERAND_CONVOLUTION:
+    case CAIRO_GL_OPERAND_COLOR:
         {
             cairo_surface_attributes_t *src_attributes = &operand->texture.attributes;
             double s = x;

@@ -310,6 +310,9 @@ _gl_pattern_fix_reference_count (const cairo_pattern_t *pattern)
 
 	    switch (_source->operand.type) {
 	    case CAIRO_GL_OPERAND_TEXTURE:
+	    case CAIRO_GL_OPERAND_GAUSSIAN:
+	    case CAIRO_GL_OPERAND_CONVOLUTION:
+	    case CAIRO_GL_OPERAND_COLOR:
 		cairo_surface_reference (&(_source->operand.texture.owns_surface)->base);
 		break;
 	    case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
@@ -328,6 +331,116 @@ _gl_pattern_fix_reference_count (const cairo_pattern_t *pattern)
     }
 }
 
+static cairo_status_t
+_cairo_gl_blur_surface (cairo_gl_surface_t  *dst,
+			const cairo_pattern_t *original_pattern, 
+			cairo_rectangle_int_t	*sample_area,
+			cairo_bool_t 	      is_src,
+			cairo_pattern_t       **blur_pattern)
+{
+    cairo_status_t status;
+    cairo_gl_composite_t setup;
+    cairo_gl_surface_t *blur_surface;
+    cairo_surface_t *surface;
+    cairo_pattern_t *untransformed_pattern = NULL;
+    cairo_gl_context_t *ctx = NULL;
+    cairo_traps_t traps;
+    cairo_rectangle_int_t source_area;
+    unsigned int length = original_pattern->x_radius * original_pattern->y_radius;
+
+    if (original_pattern->type != CAIRO_PATTERN_TYPE_SURFACE || 
+        original_pattern->filter != CAIRO_FILTER_GAUSSIAN) {
+	*blur_pattern = (cairo_pattern_t *)original_pattern;
+	return CAIRO_STATUS_SUCCESS;
+    }
+
+    surface = ((cairo_surface_pattern_t *) original_pattern)->surface;
+
+    // get the blur surface as dest
+    status = _cairo_gl_get_mask_surface (dst, surface, is_src, 
+					 &blur_surface);
+    if (unlikely (status))
+	goto finish;
+    
+    // create untransformed pattern
+    _cairo_surface_get_extents (surface, &source_area);
+    untransformed_pattern = cairo_pattern_create_for_surface (surface);
+    if (unlikely (untransformed_pattern->status)) {
+	status = untransformed_pattern->status;
+	goto finish;
+    }
+
+    untransformed_pattern->filter = original_pattern->filter;
+    untransformed_pattern->sigma = original_pattern->sigma;
+    untransformed_pattern->radius = original_pattern->radius;
+    untransformed_pattern->x_radius = original_pattern->x_radius;
+    untransformed_pattern->y_radius = original_pattern->y_radius;
+ 
+    if (untransformed_pattern->filter == CAIRO_FILTER_GAUSSIAN) {
+	length = untransformed_pattern->x_radius * 2 + 1;
+	length *= length;
+	untransformed_pattern->filter_matrix = _cairo_malloc_ab (length, sizeof(double));
+    }
+
+    memcpy (untransformed_pattern->filter_matrix, 
+	    original_pattern->filter_matrix, 
+	    length * sizeof (double));
+    
+    // set untransformed pattern as source
+    status = _cairo_gl_composite_init (&setup,
+				       CAIRO_OPERATOR_SOURCE,
+				       blur_surface,
+				       FALSE /* assume_component_alpha */);
+    if (unlikely (status))
+	goto finish;
+
+    status = _cairo_gl_composite_set_source (&setup,
+					     untransformed_pattern,
+					     sample_area,
+					     &source_area,
+					     FALSE, TRUE /* vertical is true*/);
+    if (unlikely (status))
+	goto finish;
+
+    /* We don't use multisampling here, because we do not yet have the smarts
+       to calculate when the clip or the source requires it. */
+    status = _cairo_gl_composite_begin_multisample (&setup, &ctx, FALSE);
+    if (unlikely (status))
+	goto finish;
+    
+    _cairo_traps_init (&traps);
+
+    status = _draw_int_rect (ctx, &setup, &source_area);
+
+    _cairo_traps_fini (&traps);
+ 
+    // create a blur_pattern
+    *blur_pattern = (cairo_pattern_t *)original_pattern;
+    ((cairo_surface_pattern_t *)(*blur_pattern))->surface = blur_surface;
+
+finish:
+    cairo_pattern_destroy (untransformed_pattern);
+    _cairo_gl_composite_fini (&setup);
+
+    if (ctx)
+	status = _cairo_gl_context_release (ctx, status);
+    return status;
+}
+
+static void
+_cairo_gl_reset_pattern_surface (const cairo_pattern_t *pattern, 
+				 cairo_surface_t *original_surface,
+				 cairo_surface_t **out_surface)
+{
+    cairo_surface_pattern_t *surface_pattern;
+
+    if (pattern->type == CAIRO_PATTERN_TYPE_SURFACE) {
+	surface_pattern = (cairo_surface_pattern_t *) pattern;
+	*out_surface = surface_pattern->surface;
+	surface_pattern->surface = original_surface;
+    }
+}
+
 /* We use two passes to paint with SOURCE operator */
 /* The first pass, we use mask as source, to get dst1 = (1 - ma) * dst) with
  * DEST_OUT operator.  In the second pass, we use ADD operator to achieve
@@ -343,7 +456,28 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
     cairo_gl_context_t *ctx = NULL;
     cairo_int_status_t status;
     cairo_traps_t traps;
+    cairo_pattern_t *src_blur_pattern = NULL;
+    cairo_surface_t *src_original_surface = NULL;
+    cairo_surface_t *src_blur_surface = NULL;
+    cairo_pattern_t *mask_blur_pattern = NULL;
+    cairo_surface_t *mask_original_surface = NULL;
+    cairo_surface_t *mask_blur_surface = NULL;
 
+    // blur mask surface
+    _gl_pattern_fix_reference_count (composite->original_mask_pattern);
+    status = _cairo_gl_blur_surface (dst, 
+				     composite->original_mask_pattern,
+				     &composite->mask_sample_area,
+				     FALSE,
+				     &mask_blur_pattern);
+    if (unlikely (status))
+	goto cleanup_ctx;
+
+    if (composite->original_mask_pattern->type == CAIRO_PATTERN_TYPE_SURFACE)
+	mask_original_surface = ((cairo_surface_pattern_t *)composite->original_mask_pattern)->surface;
+
+    composite->original_mask_pattern = mask_blur_pattern;
+    
     _cairo_traps_init (&traps);
 
     status = _cairo_gl_composite_init (&setup,
@@ -353,13 +487,11 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
     if (unlikely (status))
 	goto finish;
 
-    _gl_pattern_fix_reference_count (composite->original_mask_pattern);
-
     status = _cairo_gl_composite_set_source (&setup,
-					     &composite->mask_pattern.base,
+					     composite->original_mask_pattern,
 					     &composite->mask_sample_area,
 					     &composite->bounded,
-					     FALSE);
+					     FALSE, TRUE);
     if (unlikely (status))
 	goto finish;
 
@@ -376,9 +508,23 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
     status = _cairo_gl_context_release (ctx, status);
     ctx = NULL;
     if (unlikely (status))
-        return status;
+        goto cleanup_ctx;
 
      /* second pass */
+    // blur src surface
+    _gl_pattern_fix_reference_count (composite->original_source_pattern);
+    status = _cairo_gl_blur_surface (dst, 
+				     composite->original_source_pattern,
+				     &composite->source_sample_area,
+				     TRUE,
+				     &src_blur_pattern);
+    if (unlikely (status))
+	goto cleanup_ctx;
+
+    if (composite->original_source_pattern->type == CAIRO_PATTERN_TYPE_SURFACE)
+	src_original_surface = ((cairo_surface_pattern_t *)composite->original_source_pattern)->surface;
+
+    composite->original_source_pattern = src_blur_pattern;
     status = _cairo_gl_composite_init (&setup,
 				       CAIRO_OPERATOR_ADD,
 				       dst,
@@ -386,19 +532,17 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
     if (unlikely (status))
 	goto finish;
 
-    _gl_pattern_fix_reference_count (composite->original_source_pattern);
-
     status = _cairo_gl_composite_set_source (&setup,
-					     &composite->source_pattern.base,
+					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     FALSE);
+					     FALSE, TRUE);
     if (unlikely (status))
 	goto finish;
 
     status = _cairo_gl_composite_set_mask (&setup,
-				           &composite->mask_pattern.base,
-					   &composite->source_sample_area,
+				           composite->original_mask_pattern,
+					   &composite->mask_sample_area,
 					   &composite->bounded);
     if (unlikely (status))
 	goto finish;
@@ -421,6 +565,15 @@ finish:
     if (ctx)
 	status = _cairo_gl_context_release (ctx, status);
 
+cleanup_ctx:
+    _cairo_gl_reset_pattern_surface (composite->original_source_pattern, 
+				     src_original_surface,
+				     &src_blur_surface);
+
+    _cairo_gl_reset_pattern_surface (composite->original_mask_pattern, 
+				     mask_original_surface,
+				     &mask_blur_surface);
+
     return status;
 }
 
@@ -435,6 +588,12 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
     cairo_operator_t op = composite->op;
     cairo_traps_t traps;
     cairo_bool_t use_color_attribute = FALSE;
+    cairo_pattern_t *src_blur_pattern = NULL;
+    cairo_surface_t *src_original_surface = NULL;
+    cairo_surface_t *src_blur_surface = NULL;
+    cairo_pattern_t *mask_blur_pattern = NULL;
+    cairo_surface_t *mask_original_surface = NULL;
+    cairo_surface_t *mask_blur_surface = NULL;
 
     if (should_fall_back (dst, CAIRO_ANTIALIAS_GOOD))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
@@ -483,15 +642,44 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 
 	return _paint_back_unbounded_surface (compositor, composite, surface);
     }
+    
+    /* blur source surface */
+    _gl_pattern_fix_reference_count (composite->original_source_pattern);
+    status = _cairo_gl_blur_surface (dst, 
+				     composite->original_source_pattern,
+				     &composite->source_sample_area,
+				     TRUE,
+				     &src_blur_pattern);
+    if (unlikely (status))
+	goto cleanup_ctx;
+
+    if (composite->original_source_pattern->type == CAIRO_PATTERN_TYPE_SURFACE)
+	src_original_surface = ((cairo_surface_pattern_t *)composite->original_source_pattern)->surface;
+
+    composite->original_source_pattern = src_blur_pattern;
+    
+    /* blur mask surface */
+    if (composite->original_mask_pattern) {
+	status = _cairo_gl_blur_surface (dst, 
+					 composite->original_mask_pattern,
+					 &composite->mask_sample_area,
+					 FALSE,
+					 &mask_blur_pattern);
+	if (unlikely (status))
+	    goto cleanup_ctx;
+
+	if (composite->original_mask_pattern->type == CAIRO_PATTERN_TYPE_SURFACE)
+	    mask_original_surface = ((cairo_surface_pattern_t *)composite->original_mask_pattern)->surface;
+
+ 	composite->original_mask_pattern = mask_blur_pattern;
+    }
 
     status = _cairo_gl_composite_init (&setup,
 				       op,
 				       dst,
 				       FALSE /* assume_component_alpha */);
     if (unlikely (status))
-	goto finish;
-
-    _gl_pattern_fix_reference_count (composite->original_source_pattern);
+	goto cleanup;
 
     if (! composite->clip ||
 	(composite->clip->num_boxes == 1 && ! composite->clip->path))
@@ -501,9 +689,9 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     use_color_attribute);
+					     use_color_attribute, TRUE);
     if (unlikely (status))
-	goto finish;
+	goto cleanup;
 
     if (composite->original_mask_pattern != NULL) {
 	status = _cairo_gl_composite_set_mask (&setup,
@@ -512,13 +700,13 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 					       &composite->bounded);
     }
     if (unlikely (status))
-	goto finish;
+	goto cleanup;
 
     /* We always use multisampling here, because we do not yet have the smarts
        to calculate when the clip or the source requires it. */
     status = _cairo_gl_composite_begin_multisample (&setup, &ctx, TRUE);
     if (unlikely (status))
-	goto finish;
+	goto cleanup;
 
     _cairo_traps_init (&traps);
 
@@ -529,11 +717,21 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 
     _cairo_traps_fini (&traps);
 
-finish:
+cleanup:
     _cairo_gl_composite_fini (&setup);
 
     if (ctx)
 	status = _cairo_gl_context_release (ctx, status);
+
+cleanup_ctx:
+    _cairo_gl_reset_pattern_surface (composite->original_source_pattern, 
+				     src_original_surface,
+				     &src_blur_surface);
+
+    if (mask_blur_surface)
+	_cairo_gl_reset_pattern_surface (composite->original_mask_pattern, 
+					 mask_original_surface,
+					 &mask_blur_surface);
 
     return status;
 }
@@ -705,6 +903,9 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
     cairo_gl_surface_t *dst = (cairo_gl_surface_t *) composite->surface;
     struct _tristrip_composite_info info;
     cairo_bool_t use_color_attribute;
+    cairo_pattern_t *blur_pattern = NULL;
+    cairo_surface_t *original_surface = NULL;
+    cairo_surface_t *blur_surface = NULL;
 
     if (should_fall_back (dst, antialias))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
@@ -727,13 +928,26 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
 
 	return _paint_back_unbounded_surface (compositor, composite, surface);
     }
+    
+    status = _cairo_gl_blur_surface (dst, 
+				     composite->original_source_pattern,
+				     &composite->source_sample_area,
+				     TRUE,
+				     &blur_pattern);
+    if (unlikely (status))
+	goto cleanup_ctx;
+
+    if (composite->original_source_pattern->type == CAIRO_PATTERN_TYPE_SURFACE)
+	original_surface = ((cairo_surface_pattern_t *)composite->original_source_pattern)->surface;
+
+    composite->original_source_pattern = blur_pattern;
 
     status = _cairo_gl_composite_init (&info.setup,
 				       composite->op,
 				       dst,
 				       FALSE /* assume_component_alpha */);
     if (unlikely (status))
-	return status;
+	goto cleanup_ctx;
 
     info.ctx = NULL;
     use_color_attribute = _cairo_path_fixed_stroke_is_rectilinear (path) ||
@@ -743,7 +957,7 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
 					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     use_color_attribute);
+					     use_color_attribute, TRUE);
     if (unlikely (status))
 	goto finish;
 
@@ -818,6 +1032,11 @@ finish:
     if (info.ctx)
 	status = _cairo_gl_context_release (info.ctx, status);
 
+cleanup_ctx:
+    _cairo_gl_reset_pattern_surface (composite->original_source_pattern, 
+				     original_surface,
+				     &blur_surface);
+
     return status;
 }
 
@@ -847,7 +1066,7 @@ _cairo_gl_msaa_compositor_fill_rectilinear (const cairo_compositor_t *compositor
 					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     TRUE);
+					     TRUE, FALSE);
     if (unlikely (status))
 	goto cleanup_setup;
 
@@ -886,9 +1105,13 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
     cairo_int_status_t status = CAIRO_INT_STATUS_SUCCESS;
     cairo_traps_t traps;
     cairo_bool_t use_color_attr = FALSE;
+    cairo_pattern_t *blur_pattern = NULL;
+    cairo_surface_t *original_surface = NULL;
+    cairo_surface_t *blur_surface = NULL;
 
     if (should_fall_back (dst, antialias))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
+
 
     if (composite->is_bounded == FALSE) {
 	cairo_surface_t* surface = _prepare_unbounded_surface (dst);
@@ -911,6 +1134,19 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
 	return _paint_back_unbounded_surface (compositor, composite, surface);
     }
 
+    status = _cairo_gl_blur_surface (dst, 
+				     composite->original_source_pattern,
+				     &composite->source_sample_area,
+				     TRUE,
+				     &blur_pattern);
+    if (unlikely (status))
+	goto cleanup_ctx;
+
+    if (composite->original_source_pattern->type == CAIRO_PATTERN_TYPE_SURFACE)
+	original_surface = ((cairo_surface_pattern_t *)composite->original_source_pattern)->surface;
+
+    composite->original_source_pattern = blur_pattern;
+
     if (_cairo_path_fixed_fill_is_rectilinear (path) &&
 	composite->clip != NULL &&
 	composite->clip->num_boxes == 1 &&
@@ -930,7 +1166,7 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
 								     clip);
 	_cairo_clip_destroy (clip);
 
-	return status;
+	goto cleanup_ctx;
     }
 
     status = _cairo_gl_composite_init (&setup,
@@ -939,7 +1175,7 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
 				       FALSE /* assume_component_alpha */);
     if (unlikely (status)) {
         _cairo_gl_composite_fini (&setup);
-	return status;
+	goto cleanup_ctx;
     }
 
     _cairo_traps_init (&traps);
@@ -960,7 +1196,7 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
 					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     use_color_attr);
+					     use_color_attr, FALSE);
     if (unlikely (status))
 	goto cleanup_setup;
 
@@ -984,6 +1220,11 @@ cleanup_setup:
 cleanup_traps:
     _cairo_traps_fini (&traps);
 
+cleanup_ctx:
+    _cairo_gl_reset_pattern_surface (composite->original_source_pattern, 
+				     original_surface,
+				     &blur_surface);
+
     return status;
 }
 
@@ -999,6 +1240,9 @@ _cairo_gl_msaa_compositor_glyphs (const cairo_compositor_t	*compositor,
     cairo_surface_t *src = NULL;
     int src_x, src_y;
     cairo_composite_glyphs_info_t info;
+    cairo_pattern_t *blur_pattern = NULL;
+    cairo_surface_t *original_surface = NULL;
+    cairo_surface_t *blur_surface = NULL;
 
     cairo_gl_surface_t *dst = (cairo_gl_surface_t *) composite->surface;
 
@@ -1025,6 +1269,20 @@ _cairo_gl_msaa_compositor_glyphs (const cairo_compositor_t	*compositor,
 
 	return _paint_back_unbounded_surface (compositor, composite, surface);
     }
+    
+    /* blur surface */
+    status = _cairo_gl_blur_surface (dst, 
+				     composite->original_source_pattern,
+				     &composite->source_sample_area,
+				     TRUE,
+				     &blur_pattern);
+    if (unlikely (status))
+	goto cleanup_ctx;
+
+    if (composite->original_source_pattern->type == CAIRO_PATTERN_TYPE_SURFACE)
+	original_surface = ((cairo_surface_pattern_t *)composite->original_source_pattern)->surface;
+
+    composite->original_source_pattern = blur_pattern;
 
     src = _cairo_gl_pattern_to_source (&dst->base,
 				       composite->original_source_pattern,
@@ -1062,6 +1320,11 @@ _cairo_gl_msaa_compositor_glyphs (const cairo_compositor_t	*compositor,
 finish:
     if (src)
 	cairo_surface_destroy (src);
+
+cleanup_ctx:
+    _cairo_gl_reset_pattern_surface (composite->original_source_pattern, 
+				     original_surface,
+				     &blur_surface);
 
     return status;
 }

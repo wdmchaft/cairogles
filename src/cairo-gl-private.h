@@ -132,6 +132,9 @@ typedef enum cairo_gl_operand_type {
     CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0,
     CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE,
     CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT,
+    CAIRO_GL_OPERAND_GAUSSIAN,
+    CAIRO_GL_OPERAND_CONVOLUTION,
+    CAIRO_GL_OPERAND_COLOR,
 
     CAIRO_GL_OPERAND_COUNT
 } cairo_gl_operand_type_t;
@@ -156,6 +159,10 @@ typedef struct cairo_gl_operand {
 	    cairo_bool_t use_atlas;
 	    cairo_extend_t extend;
 		struct { float x, y; } p1, p2;
+	    float *filter_matrix;
+	    int is_vertical;
+	    int x_size;
+	    int y_size;
 	} texture;
 	struct {
 	    GLfloat color[4];
@@ -209,6 +216,9 @@ struct _cairo_gl_surface {
     cairo_bool_t needs_to_cache;
     /* Damage is too expensive to check, we use this flag. */
     cairo_bool_t content_changed;
+
+    double x_fraction;
+    double y_fraction;
 };
 
 typedef struct cairo_gl_glyph_cache {
@@ -332,6 +342,7 @@ typedef struct _cairo_gl_dispatch {
     void (*UniformMatrix4fv) (GLint location, GLsizei count,
 			      GLboolean transpose, const GLfloat *value);
     void (*Uniform1i) (GLint location, GLint x);
+    void (*Uniform1fv) (GLint location, GLsizei count, const GLfloat *values);
 
     /* Attributes */
     void (*BindAttribLocation) (GLuint program, GLuint index,
@@ -454,6 +465,9 @@ struct _cairo_gl_context {
     cairo_gl_states_t states_cache;
     cairo_gl_image_cache_t image_cache;
     cairo_gl_draw_mode_t draw_mode;
+
+    cairo_gl_surface_t *src_blur_surface;
+    cairo_gl_surface_t *mask_blur_surface;
 
     void (*acquire) (void *ctx);
     void (*release) (void *ctx);
@@ -619,7 +633,8 @@ _cairo_gl_composite_set_source (cairo_gl_composite_t *setup,
 			        const cairo_pattern_t *pattern,
 				const cairo_rectangle_int_t *sample,
 				const cairo_rectangle_int_t *extents,
-				cairo_bool_t use_color_attribute);
+				cairo_bool_t use_color_attribute,
+				cairo_bool_t first_pass);
 
 cairo_private void
 _cairo_gl_composite_set_solid_source (cairo_gl_composite_t *setup,
@@ -746,6 +761,17 @@ _cairo_gl_shader_bind_float (cairo_gl_context_t *ctx,
 			     float value);
 
 cairo_private void
+_cairo_gl_shader_bind_int (cairo_gl_context_t *ctx,
+			    const char *name,
+			    int value);
+
+cairo_private void
+_cairo_gl_shader_bind_float_array (cairo_gl_context_t *ctx,
+				   const char *name,
+				   int num,
+				   float *values);
+
+cairo_private void
 _cairo_gl_shader_bind_vec2 (cairo_gl_context_t *ctx,
 			    const char *name,
 			    float value0, float value1);
@@ -799,7 +825,8 @@ _cairo_gl_operand_init (cairo_gl_operand_t *operand,
 		        cairo_gl_surface_t *dst,
 			const cairo_rectangle_int_t *sample,
 			const cairo_rectangle_int_t *extents,
-			cairo_bool_t use_color_attribute);
+			cairo_bool_t use_color_attribute,
+			cairo_bool_t first_pass);
 
 cairo_private void
 _cairo_gl_solid_operand_init (cairo_gl_operand_t *operand,
@@ -890,6 +917,19 @@ _cairo_gl_image_node_fini (void *data);
 
 cairo_private void
 _cairo_gl_image_cache_unlock (cairo_gl_context_t *ctx);
+
+cairo_private cairo_status_t
+_cairo_gl_surface_clear (cairo_gl_surface_t  *surface,
+			 const cairo_color_t *color);
+
+cairo_private cairo_status_t
+_cairo_gl_get_mask_surface (cairo_gl_surface_t *original_dst,
+			    cairo_surface_t *surface,
+			    cairo_bool_t       is_src,
+			    cairo_gl_surface_t **out_surface);
+
+cairo_private cairo_pattern_t *
+_cairo_gl_get_untransformed_pattern (const cairo_pattern_t *pattern);
 
 cairo_private void
 _cairo_gl_ensure_framebuffer (cairo_gl_context_t *ctx,

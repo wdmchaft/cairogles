@@ -513,10 +513,36 @@ _cairo_gl_surface_operand_init (cairo_gl_operand_t *operand,
 	status = _cairo_gl_image_cache_add_image (ctx, dst, surface,
 						  &image_node);
 
-    if (unlikely (status) || ! image_node)
-	cairo_matrix_multiply (&attributes->matrix,
-			       &src->base.matrix,
-			       &attributes->matrix);
+    if (unlikely (status) || ! image_node) {
+	if (! surface->base.device || 
+	    (surface->x_fraction == -1.0 && surface->y_fraction == -1.0)) {
+	    cairo_matrix_multiply (&attributes->matrix,
+				   &src->base.matrix,
+				   &attributes->matrix);
+	} else {
+	    cairo_matrix_t matrix = src->base.matrix;
+	    operand->texture.use_atlas = TRUE;
+	    attributes->extend = CAIRO_EXTEND_NONE;
+	    operand->texture.extend = src->base.extend;
+
+	    operand->texture.p1.x = 0;
+	    operand->texture.p1.y = 0;
+	    operand->texture.p2.x = surface->x_fraction;
+	    operand->texture.p2.y = surface->y_fraction;
+	    if (src->base.extend == CAIRO_EXTEND_PAD) {
+		operand->texture.p1.x += 0.5 / surface->width;
+		operand->texture.p1.y += 0.5 / surface->height;
+		operand->texture.p2.x -= 0.5 / surface->width;
+		operand->texture.p2.y -= 0.5 / surface->height;
+	    }
+	    operand->texture.surface = surface;
+	    operand->texture.owns_surface = NULL;
+	    operand->texture.tex = surface->tex;
+	    cairo_matrix_multiply (&attributes->matrix,
+				   &matrix,
+				   &surface->operand.texture.attributes.matrix);
+	}
+    }
     else {
 	cairo_matrix_t matrix = src->base.matrix;
 	operand->texture.use_atlas = TRUE;
@@ -551,7 +577,8 @@ static cairo_status_t
 _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
 				 const cairo_pattern_t *_src,
 				 cairo_gl_surface_t *dst,
-				 const cairo_rectangle_int_t *extents)
+				 const cairo_rectangle_int_t *extents,
+				 cairo_bool_t first_pass)
 {
     cairo_status_t status;
     cairo_gl_surface_t *surface;
@@ -559,6 +586,8 @@ _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
     cairo_surface_t *image;
     cairo_bool_t src_is_gl_surface = FALSE;
     pixman_format_code_t pixman_format;
+    unsigned int i, j, length;
+    unsigned x_size, y_size;
 
     if (_src->type == CAIRO_PATTERN_TYPE_SURFACE) {
 	cairo_surface_t* src_surface = ((cairo_surface_pattern_t *) _src)->surface;
@@ -626,6 +655,53 @@ _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
     operand->texture.attributes.matrix.y0 -= extents->y * operand->texture.attributes.matrix.yy;
     dst->needs_to_cache = TRUE;
     operand->texture.use_atlas = FALSE;
+
+    if (_src->filter == CAIRO_FILTER_GAUSSIAN) {
+	operand->type = CAIRO_GL_OPERAND_GAUSSIAN;
+	dst->needs_to_cache = FALSE;
+	operand->texture.attributes.extend = _src->extend;
+
+	x_size = _src->x_radius * 2 + 1;
+	y_size = _src->y_radius * 2 + 1;
+	if (first_pass) {
+	    operand->texture.filter_matrix = 
+		_cairo_malloc_ab (y_size, sizeof (float));
+	    operand->texture.is_vertical = 1;
+	    for (i = 0; i < y_size; i++) {
+		operand->texture.filter_matrix[i] = 0.0;
+		for (j = 0; j < x_size; j++)
+		    operand->texture.filter_matrix [i] += _src->filter_matrix [i * x_size + j];
+	    }
+	    operand->texture.x_size = 1;
+	    operand->texture.y_size = y_size;
+	}
+	else {
+	    operand->texture.filter_matrix = 
+		_cairo_malloc_ab (x_size, sizeof (float));
+	    operand->texture.is_vertical = 0;
+	    for (i = 0; i < x_size; i++) {
+		operand->texture.filter_matrix[i] = 0.0;
+		for (j = 0; j < y_size; j++)
+		    operand->texture.filter_matrix [i] += _src->filter_matrix [i + j * x_size];
+	    }
+	    operand->texture.x_size = x_size;
+	    operand->texture.y_size = 1;
+	}
+    }
+    else if (_src->filter == CAIRO_FILTER_CONVOLUTION) {
+	operand->type = CAIRO_GL_OPERAND_CONVOLUTION;
+	dst->needs_to_cache = FALSE;
+	operand->texture.x_size = _src->x_radius;
+	operand->texture.y_size = _src->y_radius;
+	length = _src->x_radius * _src->y_radius;
+	operand->texture.filter_matrix = _cairo_malloc_ab (length, sizeof (float));
+	for (i = 0; i < length; i++)
+	    operand->texture.filter_matrix[i] = _src->filter_matrix[i];
+    }
+    else if (_src->filter == CAIRO_FILTER_COLOR) {
+	operand->type = CAIRO_GL_OPERAND_COLOR;
+	dst->needs_to_cache = FALSE;
+    }
 
     return CAIRO_STATUS_SUCCESS;
 
@@ -747,6 +823,8 @@ void
 _cairo_gl_operand_copy (cairo_gl_operand_t *dst,
 			const cairo_gl_operand_t *src)
 {
+    int length;
+
     *dst = *src;
     switch (dst->type) {
     case CAIRO_GL_OPERAND_CONSTANT:
@@ -758,7 +836,19 @@ _cairo_gl_operand_copy (cairo_gl_operand_t *dst,
 	_cairo_gl_gradient_reference (dst->gradient.gradient);
 	break;
     case CAIRO_GL_OPERAND_TEXTURE:
+    case CAIRO_GL_OPERAND_GAUSSIAN:
+    case CAIRO_GL_OPERAND_CONVOLUTION:
+    case CAIRO_GL_OPERAND_COLOR:
 	cairo_surface_reference (&dst->texture.owns_surface->base);
+	if (src->texture.filter_matrix) {
+	    if (dst->texture.filter_matrix)
+		free (dst->texture.filter_matrix);
+	    length = src->texture.y_size * src->texture.x_size;
+	    if (length != 0) {
+		dst->texture.filter_matrix = _cairo_malloc_ab (length, sizeof (float) * length);
+		memcpy (dst->texture.filter_matrix, src->texture.filter_matrix, sizeof (float) * length);
+	    }
+	}	    
 	break;
     default:
     case CAIRO_GL_OPERAND_COUNT:
@@ -781,7 +871,14 @@ _cairo_gl_operand_destroy (cairo_gl_operand_t *operand)
 	_cairo_gl_gradient_destroy (operand->gradient.gradient);
 	break;
     case CAIRO_GL_OPERAND_TEXTURE:
+    case CAIRO_GL_OPERAND_GAUSSIAN:
+    case CAIRO_GL_OPERAND_CONVOLUTION:
+    case CAIRO_GL_OPERAND_COLOR:
 	cairo_surface_destroy (&operand->texture.owns_surface->base);
+	if (operand->texture.filter_matrix) {
+	    free (operand->texture.filter_matrix);
+	    operand->texture.filter_matrix = NULL;
+	}
 	break;
     default:
     case CAIRO_GL_OPERAND_COUNT:
@@ -799,9 +896,13 @@ _cairo_gl_operand_init (cairo_gl_operand_t *operand,
 		        cairo_gl_surface_t *dst,
 			const cairo_rectangle_int_t *sample,
 			const cairo_rectangle_int_t *extents,
-			cairo_bool_t use_color_attribute)
+			cairo_bool_t use_color_attribute,
+			cairo_bool_t first_pass)
 {
     cairo_int_status_t status;
+    unsigned int i, j;
+    unsigned int length;
+    unsigned int x_size, y_size;
 
     TRACE ((stderr, "%s: type=%d\n", __FUNCTION__, pattern->type));
     switch (pattern->type) {
@@ -815,6 +916,47 @@ _cairo_gl_operand_init (cairo_gl_operand_t *operand,
 						 sample, extents);
 	if (status == CAIRO_INT_STATUS_UNSUPPORTED)
 	    break;
+
+	if (pattern->filter == CAIRO_FILTER_GAUSSIAN) {
+	    operand->type = CAIRO_GL_OPERAND_GAUSSIAN;
+	    x_size = 2 * pattern->x_radius + 1;
+	    y_size = 2 * pattern->y_radius + 1;
+	    if (first_pass) {
+		operand->texture.filter_matrix = 
+			_cairo_malloc_ab (y_size, sizeof (float));
+		operand->texture.is_vertical = 1;
+		for (i = 0; i < y_size; i++) {
+		    operand->texture.filter_matrix[i] = 0.0;
+		    for (j = 0; j < x_size; j++)
+			operand->texture.filter_matrix [i] += pattern->filter_matrix [i * x_size + j];
+		}
+		operand->texture.x_size = 1;
+		operand->texture.y_size = y_size;
+	    }
+	    else {
+		operand->texture.filter_matrix = 
+			_cairo_malloc_ab (x_size, sizeof (float));
+		operand->texture.is_vertical = 0;
+		for (i = 0; i < x_size; i++) {
+		    operand->texture.filter_matrix[i] = 0.0;
+		    for (j = 0; j < y_size; j++)
+			operand->texture.filter_matrix [i] += pattern->filter_matrix [i + j * x_size];
+		}
+		operand->texture.x_size = x_size;
+		operand->texture.y_size = 1;
+	    }
+	}
+	else if (pattern->filter == CAIRO_FILTER_CONVOLUTION) {
+	    operand->type = CAIRO_GL_OPERAND_CONVOLUTION;
+	    operand->texture.x_size = pattern->x_radius;
+	    operand->texture.y_size = pattern->y_radius;
+	    length = pattern->x_radius * pattern->y_radius;
+	    operand->texture.filter_matrix = _cairo_malloc_ab (length, sizeof (float));
+	    for (i = 0; i < length; i++)
+		operand->texture.filter_matrix[i] = pattern->filter_matrix[i];
+	}
+	else if (pattern->filter == CAIRO_FILTER_COLOR)
+	    operand->type = CAIRO_GL_OPERAND_COLOR;
 
 	return status;
 
@@ -832,7 +974,7 @@ _cairo_gl_operand_init (cairo_gl_operand_t *operand,
 	break;
     }
 
-    return _cairo_gl_pattern_texture_setup (operand, pattern, dst, extents);
+    return _cairo_gl_pattern_texture_setup (operand, pattern, dst, extents, first_pass);
 }
 
 cairo_filter_t
@@ -871,7 +1013,9 @@ _cairo_gl_operand_get_gl_filter (cairo_gl_operand_t *operand)
 cairo_bool_t
 _cairo_gl_operand_get_use_atlas (cairo_gl_operand_t *operand)
 {
-    if (operand->type != CAIRO_GL_OPERAND_TEXTURE)
+    if (operand->type != CAIRO_GL_OPERAND_TEXTURE &&
+	operand->type != CAIRO_GL_OPERAND_GAUSSIAN &&
+	operand->type != CAIRO_GL_OPERAND_CONVOLUTION)
 	return FALSE;
 
     return operand->texture.use_atlas;
@@ -884,6 +1028,9 @@ _cairo_gl_operand_get_extend (cairo_gl_operand_t *operand)
 
     switch ((int) operand->type) {
     case CAIRO_GL_OPERAND_TEXTURE:
+    case CAIRO_GL_OPERAND_GAUSSIAN:
+    case CAIRO_GL_OPERAND_CONVOLUTION:
+    case CAIRO_GL_OPERAND_COLOR:
 	if (! operand->texture.use_atlas)
 	    extend = operand->texture.attributes.extend;
 	else
@@ -910,6 +1057,9 @@ _cairo_gl_operand_get_atlas_extend (cairo_gl_operand_t *operand)
 
     switch ((int) operand->type) {
     case CAIRO_GL_OPERAND_TEXTURE:
+    case CAIRO_GL_OPERAND_GAUSSIAN:
+    case CAIRO_GL_OPERAND_CONVOLUTION:
+    case CAIRO_GL_OPERAND_COLOR:
 	if (operand->texture.use_atlas)
 	    extend = operand->texture.extend;
 	else
@@ -973,6 +1123,9 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
         /* fall through */
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
     case CAIRO_GL_OPERAND_TEXTURE:
+    case CAIRO_GL_OPERAND_GAUSSIAN:
+    case CAIRO_GL_OPERAND_CONVOLUTION:
+    case CAIRO_GL_OPERAND_COLOR:
 	/*
 	 * For GLES2 we use shaders to implement GL_CLAMP_TO_BORDER (used
 	 * with CAIRO_EXTEND_NONE). When bilinear filtering is enabled,
@@ -983,7 +1136,10 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 	    _cairo_gl_operand_get_gl_filter (operand) == GL_LINEAR)
 	{
 	    float width, height;
-	    if (operand->type == CAIRO_GL_OPERAND_TEXTURE) {
+	    if (operand->type == CAIRO_GL_OPERAND_TEXTURE ||
+		operand->type == CAIRO_GL_OPERAND_GAUSSIAN ||
+		operand->type == CAIRO_GL_OPERAND_CONVOLUTION ||
+		operand->type == CAIRO_GL_OPERAND_COLOR) {
 		width = operand->texture.surface->width;
 		height = operand->texture.surface->height;
 	    }
@@ -993,6 +1149,36 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 	    }
 	    strcpy (custom_part, "_texdims");
 	    _cairo_gl_shader_bind_vec2 (ctx, uniform_name, width, height);
+	}
+	if (operand->type == CAIRO_GL_OPERAND_GAUSSIAN) {
+	    if (operand->texture.is_vertical) {
+		strcpy (custom_part, "_step");
+		_cairo_gl_shader_bind_float (ctx, uniform_name,
+					     1.0 / operand->texture.surface->height);
+		strcpy (custom_part, "_matrix");
+		_cairo_gl_shader_bind_float_array (ctx, uniform_name,
+						   operand->texture.y_size, 
+						   operand->texture.filter_matrix);
+		strcpy (custom_part, "_vertical");
+		_cairo_gl_shader_bind_int (ctx, uniform_name, 1);
+		strcpy (custom_part, "_radius_size");
+	    	_cairo_gl_shader_bind_int (ctx, uniform_name,
+					   (operand->texture.y_size - 1) / 2);
+	    }
+	    else {
+		strcpy (custom_part, "_step");
+		_cairo_gl_shader_bind_float (ctx, uniform_name,
+					     1.0 / operand->texture.surface->width);
+		strcpy (custom_part, "_matrix");
+		_cairo_gl_shader_bind_float_array (ctx, uniform_name,
+						   operand->texture.x_size, 
+						   operand->texture.filter_matrix);
+		strcpy (custom_part, "_vertical");
+		_cairo_gl_shader_bind_int (ctx, uniform_name, 0);
+		strcpy (custom_part, "_radius_size");
+		_cairo_gl_shader_bind_int (ctx, uniform_name,
+					   (operand->texture.x_size - 1) / 2);
+	    }
 	}
         break;
     }
@@ -1023,6 +1209,9 @@ _cairo_gl_operand_needs_setup (cairo_gl_operand_t *dest,
                 dest->constant.color[3] != source->constant.color[3];
         }
     case CAIRO_GL_OPERAND_TEXTURE:
+    case CAIRO_GL_OPERAND_GAUSSIAN:
+    case CAIRO_GL_OPERAND_CONVOLUTION:
+    case CAIRO_GL_OPERAND_COLOR:
         return dest->texture.surface != source->texture.surface ||
                dest->texture.attributes.extend != source->texture.attributes.extend ||
                dest->texture.attributes.filter != source->texture.attributes.filter ||
@@ -1056,6 +1245,9 @@ _cairo_gl_operand_get_vertex_size (cairo_gl_operand_t *operand)
         else
             return 0;
     case CAIRO_GL_OPERAND_TEXTURE:
+    case CAIRO_GL_OPERAND_GAUSSIAN:
+    case CAIRO_GL_OPERAND_CONVOLUTION:
+    case CAIRO_GL_OPERAND_COLOR:
 	if (operand->texture.use_atlas)
 	    return 6 * sizeof (GLfloat);
 	else
