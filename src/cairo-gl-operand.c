@@ -701,6 +701,9 @@ _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
     else if (_src->filter == CAIRO_FILTER_COLOR) {
 	operand->type = CAIRO_GL_OPERAND_COLOR;
 	dst->needs_to_cache = FALSE;
+	operand->texture.filter_matrix = _cairo_malloc_ab (20, sizeof (float));
+	for (i = 0; i < 20; i++)
+	    operand->texture.filter_matrix[i] = _src->filter_matrix[i];
     }
 
     return CAIRO_STATUS_SUCCESS;
@@ -843,7 +846,10 @@ _cairo_gl_operand_copy (cairo_gl_operand_t *dst,
 	if (src->texture.filter_matrix) {
 	    if (dst->texture.filter_matrix)
 		free (dst->texture.filter_matrix);
-	    length = src->texture.y_size * src->texture.x_size;
+	    if (dst->type == CAIRO_GL_OPERAND_COLOR)
+		length = 20;
+	    else
+		length = src->texture.y_size * src->texture.x_size;
 	    if (length != 0) {
 		dst->texture.filter_matrix = _cairo_malloc_ab (length, sizeof (float) * length);
 		memcpy (dst->texture.filter_matrix, src->texture.filter_matrix, sizeof (float) * length);
@@ -955,8 +961,12 @@ _cairo_gl_operand_init (cairo_gl_operand_t *operand,
 	    for (i = 0; i < length; i++)
 		operand->texture.filter_matrix[i] = pattern->filter_matrix[i];
 	}
-	else if (pattern->filter == CAIRO_FILTER_COLOR)
+	else if (pattern->filter == CAIRO_FILTER_COLOR) {
 	    operand->type = CAIRO_GL_OPERAND_COLOR;
+	    operand->texture.filter_matrix = _cairo_malloc_ab (20, sizeof (float));
+	    for (i = 0; i < 20; i++)
+		operand->texture.filter_matrix[i] = pattern->filter_matrix[i];
+	}
 
 	return status;
 
@@ -1015,7 +1025,8 @@ _cairo_gl_operand_get_use_atlas (cairo_gl_operand_t *operand)
 {
     if (operand->type != CAIRO_GL_OPERAND_TEXTURE &&
 	operand->type != CAIRO_GL_OPERAND_GAUSSIAN &&
-	operand->type != CAIRO_GL_OPERAND_CONVOLUTION)
+	operand->type != CAIRO_GL_OPERAND_CONVOLUTION &&
+	operand->type != CAIRO_GL_OPERAND_COLOR)
 	return FALSE;
 
     return operand->texture.use_atlas;
@@ -1201,10 +1212,15 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 	    _cairo_gl_shader_bind_int (ctx, uniform_name,
 				       (operand->texture.y_size - 1) / 2);
 	}
+	else if (operand->type == CAIRO_GL_OPERAND_COLOR) {
+	    strcpy (custom_part, "_matrix");
+	    _cairo_gl_shader_bind_float_array (ctx, uniform_name, 20,
+					       operand->texture.filter_matrix);
+	    
+	}
         break;
     }
 }
-
 
 cairo_bool_t
 _cairo_gl_operand_needs_setup (cairo_gl_operand_t *dest,

@@ -1090,8 +1090,77 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		namestr, namestr, namestr, namestr);
 	}
         break;
+     case CAIRO_GL_OPERAND_COLOR:
+	if (use_atlas) {
+	    _cairo_output_stream_printf (stream,
+		"varying vec2 %s_start_coords;\n"
+		"varying vec2 %s_stop_coords;\n",
+		namestr, namestr);
+	}
+	_cairo_output_stream_printf (stream,
+		"uniform sampler2D%s %s_sampler;\n"
+		"uniform vec2 %s_texdims;\n"
+		"uniform float %s_matrix[%d];\n"
+		"varying vec2 %s_texcoords;\n"
+		"vec4 get_%s()\n"
+		"{\n",
+		rectstr, namestr, namestr, namestr, MAX_FILTER_SIZE,
+		namestr, namestr);
+	if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES &&
+	    _cairo_gl_shader_needs_border_fade (op))
+	{
+	    _cairo_output_stream_printf (stream,
+		"    vec4 tex = vec4(0.0);\n"
+		"    vec2 border_fade = %s_border_fade (%s_texcoords, %s_texdims);\n",
+		namestr, namestr, namestr);
+	    if (! use_atlas) {
+		_cairo_output_stream_printf (stream,
+		"    vec4 texel = texture2D%s (%s_sampler, %s_wrap(coords));\n",
+		    rectstr, namestr, namestr);
+	    } else {
+		_cairo_output_stream_printf (stream,
+		"    vec4 texel =  texture2D%s (%s_sampler, %s_wrap (coords, %s_start_coords, %s_stop_coords));\n",
+		    rectstr, namestr, namestr, namestr, namestr);
+	    }
+	    _cairo_output_stream_printf (stream,
+		"    tex.r = texel.r * %s_matrix[0] + texel.g * %s_matrix[1] + texel.b * %s_matrix[2] + texel.a * %s_matrix[3] + %s_matrix[4];\n"
+		"    tex.g = texel.r * %s_matrix[5] + texel.g * %s_matrix[6] + texel.b * %s_matrix[7] + texel.a * %s_matrix[8] + %s_matrix[9];\n"
+		"    tex.b = texel.r * %s_matrix[10] + texel.g * %s_matrix[11] + texel.b * %s_matrix[12] + texel.a * %s_matrix[13] + %s_matrix[14];\n"
+		"    tex.a = texel.r * %s_matrix[15] + texel.g * %s_matrix[16] + texel.b * %s_matrix[17] + texel.a * %s_matrix[18] + %s_matrix[19];\n"
+		"    return tex * border_fade.x * border_fade.y;\n"
+		"}\n",
+		namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr);
+	}
+	else
+	{
+	    _cairo_output_stream_printf (stream,
+		"    vec4 tex = vec4(0.0);\n");
+	    if (! use_atlas) {
+		_cairo_output_stream_printf (stream,
+		"    vec4 texel = texture2D%s (%s_sampler, %s_wrap(%s_texcoords));\n",
+		    rectstr, namestr, namestr, namestr);
+	    } else {
+		_cairo_output_stream_printf (stream,
+		"    vec4 texel =  texture2D%s (%s_sampler, %s_wrap (%s_texcoords, %s_start_coords, %s_stop_coords));\n",
+		    rectstr, namestr, namestr, namestr, namestr, namestr);
+	    }
+	    _cairo_output_stream_printf (stream,
+		"    tex.r = texel.r * %s_matrix[0] + texel.g * %s_matrix[1] + texel.b * %s_matrix[2] + texel.a * %s_matrix[3] + %s_matrix[4];\n"
+		"    tex.g = texel.r * %s_matrix[5] + texel.g * %s_matrix[6] + texel.b * %s_matrix[7] + texel.a * %s_matrix[8] + %s_matrix[9];\n"
+		"    tex.b = texel.r * %s_matrix[10] + texel.g * %s_matrix[11] + texel.b * %s_matrix[12] + texel.a * %s_matrix[13] + %s_matrix[14];\n"
+		"    tex.a = texel.r * %s_matrix[15] + texel.g * %s_matrix[16] + texel.b * %s_matrix[17] + texel.a * %s_matrix[18] + %s_matrix[19];\n"
+		"    return tex;\n"
+		"}\n",
+		namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr);
+	}
+        break;
     case CAIRO_GL_OPERAND_TEXTURE:
-    case CAIRO_GL_OPERAND_COLOR:
 	if (! use_atlas) {
 	    _cairo_output_stream_printf (stream,
 		"uniform sampler2D%s %s_sampler;\n"
