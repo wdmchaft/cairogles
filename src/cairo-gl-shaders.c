@@ -908,13 +908,13 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		"uniform sampler2D%s %s_sampler;\n"
 		"uniform vec2 %s_texdims;\n"
 		"uniform int %s_vertical;\n"
-		"uniform float %s_matrix[81];\n"
-		"uniform int %s_radius_size;\n"
+		"uniform float %s_matrix[%d];\n"
+		"uniform int %s_radius;\n"
 		"uniform float %s_step;\n"
 		"varying vec2 %s_texcoords;\n"
 		"vec4 get_%s()\n"
 		"{\n",
-		rectstr, namestr, namestr, namestr, namestr, 
+		rectstr, namestr, namestr, namestr, namestr, MAX_FILTER_SIZE,
 		namestr, namestr, namestr, namestr);
 	if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES &&
 	    _cairo_gl_shader_needs_border_fade (op))
@@ -940,7 +940,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	    }
 	    _cairo_output_stream_printf (stream,
 		"    vec4 tex = vec4(0.0);\n"
-		"    for (i = -%s_radius_size; i <= %s_radius_size; i++) {\n"
+		"    for (i = -%s_radius; i <= %s_radius; i++) {\n"
 		"        if (%s_vertical == 1)\n"
 		"            coords = %s_texcoords + vec2 (0.0, float(i) * %s_step);\n"
 		"        else\n"
@@ -958,7 +958,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		    rectstr, namestr, namestr, namestr, namestr);
 	    }
 	    _cairo_output_stream_printf (stream,
-		"        tex += texel * border_fade.x * border_fade.y * %s_matrix[i + %s_radius_size] ;\n"
+		"        tex += texel * border_fade.x * border_fade.y * %s_matrix[i + %s_radius] ;\n"
 		"    }\n"
 		"    return tex;\n"
 		"}\n",
@@ -987,7 +987,7 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		    rectstr, namestr);
 	    }
 	    _cairo_output_stream_printf (stream,
-		"    for (i = -%s_radius_size; i <= %s_radius_size; i++) {\n"
+		"    for (i = -%s_radius; i <= %s_radius; i++) {\n"
 		"        if (%s_vertical == 1)\n"
 		"            coords = %s_texcoords + vec2 (0.0, float(i) * %s_step);\n"
 		"        else\n"
@@ -1003,15 +1003,94 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		    rectstr, namestr, namestr, namestr, namestr);
 	    }
 	    _cairo_output_stream_printf (stream,
-		"        tex += texel * %s_matrix[i + %s_radius_size] ;\n"
+		"        tex += texel * %s_matrix[i + %s_radius] ;\n"
 		"    }\n"
 		"    return tex;\n"
 		"}\n",
 		namestr, namestr);
 	}
         break;
+     case CAIRO_GL_OPERAND_CONVOLUTION:
+	if (use_atlas) {
+	    _cairo_output_stream_printf (stream,
+		"varying vec2 %s_start_coords;\n"
+		"varying vec2 %s_stop_coords;\n",
+		namestr, namestr);
+	}
+	_cairo_output_stream_printf (stream,
+		"uniform sampler2D%s %s_sampler;\n"
+		"uniform vec2 %s_texdims;\n"
+		"uniform float %s_matrix[%d];\n"
+		"uniform int %s_x_radius;\n"
+		"uniform float %s_x_step;\n"
+		"uniform int %s_y_radius;\n"
+		"uniform float %s_y_step;\n"
+		"varying vec2 %s_texcoords;\n"
+		"vec4 get_%s()\n"
+		"{\n",
+		rectstr, namestr, namestr, namestr, MAX_FILTER_SIZE,
+		namestr, namestr, namestr, namestr, namestr, namestr);
+	if (ctx->gl_flavor == CAIRO_GL_FLAVOR_ES &&
+	    _cairo_gl_shader_needs_border_fade (op))
+	{
+	    _cairo_output_stream_printf (stream,
+		"    int i, j;\n"
+		"    vec2 coords;\n");
+	    _cairo_output_stream_printf (stream,
+		"    vec4 tex = vec4(0.0);\n"
+		"    for (i = -%s_x_radius; i <= %s_x_radius; i++) {\n"
+		"        for (j = -%s_y_radius; j <= %s_y_radius; j++) {\n"
+		"            coords = %s_texcoords + vec2 (float(i) * %s_x_step, float(j) * %s_y_step);\n"
+		"            vec2 border_fade = %s_border_fade (coords, %s_texdims);\n",
+		namestr, namestr, namestr, namestr,
+		namestr, namestr, namestr, namestr, namestr);
+	    if (! use_atlas) {
+		_cairo_output_stream_printf (stream,
+		"            vec4 texel = texture2D%s (%s_sampler, %s_wrap(coords));\n",
+		    rectstr, namestr, namestr);
+	    } else {
+		_cairo_output_stream_printf (stream,
+		    "        vec4 texel =  texture2D%s (%s_sampler, %s_wrap (coords, %s_start_coords, %s_stop_coords));\n",
+		    rectstr, namestr, namestr, namestr, namestr);
+	    }
+	    _cairo_output_stream_printf (stream,
+		"            tex += texel * border_fade.x * border_fade.y * %s_matrix[(i + %s_x_radius) * (2 * %s_x_radius + 1) + j + %s_y_radius] ;\n"
+		"        }\n"
+		"    }\n"
+		"    return tex;\n"
+		"}\n",
+		namestr, namestr, namestr, namestr);
+	}
+	else
+	{
+	    _cairo_output_stream_printf (stream,
+		"    int i, j;\n"
+		"    vec2 coords;\n"
+		"    vec4 tex = vec4(0.0);\n");
+	    _cairo_output_stream_printf (stream,
+		"    for (i = -%s_x_radius; i <= %s_x_radius; i++) {\n"
+		"        for (j = -%s_y_radius; j <= %s_y_radius; j++) {\n"
+		"            coords = %s_texcoords + vec2 (float(i) * %s_x_step, float(j) * %s_y_step);\n",
+		namestr, namestr, namestr, namestr, namestr, namestr, namestr);
+	    if (! use_atlas) {
+		_cairo_output_stream_printf (stream,
+		"            vec4 texel = texture2D%s (%s_sampler, %s_wrap(coords));\n",
+		    rectstr, namestr, namestr);
+	    } else {
+		_cairo_output_stream_printf (stream,
+		    "        vec4 texel =  texture2D%s (%s_sampler, %s_wrap (coords, %s_start_coords, %s_stop_coords));\n",
+		    rectstr, namestr, namestr, namestr, namestr);
+	    }
+	    _cairo_output_stream_printf (stream,
+		"            tex += texel * %s_matrix[(i + %s_x_radius) * (2 * %s_x_radius + 1) + j + %s_y_radius] ;\n"
+		"        }\n"
+		"    }\n"
+		"    return tex;\n"
+		"}\n",
+		namestr, namestr, namestr, namestr);
+	}
+        break;
     case CAIRO_GL_OPERAND_TEXTURE:
-    case CAIRO_GL_OPERAND_CONVOLUTION:
     case CAIRO_GL_OPERAND_COLOR:
 	if (! use_atlas) {
 	    _cairo_output_stream_printf (stream,
@@ -1476,7 +1555,7 @@ _cairo_gl_shader_compile (cairo_gl_context_t *ctx,
 						    &source);
         if (unlikely (status))
             goto FAILURE;
-
+printf("vertex source ====>\n%s\n", source);
 	ctx->shader_impl->compile_shader (ctx, &ctx->vertex_shaders[vertex_shader],
 					  GL_VERTEX_SHADER,
 					  source);
@@ -1663,7 +1742,7 @@ _cairo_gl_get_shader_by_type (cairo_gl_context_t *ctx,
 						  &fs_source);
     if (unlikely (status))
 	return status;
-
+printf ("fragment source =====>\n%s\n", fs_source);
     entry = malloc (sizeof (cairo_shader_cache_entry_t));
     if (unlikely (entry == NULL)) {
         free (fs_source);

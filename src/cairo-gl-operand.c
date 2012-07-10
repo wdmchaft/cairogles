@@ -1161,7 +1161,7 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 						   operand->texture.filter_matrix);
 		strcpy (custom_part, "_vertical");
 		_cairo_gl_shader_bind_int (ctx, uniform_name, 1);
-		strcpy (custom_part, "_radius_size");
+		strcpy (custom_part, "_radius");
 	    	_cairo_gl_shader_bind_int (ctx, uniform_name,
 					   (operand->texture.y_size - 1) / 2);
 	    }
@@ -1175,10 +1175,31 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 						   operand->texture.filter_matrix);
 		strcpy (custom_part, "_vertical");
 		_cairo_gl_shader_bind_int (ctx, uniform_name, 0);
-		strcpy (custom_part, "_radius_size");
+		strcpy (custom_part, "_radius");
 		_cairo_gl_shader_bind_int (ctx, uniform_name,
 					   (operand->texture.x_size - 1) / 2);
 	    }
+	}
+	else if (operand->type == CAIRO_GL_OPERAND_CONVOLUTION) {
+	    strcpy (custom_part, "_matrix");
+	    _cairo_gl_shader_bind_float_array (ctx, uniform_name,
+					       operand->texture.y_size * operand->texture.x_size,
+					       operand->texture.filter_matrix);
+	    
+	    strcpy (custom_part, "_x_step");
+	    _cairo_gl_shader_bind_float (ctx, uniform_name,
+					 1.0 / operand->texture.surface->width);
+	    
+	    strcpy (custom_part, "_y_step");
+	    _cairo_gl_shader_bind_float (ctx, uniform_name,
+					 1.0 / operand->texture.surface->height);
+	    strcpy (custom_part, "_x_radius");
+	    _cairo_gl_shader_bind_int (ctx, uniform_name,
+				       (operand->texture.x_size - 1) / 2);
+	    
+	    strcpy (custom_part, "_y_radius");
+	    _cairo_gl_shader_bind_int (ctx, uniform_name,
+				       (operand->texture.y_size - 1) / 2);
 	}
         break;
     }
