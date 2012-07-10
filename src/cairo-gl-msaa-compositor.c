@@ -736,7 +736,7 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
 	goto finish;
     }
 
-    if (use_color_attribute || path->has_curve_to) {
+    if (use_color_attribute) {
 	cairo_traps_t traps;
 
 	_cairo_traps_init (&traps);
