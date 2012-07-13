@@ -1192,7 +1192,8 @@ _cairo_gl_context_choose_emit_glyph (cairo_gl_context_t *ctx)
         ASSERT_NOT_REACHED;
     case CAIRO_GL_OPERAND_NONE:
     case CAIRO_GL_OPERAND_CONSTANT:
-	return _cairo_gl_composite_emit_solid_glyph;
+	if (! ctx->operands[CAIRO_GL_TEX_SOURCE].use_color_attribute)
+	    return _cairo_gl_composite_emit_solid_glyph;
 
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
