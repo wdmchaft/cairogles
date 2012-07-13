@@ -258,6 +258,9 @@ render_glyphs (cairo_gl_surface_t *dst,
 
     }
 
+    if (setup.src.type == CAIRO_GL_OPERAND_CONSTANT)
+        setup.src.constant.encode_as_attribute = TRUE;
+
     _cairo_gl_composite_set_clip (&setup, clip);
 
     for (i = 0; i < info->num_glyphs; i++) {
