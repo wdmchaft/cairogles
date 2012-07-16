@@ -57,7 +57,7 @@
 static cairo_int_status_t
 _cairo_gl_create_gradient_texture (cairo_gl_surface_t *dst,
 				   const cairo_gradient_pattern_t *pattern,
-                                   cairo_gl_gradient_t **gradient)
+				   cairo_gl_gradient_t **gradient)
 {
     cairo_gl_context_t *ctx;
     cairo_status_t status;
@@ -197,7 +197,7 @@ _cairo_gl_image_cache_add_image (cairo_gl_context_t *ctx,
 
     *image_node =
 	(cairo_gl_image_t *) cairo_surface_get_user_data (&image->base,
-							       (const cairo_user_data_key_t *) (&image->base));
+							  (const cairo_user_data_key_t *) (&image->base));
     if (*image_node) {
 	if (image->content_changed) {
 	    status = _cairo_gl_image_cache_replace_image (*image_node,
@@ -329,7 +329,7 @@ _cairo_gl_subsurface_clone_operand_init (cairo_gl_operand_t *operand,
 
     status = _resolve_multisampling (surface);
     if (unlikely (status))
-        return status;
+	return status;
 
     attributes = &operand->texture.attributes;
 
@@ -338,6 +338,7 @@ _cairo_gl_subsurface_clone_operand_init (cairo_gl_operand_t *operand,
     operand->texture.owns_surface = surface;
     operand->texture.tex = surface->tex;
     operand->texture.use_atlas = FALSE;
+    operand->texture.filter_matrix = NULL;
 
     if (_cairo_gl_device_requires_power_of_two_textures (dst->base.device)) {
 	attributes->matrix = src->base.matrix;
@@ -383,8 +384,8 @@ _cairo_gl_subsurface_operand_init (cairo_gl_operand_t *operand,
 
     surface = (cairo_gl_surface_t *) sub->target;
     if (surface->base.device &&
-        (surface->base.device != dst->base.device ||
-         (! surface->tex && ! surface->bounded_tex)))
+	(surface->base.device != dst->base.device ||
+	 (! surface->tex && ! surface->bounded_tex)))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
 
     status = _resolve_multisampling (surface);
@@ -475,7 +476,7 @@ _cairo_gl_surface_operand_init (cairo_gl_operand_t *operand,
 	    surface_snapshot = (cairo_surface_snapshot_t *)src->surface;
 	    surface = (cairo_gl_surface_t *)surface_snapshot->target;
 	    if (surface->base.type != CAIRO_SURFACE_TYPE_GL)
-	        return CAIRO_INT_STATUS_UNSUPPORTED;
+		return CAIRO_INT_STATUS_UNSUPPORTED;
 
 	    if (_cairo_surface_is_subsurface (&surface->base)) {
 		sub_pattern = cairo_pattern_create_for_surface (&surface->base);
@@ -493,8 +494,8 @@ _cairo_gl_surface_operand_init (cairo_gl_operand_t *operand,
     }
 
     if (surface->base.device &&
-        (surface->base.device != dst->base.device ||
-         (! surface->tex && ! surface->bounded_tex)))
+	(surface->base.device != dst->base.device ||
+	 (! surface->tex && ! surface->bounded_tex)))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
 
     status = _resolve_multisampling (surface);
@@ -589,20 +590,19 @@ _cairo_gl_pattern_texture_setup (cairo_gl_operand_t *operand,
     unsigned int i, j, length;
     unsigned x_size, y_size;
 
-    if (_src->type == CAIRO_PATTERN_TYPE_SURFACE) {
-	cairo_surface_t* src_surface = ((cairo_surface_pattern_t *) _src)->surface;
-	src_is_gl_surface = src_surface->type == CAIRO_SURFACE_TYPE_GL;
+   if (_src->type == CAIRO_PATTERN_TYPE_SURFACE) {
+cairo_surface_t* src_surface = ((cairo_surface_pattern_t *) _src)->surface;
+src_is_gl_surface = src_surface->type == CAIRO_SURFACE_TYPE_GL;
     }
 
-    status = _cairo_gl_context_acquire (dst->base.device, &ctx);
-    if (unlikely (status))
+   status = _cairo_gl_context_acquire (dst->base.device, &ctx);
+   if (unlikely (status))
 	return status;
 
-    surface = (cairo_gl_surface_t *)
-	_cairo_gl_surface_create_scratch (ctx,
-					  CAIRO_CONTENT_COLOR_ALPHA,
-					  extents->width, extents->height,
-					  FALSE);
+   surface = (cairo_gl_surface_t *)
+   _cairo_gl_surface_create_scratch (ctx, CAIRO_CONTENT_COLOR_ALPHA,
+				     extents->width, extents->height,
+				     FALSE);
 
     /* XXX: This is a hack for driver that does not support PBO, we
        don't need an extra step of downloading newly created texture
@@ -844,8 +844,6 @@ _cairo_gl_operand_copy (cairo_gl_operand_t *dst,
     case CAIRO_GL_OPERAND_COLOR:
 	cairo_surface_reference (&dst->texture.owns_surface->base);
 	if (src->texture.filter_matrix) {
-	    if (dst->texture.filter_matrix)
-		free (dst->texture.filter_matrix);
 	    if (dst->type == CAIRO_GL_OPERAND_COLOR)
 		length = 20;
 	    else
@@ -918,6 +916,7 @@ _cairo_gl_operand_init (cairo_gl_operand_t *operand,
         operand->use_color_attribute = use_color_attribute;
 	return CAIRO_STATUS_SUCCESS;
     case CAIRO_PATTERN_TYPE_SURFACE:
+ 
 	status = _cairo_gl_surface_operand_init (operand, pattern, dst,
 						 sample, extents);
 	if (status == CAIRO_INT_STATUS_UNSUPPORTED)

@@ -137,9 +137,10 @@ _cairo_composite_rectangles_init (cairo_composite_rectangles_t *extents,
 
 		_cairo_pattern_get_extents (&extents->source_pattern.base,
                                     &extents->source);
-	} else
-        _cairo_pattern_get_extents (extents->original_source_pattern,
-                                    &extents->source);
+	} else {
+	    _cairo_pattern_get_extents (extents->original_source_pattern,
+					&extents->source);
+	}
 
     if (extents->is_bounded & CAIRO_OPERATOR_BOUND_BY_SOURCE) {
 	if (! _cairo_rectangle_intersect (&extents->bounded, &extents->source))
@@ -179,6 +180,12 @@ _cairo_composite_rectangles_init_for_paint (cairo_composite_rectangles_t *extent
 	_cairo_pattern_sampled_area (&extents->source_pattern.base,
 				     &extents->bounded,
 				     &extents->source_sample_area);
+
+    if (source->filter == CAIRO_FILTER_GAUSSIAN) {
+	extents->source_pattern.base.filter = CAIRO_FILTER_CONVOLUTION;
+	extents->source_pattern.base.x_radius = 2 * source->x_radius + 1;
+	extents->source_pattern.base.y_radius = 2 * source->y_radius + 1;
+    }
 
     return CAIRO_STATUS_SUCCESS;
 }
@@ -391,6 +398,17 @@ _cairo_composite_rectangles_init_for_mask (cairo_composite_rectangles_t *extents
     extents->original_mask_pattern = mask;
     _cairo_composite_reduce_pattern (mask, &extents->mask_pattern);
     _cairo_pattern_get_extents (&extents->mask_pattern.base, &extents->mask);
+    if (extents->mask_pattern.base.filter == CAIRO_FILTER_GAUSSIAN) {
+	extents->mask_pattern.base.filter = CAIRO_FILTER_CONVOLUTION;
+	extents->mask_pattern.base.x_radius = 2 * mask->x_radius + 1;
+	extents->mask_pattern.base.y_radius = 2 * mask->y_radius + 1;
+    }
+    
+    if (source->filter == CAIRO_FILTER_GAUSSIAN) {
+	extents->source_pattern.base.filter = CAIRO_FILTER_CONVOLUTION;
+	extents->source_pattern.base.x_radius = 2 * source->x_radius + 1;
+	extents->source_pattern.base.y_radius = 2 * source->y_radius + 1;
+    }
 
     return _cairo_composite_rectangles_intersect (extents, clip);
 }
@@ -458,6 +476,12 @@ _cairo_composite_rectangles_init_for_stroke (cairo_composite_rectangles_t *exten
     {
 	return CAIRO_INT_STATUS_NOTHING_TO_DO;
     }
+    
+    if (source->filter == CAIRO_FILTER_GAUSSIAN) {
+	extents->source_pattern.base.filter = CAIRO_FILTER_CONVOLUTION;
+	extents->source_pattern.base.x_radius = 2 * source->x_radius + 1;
+	extents->source_pattern.base.y_radius = 2 * source->y_radius + 1;
+    }
 
     _cairo_path_fixed_approximate_stroke_extents (path, style, ctm, &extents->mask);
 
@@ -510,6 +534,12 @@ _cairo_composite_rectangles_init_for_fill (cairo_composite_rectangles_t *extents
 	return CAIRO_INT_STATUS_NOTHING_TO_DO;
     }
 
+    if (source->filter == CAIRO_FILTER_GAUSSIAN) {
+	extents->source_pattern.base.filter = CAIRO_FILTER_CONVOLUTION;
+	extents->source_pattern.base.x_radius = 2 * source->x_radius + 1;
+	extents->source_pattern.base.y_radius = 2 * source->y_radius + 1;
+    }
+
     _cairo_path_fixed_approximate_fill_extents (path, &extents->mask);
 
     return _cairo_composite_rectangles_intersect (extents, clip);
@@ -558,6 +588,12 @@ _cairo_composite_rectangles_init_for_polygon (cairo_composite_rectangles_t *exte
     }
 
     _cairo_box_round_to_rectangle (&polygon->extents, &extents->mask);
+    
+    if (source->filter == CAIRO_FILTER_GAUSSIAN) {
+	extents->source_pattern.base.filter = CAIRO_FILTER_CONVOLUTION;
+	extents->source_pattern.base.x_radius = 2 * source->x_radius + 1;
+	extents->source_pattern.base.y_radius = 2 * source->y_radius + 1;
+    }
     return _cairo_composite_rectangles_intersect (extents, clip);
 }
 
@@ -581,6 +617,12 @@ _cairo_composite_rectangles_init_for_boxes (cairo_composite_rectangles_t *extent
 
     _cairo_boxes_extents (boxes, &box);
     _cairo_box_round_to_rectangle (&box, &extents->mask);
+    
+    if (source->filter == CAIRO_FILTER_GAUSSIAN) {
+	extents->source_pattern.base.filter = CAIRO_FILTER_CONVOLUTION;
+	extents->source_pattern.base.x_radius = 2 * source->x_radius + 1;
+	extents->source_pattern.base.y_radius = 2 * source->y_radius + 1;
+    }
     return _cairo_composite_rectangles_intersect (extents, clip);
 }
 
@@ -619,6 +661,12 @@ _cairo_composite_rectangles_init_for_glyphs (cairo_composite_rectangles_t *exten
 						      overlap);
     if (unlikely (status))
 	return status;
+    
+    if (source->filter == CAIRO_FILTER_GAUSSIAN) {
+	extents->source_pattern.base.filter = CAIRO_FILTER_CONVOLUTION;
+	extents->source_pattern.base.x_radius = 2 * source->x_radius + 1;
+	extents->source_pattern.base.y_radius = 2 * source->y_radius + 1;
+    }
 
     return _cairo_composite_rectangles_intersect (extents, clip);
 }

@@ -3582,7 +3582,12 @@ _cairo_pattern_analyze_filter (const cairo_pattern_t	*pattern,
 	 */
 	if (_cairo_matrix_is_pixel_exact (&pattern->matrix)) {
 	    pad = 0.;
-	    optimized_filter = CAIRO_FILTER_NEAREST;
+	    if (pattern->filter == CAIRO_FILTER_GOOD ||
+		pattern->filter == CAIRO_FILTER_BEST ||
+		pattern->filter == CAIRO_FILTER_BILINEAR)
+		optimized_filter = CAIRO_FILTER_NEAREST;
+	    else
+		optimized_filter = pattern->filter;
 	} else {
 	    /* 0.5 is enough for a bilinear filter. It's possible we
 	     * should defensively use more for CAIRO_FILTER_BEST, but

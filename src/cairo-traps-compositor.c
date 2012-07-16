@@ -1866,24 +1866,31 @@ composite_mask (const cairo_traps_compositor_t *compositor,
 		cairo_clip_t			*clip)
 {
     struct composite_mask *data = closure;
+    cairo_int_status_t status;
 
     TRACE ((stderr, "%s\n", __FUNCTION__));
 
     if (src != NULL) {
-	compositor->composite (dst, op, src, data->mask,
-			       extents->x + src_x, extents->y + src_y,
-			       extents->x + data->mask_x, extents->y + data->mask_y,
-			       extents->x - dst_x,  extents->y - dst_y,
-			       extents->width,      extents->height);
+	status = compositor->composite (dst, op, src, data->mask,
+					extents->x + src_x, 
+					extents->y + src_y,
+					extents->x + data->mask_x, 
+					extents->y + data->mask_y,
+					extents->x - dst_x,  
+					extents->y - dst_y,
+			       		extents->width, extents->height);
     } else {
-	compositor->composite (dst, op, data->mask, NULL,
-			       extents->x + data->mask_x, extents->y + data->mask_y,
-			       0, 0,
-			       extents->x - dst_x,  extents->y - dst_y,
-			       extents->width,      extents->height);
+	status = compositor->composite (dst, op, data->mask, NULL,
+					extents->x + data->mask_x, 
+					extents->y + data->mask_y,
+					0, 0,
+					extents->x - dst_x,  
+					extents->y - dst_y,
+					extents->width,
+					extents->height);
     }
 
-    return CAIRO_STATUS_SUCCESS;
+    return status;
 }
 
 struct composite_box_info {

@@ -491,7 +491,7 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
 					     composite->original_mask_pattern,
 					     &composite->mask_sample_area,
 					     &composite->bounded,
-					     FALSE, TRUE);
+					     FALSE, FALSE);
     if (unlikely (status))
 	goto finish;
 
@@ -536,7 +536,7 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
 					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     FALSE, TRUE);
+					     FALSE, FALSE);
     if (unlikely (status))
 	goto finish;
 
@@ -689,7 +689,7 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     use_color_attribute, TRUE);
+					     use_color_attribute, FALSE);
     if (unlikely (status))
 	goto cleanup;
 
@@ -957,7 +957,7 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
 					     composite->original_source_pattern,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     use_color_attribute, TRUE);
+					     use_color_attribute, FALSE);
     if (unlikely (status))
 	goto finish;
 

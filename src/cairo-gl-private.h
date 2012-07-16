@@ -101,7 +101,7 @@
 #define IMAGE_CACHE_HEIGHT 2048
 #define IMAGE_CACHE_MIN_SIZE 1
 #define IMAGE_CACHE_MAX_SIZE 256
-#define MAX_FILTER_SIZE 121
+#define MAX_FILTER_SIZE 169
 
 typedef struct _cairo_gl_surface cairo_gl_surface_t;
 

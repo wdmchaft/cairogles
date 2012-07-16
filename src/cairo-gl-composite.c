@@ -758,6 +758,14 @@ _cairo_gl_composite_begin_multisample (cairo_gl_composite_t *setup,
 
     assert (setup->dst);
 
+    if (((setup->src.type == CAIRO_GL_OPERAND_CONVOLUTION || 
+	  setup->src.type == CAIRO_GL_OPERAND_COLOR) &&
+	 setup->src.texture.x_size * setup->src.texture.y_size > MAX_FILTER_SIZE) ||
+	((setup->mask.type == CAIRO_GL_OPERAND_CONVOLUTION ||
+	  setup->mask.type == CAIRO_GL_OPERAND_COLOR) &&
+	  setup->mask.texture.x_size * setup->mask.texture.y_size > MAX_FILTER_SIZE))
+	return CAIRO_INT_STATUS_UNSUPPORTED;
+
     status = _cairo_gl_context_acquire (setup->dst->base.device, &ctx);
     if (unlikely (status))
 	return status;
