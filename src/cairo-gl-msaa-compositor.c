@@ -375,6 +375,7 @@ _cairo_gl_blur_surface (cairo_gl_surface_t  *dst,
     untransformed_pattern->radius = original_pattern->radius;
     untransformed_pattern->x_radius = original_pattern->x_radius;
     untransformed_pattern->y_radius = original_pattern->y_radius;
+    untransformed_pattern->extend = original_pattern->extend;
  
     if (untransformed_pattern->filter == CAIRO_FILTER_GAUSSIAN) {
 	length = untransformed_pattern->x_radius * 2 + 1;
