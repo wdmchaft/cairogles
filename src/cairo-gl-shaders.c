@@ -848,8 +848,8 @@ _cairo_gl_shader_needs_border_fade (cairo_gl_operand_t *operand)
     return extend == CAIRO_EXTEND_NONE &&
 	   (operand->type == CAIRO_GL_OPERAND_TEXTURE ||
 	    operand->type == CAIRO_GL_OPERAND_GAUSSIAN ||
-	    operand->type == CAIRO_GL_OPERAND_CONVOLUTION ||
 	    operand->type == CAIRO_GL_OPERAND_COLOR ||
+	    operand->type == CAIRO_GL_OPERAND_CONVOLUTION ||
 	    operand->type == CAIRO_GL_OPERAND_LINEAR_GRADIENT ||
 	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE ||
 	    operand->type == CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0);
@@ -926,17 +926,16 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		_cairo_output_stream_printf (stream,
 		    "    if (any (lessThan (%s_wrap(%s_texcoords), vec2(0.0))) ||\n"
 		    "        any (greaterThan (%s_wrap(%s_texcoords), vec2(1.0))))\n"
-		    "    return texture2D%s (%s_sampler, vec2 (-1.0));\n",
-		    namestr, namestr, namestr, namestr, rectstr, namestr);
+		    "        return vec4(0.0);\n",
+		    namestr, namestr, namestr, namestr);
 	    }
 	    else if (extend == CAIRO_EXTEND_NONE && use_atlas) {
 		_cairo_output_stream_printf (stream,
 		    "    if (any (lessThan (%s_wrap(%s_texcoords, %s_start_coords, %s_stop_coords), vec2(0.0))) || \n"
 		    "        any (greaterThan (%s_wrap(%s_texcoords, %s_start_coords, %s_stop_coords), vec2(1.0))))\n"
-		    "        return texture2D%s (%s_sampler, vec2 (-1.0));\n",
+		    "    return vec4 (0.0);\n",
 		    namestr, namestr, namestr, namestr, 
-		    namestr, namestr, namestr, namestr, 
-		    rectstr, namestr);
+		    namestr, namestr, namestr, namestr);
 	    }
 	    _cairo_output_stream_printf (stream,
 		"    vec4 tex = vec4(0.0);\n"
@@ -974,17 +973,14 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 		_cairo_output_stream_printf (stream,
 		    "    if (any (lessThan (%s_wrap(%s_texcoords), vec2(0.0))) ||\n"
 		    "        any (greaterThan (%s_wrap(%s_texcoords), vec2(1.0))))\n"
-		    "    return texture2D%s (%s_sampler, vec2 (-1.0));\n",
-		    namestr, namestr, namestr, namestr, rectstr, namestr);
+		    "    return vec4(0.0);\n",
+		    namestr, namestr, namestr, namestr);
 	    }
 	    else if (extend == CAIRO_EXTEND_NONE && use_atlas) {
 		_cairo_output_stream_printf (stream,
-		    "    if (any (lessThan (%s_wrap(%s_texcoords, %s_start_coords, %s_stop_coords), vec2(0.0))) || \n"
-		    "        any (greaterThan (%s_wrap(%s_texcoords, %s_start_coords, %s_stop_coords), vec2(1.0))))\n"
-		    "        return texture2D%s (%s_sampler, vec2 (-1.0));\n",
-		    namestr, namestr, namestr, namestr, 
-		    namestr, namestr, namestr, namestr, 
-		    rectstr, namestr);
+		    "    if (any (lessThan (%s_wrap(%s_texcoords, %s_start_coords, %s_stop_coords), vec2(0.0))))\n"
+		    "        return vec4(0.0);\n",
+		    namestr, namestr, namestr, namestr);
 	    }
 	    _cairo_output_stream_printf (stream,
 		"    for (i = -%s_radius; i <= %s_radius; i++) {\n"
@@ -1035,7 +1031,9 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
 	{
 	    _cairo_output_stream_printf (stream,
 		"    int i, j;\n"
-		"    vec2 coords;\n");
+		"    vec2 coords;\n"
+		"    vec2 border_fade = %s_border_fade (coords, %s_texdims);\n",
+		namestr, namestr);
 	    _cairo_output_stream_printf (stream,
 		"    vec4 tex = vec4(0.0);\n"
 		"    for (i = -%s_x_radius; i <= %s_x_radius; i++) {\n"
