@@ -706,6 +706,8 @@ _cairo_gl_activate_surface_as_multisampling (cairo_gl_context_t *ctx,
     _cairo_gl_composite_flush (ctx);
     glEnable (GL_MULTISAMPLE);
 
+    _disable_scissor_buffer ();
+
     /* The last time we drew to the surface, we were not using multisampling,
        so we need to blit from the non-multisampling framebuffer into the
        multisampling framebuffer. */
@@ -735,6 +737,8 @@ _cairo_gl_activate_surface_as_nonmultisampling (cairo_gl_context_t *ctx,
 
     _cairo_gl_composite_flush (ctx);
     glDisable (GL_MULTISAMPLE);
+
+    _disable_scissor_buffer ();
 
     /* The last time we drew to the surface, we were using multisampling,
        so we need to blit from the multisampling framebuffer into the
