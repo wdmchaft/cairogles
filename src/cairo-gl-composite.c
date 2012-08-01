@@ -86,12 +86,25 @@ _cairo_gl_composite_set_mask (cairo_gl_composite_t *setup,
 			      const cairo_rectangle_int_t *sample,
 			      const cairo_rectangle_int_t *extents)
 {
+    cairo_int_status_t status;
+
     _cairo_gl_operand_destroy (&setup->mask);
     if (pattern == NULL)
         return CAIRO_STATUS_SUCCESS;
 
-    return _cairo_gl_operand_init (&setup->mask, pattern, setup->dst,
+    /* XXX: shoot me - we need to set component_alpha to be true
+       if op is CAIRO_OPERATOR_CLEAR AND pattern is a surface_pattern
+     */
+    status = _cairo_gl_operand_init (&setup->mask, pattern, setup->dst,
 				   sample, extents);
+    if (unlikely (status))
+	return status;
+
+    if (setup->op == CAIRO_OPERATOR_CLEAR &&
+	!  _cairo_pattern_is_opaque (pattern, sample))
+	setup->mask.texture.attributes.has_component_alpha = TRUE;
+
+    return status;
 }
 
 void
@@ -639,6 +652,8 @@ _cairo_gl_composite_begin_multisample (cairo_gl_composite_t *setup,
     cairo_status_t status;
     cairo_bool_t component_alpha;
     cairo_gl_shader_t *shader;
+    cairo_operator_t op = setup->op;
+    cairo_surface_t *mask_surface = NULL;
 
     assert (setup->dst);
 
@@ -699,6 +714,19 @@ _cairo_gl_composite_begin_multisample (cairo_gl_composite_t *setup,
 	_cairo_gl_context_setup_spans (ctx, vertex_size, dst_size + src_size + mask_size);
     else
 	ctx->dispatch.DisableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
+
+    /* XXX: Shoot me - we have converted CLEAR to DEST_OUT,
+       so the dst_factor would be GL_ONE_MINUS_SRC_ALPHA, if the
+       mask is a surface and mask content not content_alpha, we want to use
+       GL_ONE_MINUS_SRC_COLOR, otherwise, we use GL_ONE_MINUS_SRC_ALPHA
+     */
+    if (setup->mask.type == CAIRO_GL_OPERAND_TEXTURE)
+	mask_surface = &setup->mask.texture.surface->base;
+    if (op == CAIRO_OPERATOR_CLEAR &&
+	component_alpha &&
+	mask_surface != NULL &&
+	cairo_surface_get_content (mask_surface) == CAIRO_CONTENT_ALPHA)
+	component_alpha = FALSE;
 
     _cairo_gl_set_operator (ctx, setup->op, component_alpha);
 

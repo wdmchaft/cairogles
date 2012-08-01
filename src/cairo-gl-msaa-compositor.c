@@ -958,7 +958,8 @@ _cairo_gl_msaa_compositor_glyphs (const cairo_compositor_t	*compositor,
     status = _cairo_gl_composite_glyphs_with_clip (dst, composite->op,
 						   src, src_x, src_y,
 						   0, 0, &info,
-						   composite->clip);
+						   composite->clip,
+						   TRUE);
 
     _cairo_scaled_font_thaw_cache (scaled_font);
 
