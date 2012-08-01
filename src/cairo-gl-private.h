@@ -764,7 +764,9 @@ _cairo_gl_composite_glyphs_with_clip (void			    *_dst,
 				      int			     dst_x,
 				      int			     dst_y,
 				      cairo_composite_glyphs_info_t *info,
-				      cairo_clip_t		    *clip);
+				      cairo_clip_t			     *clip,
+				      cairo_bool_t			     via_msaa_compositor);
+
 
 cairo_private cairo_surface_t *
 _cairo_gl_surface_create_scratch (cairo_gl_context_t   *ctx,
