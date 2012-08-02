@@ -552,6 +552,14 @@ _stroke_shaper_add_quad (void			*closure,
 						      quad);
 }
 
+static cairo_bool_t
+_is_continuous_arc (const cairo_path_fixed_t   *path,
+		    const cairo_stroke_style_t *style)
+{
+    return (_cairo_path_fixed_is_single_arc (path) &&
+	    style->dash == NULL);
+}
+
 static cairo_int_status_t
 _prevent_overlapping_strokes (cairo_gl_context_t 		*ctx,
 			      cairo_gl_composite_t 		*setup,
@@ -566,6 +574,9 @@ _prevent_overlapping_strokes (cairo_gl_context_t 		*ctx,
 
     if (! _cairo_gl_ensure_stencil (ctx, setup->dst))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
+
+    if (_is_continuous_arc (path, style))
+	return CAIRO_INT_STATUS_SUCCESS;
 
     /* XXX: improve me - since we have lazy init, we cannot use sample
        area */
