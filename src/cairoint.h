@@ -1003,6 +1003,9 @@ _cairo_path_fixed_transform (cairo_path_fixed_t	*path,
 			     const cairo_matrix_t	*matrix);
 
 cairo_private cairo_bool_t
+_cairo_path_fixed_is_single_arc (const cairo_path_fixed_t *path);
+
+cairo_private cairo_bool_t
 _cairo_path_fixed_is_box (const cairo_path_fixed_t *path,
                           cairo_box_t *box);
 
