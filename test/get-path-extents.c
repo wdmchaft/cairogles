@@ -193,7 +193,7 @@ draw (cairo_t *cr, int width, int height)
     cairo_rel_line_to (cr2, 0, 0);
     phase = "Single 'dot'";
     errors += !check_extents (ctx, phase, cr2, FILL, EQUALS, 0, 0, 0, 0);
-    errors += !check_extents (ctx, phase, cr2, STROKE, EQUALS, 190, 390, 20, 20);
+    errors += !check_extents (ctx, phase, cr2, STROKE, APPROX_EQUALS, 190, 390, 20, 20);
     errors += !check_extents (ctx, phase, cr2, PATH, EQUALS, 200, 400, 0, 0);
 
     /* Add another dot without starting a new path */
@@ -201,7 +201,7 @@ draw (cairo_t *cr, int width, int height)
     cairo_rel_line_to (cr2, 0, 0);
     phase = "Multiple 'dots'";
     errors += !check_extents (ctx, phase, cr2, FILL, EQUALS, 0, 0, 0, 0);
-    errors += !check_extents (ctx, phase, cr2, STROKE, EQUALS, 90, 390, 120, 120);
+    errors += !check_extents (ctx, phase, cr2, STROKE, APPROX_EQUALS, 90, 390, 120, 120);
     errors += !check_extents (ctx, phase, cr2, PATH, EQUALS, 100, 400, 100, 100);
 
     cairo_new_path (cr2);
