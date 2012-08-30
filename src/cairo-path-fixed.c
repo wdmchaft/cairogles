@@ -1440,6 +1440,20 @@ _cairo_path_fixed_iter_init (cairo_path_fixed_iter_t *iter,
 }
 
 cairo_bool_t
+_cairo_path_fixed_is_single_line (const cairo_path_fixed_t *path)
+{
+    const cairo_path_buf_t *buf = cairo_path_head (path);
+
+    if (buf->num_ops > 2)
+	return FALSE;
+    if (buf->num_ops <= 1)
+	return TRUE;
+
+    return buf->op[0] == CAIRO_PATH_OP_MOVE_TO &&
+	buf->op[1] == CAIRO_PATH_OP_LINE_TO;
+}
+
+cairo_bool_t
 _cairo_path_fixed_is_single_arc (const cairo_path_fixed_t *path)
 {
     const cairo_path_buf_t *buf = cairo_path_head (path);
