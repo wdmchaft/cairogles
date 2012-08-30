@@ -60,6 +60,15 @@ struct _tristrip_composite_info {
     cairo_gl_context_t		*ctx;
 };
 
+static cairo_bool_t
+_is_continuous_single_line (const cairo_path_fixed_t   *path,
+			    const cairo_stroke_style_t *style)
+{
+    return (_cairo_path_fixed_is_single_line (path) &&
+	    style->dash == NULL);
+}
+
+
 static cairo_int_status_t
 _draw_trap (cairo_gl_context_t		*ctx,
 	    cairo_gl_composite_t	*setup,
@@ -575,8 +584,6 @@ _prevent_overlapping_strokes (cairo_gl_context_t 		*ctx,
     if (! _cairo_gl_ensure_stencil (ctx, setup->dst))
 	return CAIRO_INT_STATUS_UNSUPPORTED;
 
-    if (_is_continuous_arc (path, style))
-	return CAIRO_INT_STATUS_SUCCESS;
 
     /* XXX: improve me - since we have lazy init, we cannot use sample
        area */
@@ -726,10 +733,14 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
     if (_cairo_gl_hairline_style_is_hairline (style, ctm)) {
 	cairo_gl_hairline_closure_t closure;
 
-	status = _prevent_overlapping_strokes (info.ctx, &info.setup,
-					       composite, path, style, ctm);
-	if (unlikely (status))
-	    goto finish;
+	if (! (_is_continuous_arc (path, style) ||
+	       _is_continuous_single_line (path, style))) {
+	    status = _prevent_overlapping_strokes (info.ctx, &info.setup,
+						   composite, path,
+						   style, ctm);
+	    if (unlikely (status))
+		goto finish;
+	}
 
 	closure.ctx = info.ctx;
 
@@ -763,10 +774,12 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
 	status = _draw_traps (info.ctx, &info.setup, &traps);
 	_cairo_traps_fini (&traps);
     } else {
-	status = _prevent_overlapping_strokes (info.ctx, &info.setup,
-					       composite, path, style, ctm);
-	if (unlikely (status))
-	    goto finish;
+	if (!_is_continuous_single_line (path, style)) {
+	    status = _prevent_overlapping_strokes (info.ctx, &info.setup,
+						   composite, path, style, ctm);
+	    if (unlikely (status))
+		goto finish;
+	}
 
 	status =
 	    _cairo_path_fixed_stroke_to_shaper ((cairo_path_fixed_t *) path,

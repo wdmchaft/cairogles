@@ -1006,6 +1006,9 @@ cairo_private cairo_bool_t
 _cairo_path_fixed_is_single_arc (const cairo_path_fixed_t *path);
 
 cairo_private cairo_bool_t
+_cairo_path_fixed_is_single_line (const cairo_path_fixed_t *path);
+
+cairo_private cairo_bool_t
 _cairo_path_fixed_is_box (const cairo_path_fixed_t *path,
                           cairo_box_t *box);
 
