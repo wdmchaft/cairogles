@@ -95,7 +95,11 @@
 #define CAIRO_GL_MAX_SHADERS_PER_CONTEXT 64
 
 /* VBO size that we allocate, smaller size means we gotta flush more often */
+#if CAIRO_HAS_GL_SURFACE
 #define CAIRO_GL_VBO_SIZE (256*1024)
+#elif CAIRO_HAS_GLESV2_SURFACE
+#define CAIRO_GL_VBO_SIZE 16384
+#endif
 
 #define IMAGE_CACHE_WIDTH 2048
 #define IMAGE_CACHE_HEIGHT 2048
