@@ -51,7 +51,6 @@ typedef struct _cairo_egl_context {
     EGLSurface dummy_surface;
 
     EGLContext previous_context;
-    EGLSurface previous_surface;
 } cairo_egl_context_t;
 
 typedef struct _cairo_egl_surface {
@@ -65,8 +64,7 @@ static cairo_bool_t
 _context_acquisition_changed_egl_state (cairo_egl_context_t *ctx,
 					EGLSurface current_surface)
 {
-    return ctx->previous_context != ctx->context ||
-	   ctx->previous_surface != current_surface;
+    return ctx->previous_context != ctx->context;
 }
 
 static EGLSurface
@@ -83,17 +81,7 @@ _egl_get_current_surface (cairo_egl_context_t *ctx)
 static void
 _egl_query_current_state (cairo_egl_context_t *ctx)
 {
-    ctx->previous_surface = eglGetCurrentSurface (EGL_DRAW);
     ctx->previous_context = eglGetCurrentContext ();
-
-    /* If any of the values were none, assume they are all none. Not all
-       drivers seem well behaved when it comes to using these values across
-       multiple threads. */
-    if (ctx->previous_surface == EGL_NO_SURFACE ||
-	ctx->previous_context == EGL_NO_CONTEXT) {
-	ctx->previous_surface = EGL_NO_SURFACE;
-	ctx->previous_context = EGL_NO_CONTEXT;
-    }
 }
 
 static void
