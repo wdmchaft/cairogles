@@ -632,10 +632,6 @@ _prevent_overlapping_strokes (cairo_gl_context_t 		*ctx,
        is disabled. */
     glStencilOp (GL_ZERO, GL_ZERO, GL_ZERO);
 
-    /* we need to clean up clip cache */
-    _cairo_clip_destroy (ctx->clip);
-    ctx->clip = NULL;
-
     return CAIRO_INT_STATUS_SUCCESS;
 }
 

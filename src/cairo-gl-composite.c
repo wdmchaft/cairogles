@@ -623,6 +623,7 @@ _cairo_gl_composite_setup_painted_clipping (cairo_gl_composite_t *setup,
 
     cairo_gl_surface_t *dst = setup->dst;
     cairo_clip_t *clip = setup->clip;
+    cairo_clip_t *cached_clip = ctx->clip;
 
     if (_cairo_gl_can_use_scissor_for_clip (clip)) {
 	_scissor_to_box (dst, &clip->boxes[0]);
@@ -644,12 +645,13 @@ _cairo_gl_composite_setup_painted_clipping (cairo_gl_composite_t *setup,
     if (equal_clip)
 	return CAIRO_INT_STATUS_SUCCESS;
 
-    /* Clear the stencil buffer, but only the areas that we are
-     * going to be drawing to. */
-    _cairo_gl_scissor_to_rectangle (dst, _cairo_clip_get_extents (clip));
-    glClearStencil (0);
-    glClear (GL_STENCIL_BUFFER_BIT);
-    _disable_scissor_buffer ();
+    /* Clear the stencil buffer of previous cached clip */
+    if (cached_clip) {
+	_cairo_gl_scissor_to_rectangle (dst, _cairo_clip_get_extents (cached_clip));
+	glClearStencil (0);
+	glClear (GL_STENCIL_BUFFER_BIT);
+	_disable_scissor_buffer ();
+    }
 
     glStencilOp (GL_REPLACE, GL_REPLACE, GL_REPLACE);
     glStencilFunc (GL_EQUAL, 1, 0xffffffff);
@@ -683,6 +685,7 @@ _cairo_gl_composite_setup_clipping (cairo_gl_composite_t *setup,
 				    cairo_gl_context_t *ctx,
 				    int vertex_size)
 {
+    cairo_int_status_t status;
     cairo_bool_t same_clip;
 
     if (! ctx->clip && ! setup->clip && ! ctx->clip_region)
@@ -699,21 +702,24 @@ _cairo_gl_composite_setup_clipping (cairo_gl_composite_t *setup,
 
     assert (!setup->clip_region || !setup->clip);
 
-    if (! same_clip) {
-	_cairo_clip_destroy (ctx->clip);
-	ctx->clip = _cairo_clip_copy (setup->clip);
-    }
-
     if (ctx->clip_region) {
 	_disable_stencil_buffer ();
 	glEnable (GL_SCISSOR_TEST);
 	return CAIRO_INT_STATUS_SUCCESS;
     }
 
-    if (setup->clip)
-	    return _cairo_gl_composite_setup_painted_clipping (setup, ctx,
-                                                           vertex_size,
-                                                           same_clip);
+    if (setup->clip) {
+	status = _cairo_gl_composite_setup_painted_clipping (setup,
+							      ctx,
+							      vertex_size,
+							      same_clip);
+	if (! same_clip) {
+	_cairo_clip_destroy (ctx->clip);
+	ctx->clip = _cairo_clip_copy (setup->clip);
+	}
+
+	return status;
+    }
 
 finish:
     _disable_stencil_buffer ();
