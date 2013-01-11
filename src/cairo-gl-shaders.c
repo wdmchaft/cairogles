@@ -44,6 +44,35 @@
 #include "cairo-error-private.h"
 #include "cairo-output-stream-private.h"
 
+/* Lookup table of shader slot names, must be in same order as cairo_gl_shader_t enum. */
+static const char * _cairo_gl_shader_slot_names[CAIRO_GL_SHADER_SLOT_MAX] =
+{
+        "ModelViewProjectionMatrix",
+        "source_texdims",
+        "source_constant",
+        "source_sampler",
+        "source_a",
+        "source_circle_d",
+        "source_radius_0",
+        "mask_texdims",
+        "mask_constant",
+        "mask_sampler",
+        "mask_a",
+        "mask_circle_d",
+        "mask_radius_0"
+};
+
+static GLint _cairo_gl_lookup_shader_uniform(cairo_gl_context_t *ctx, cairo_gl_shader_t *shader, cairo_gl_shader_slot_t slot)
+{
+    if(shader->uniforms_valid[slot] == 0)
+    {
+        shader->uniforms[slot] = ctx->dispatch.GetUniformLocation (shader->program, _cairo_gl_shader_slot_names[slot]);
+        shader->uniforms_valid[slot] = 1;
+    }
+    return shader->uniforms[slot];
+}
+
+
 static cairo_status_t
 _cairo_gl_shader_compile_and_link (cairo_gl_context_t *ctx,
 				   cairo_gl_shader_t *shader,
@@ -156,6 +185,8 @@ _cairo_gl_shader_init (cairo_gl_shader_t *shader)
 {
     shader->fragment_shader = 0;
     shader->program = 0;
+    memset (shader->uniforms, 0, sizeof (shader->uniforms));
+    memset (shader->uniforms_valid, 0, sizeof (shader->uniforms_valid));
 }
 
 cairo_status_t
@@ -1033,12 +1064,12 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
     glGetIntegerv (GL_CURRENT_PROGRAM, &saved_program);
     dispatch->UseProgram (shader->program);
 
-    location = dispatch->GetUniformLocation (shader->program, "source_sampler");
+    location = _cairo_gl_lookup_shader_uniform (ctx, shader, CAIRO_GL_SHADER_SLOT_SOURCE_SAMPLER);
     if (location != -1) {
 	dispatch->Uniform1i (location, CAIRO_GL_TEX_SOURCE);
     }
 
-    location = dispatch->GetUniformLocation (shader->program, "mask_sampler");
+    location = _cairo_gl_lookup_shader_uniform (ctx, shader, CAIRO_GL_SHADER_SLOT_MASK_SAMPLER);
     if (location != -1) {
 	dispatch->Uniform1i (location, CAIRO_GL_TEX_MASK);
     }
@@ -1048,6 +1079,17 @@ _cairo_gl_shader_set_samplers (cairo_gl_context_t *ctx,
 
 void
 _cairo_gl_shader_bind_float (cairo_gl_context_t *ctx,
+                 cairo_gl_shader_slot_t slot,
+                 float value)
+{
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    GLint location = _cairo_gl_lookup_shader_uniform (ctx, ctx->current_shader, slot);
+    assert (location != -1);
+    dispatch->Uniform1f (location, value);
+}
+
+void
+_cairo_gl_shader_bind_float_name (cairo_gl_context_t *ctx,
 			     const char *name,
 			     float value)
 {
@@ -1060,6 +1102,18 @@ _cairo_gl_shader_bind_float (cairo_gl_context_t *ctx,
 
 void
 _cairo_gl_shader_bind_vec2 (cairo_gl_context_t *ctx,
+                cairo_gl_shader_slot_t slot,
+                float value0,
+                float value1)
+{
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    GLint location = _cairo_gl_lookup_shader_uniform (ctx, ctx->current_shader, slot);
+    assert (location != -1);
+    dispatch->Uniform2f (location, value0, value1);
+}
+
+void
+_cairo_gl_shader_bind_vec2_name (cairo_gl_context_t *ctx,
 			    const char *name,
 			    float value0,
 			    float value1)
@@ -1073,6 +1127,19 @@ _cairo_gl_shader_bind_vec2 (cairo_gl_context_t *ctx,
 
 void
 _cairo_gl_shader_bind_vec3 (cairo_gl_context_t *ctx,
+                cairo_gl_shader_slot_t slot,
+                float value0,
+                float value1,
+                float value2)
+{
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    GLint location = _cairo_gl_lookup_shader_uniform (ctx, ctx->current_shader, slot);
+    assert (location != -1);
+    dispatch->Uniform3f (location, value0, value1, value2);
+}
+
+void
+_cairo_gl_shader_bind_vec3_name (cairo_gl_context_t *ctx,
 			    const char *name,
 			    float value0,
 			    float value1,
@@ -1087,6 +1154,18 @@ _cairo_gl_shader_bind_vec3 (cairo_gl_context_t *ctx,
 
 void
 _cairo_gl_shader_bind_vec4 (cairo_gl_context_t *ctx,
+                cairo_gl_shader_slot_t slot,
+                float value0, float value1,
+                float value2, float value3)
+{
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    GLint location = _cairo_gl_lookup_shader_uniform (ctx, ctx->current_shader, slot);
+    assert (location != -1);
+    dispatch->Uniform4f (location, value0, value1, value2, value3);
+}
+
+void
+_cairo_gl_shader_bind_vec4_name (cairo_gl_context_t *ctx,
 			    const char *name,
 			    float value0, float value1,
 			    float value2, float value3)
@@ -1100,8 +1179,24 @@ _cairo_gl_shader_bind_vec4 (cairo_gl_context_t *ctx,
 
 void
 _cairo_gl_shader_bind_matrix (cairo_gl_context_t *ctx,
-			      const char *name,
+			      cairo_gl_shader_slot_t slot,
 			      const cairo_matrix_t* m)
+{
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    GLint location = _cairo_gl_lookup_shader_uniform (ctx, ctx->current_shader, slot);
+
+    float gl_m[9] = {
+    m->xx, m->xy, m->x0,
+    m->yx, m->yy, m->y0,
+    0,     0,     1};
+    assert (location != -1);
+    dispatch->UniformMatrix3fv (location, 1, GL_TRUE, gl_m);
+}
+
+void
+_cairo_gl_shader_bind_matrix_name (cairo_gl_context_t *ctx,
+				   const char *name,
+				   const cairo_matrix_t* m)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
     GLint location = dispatch->GetUniformLocation (ctx->current_shader->program,
@@ -1109,14 +1204,23 @@ _cairo_gl_shader_bind_matrix (cairo_gl_context_t *ctx,
     float gl_m[9] = {
 	m->xx, m->xy, m->x0,
 	m->yx, m->yy, m->y0,
-	0,     0,     1
-    };
+	0,     0,     1};
     assert (location != -1);
     dispatch->UniformMatrix3fv (location, 1, GL_TRUE, gl_m);
 }
 
 void
 _cairo_gl_shader_bind_matrix4f (cairo_gl_context_t *ctx,
+                cairo_gl_shader_slot_t slot, GLfloat* gl_m)
+{
+    cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
+    GLint location = _cairo_gl_lookup_shader_uniform (ctx, ctx->current_shader, slot);
+    assert (location != -1);
+    dispatch->UniformMatrix4fv (location, 1, GL_FALSE, gl_m);
+}
+
+void
+_cairo_gl_shader_bind_matrix4f_name (cairo_gl_context_t *ctx,
 				const char *name, GLfloat* gl_m)
 {
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;

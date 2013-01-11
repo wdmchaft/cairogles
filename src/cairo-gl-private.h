@@ -111,6 +111,41 @@ typedef enum cairo_gl_flavor {
     CAIRO_GL_FLAVOR_ES = 2
 } cairo_gl_flavor_t;
 
+/* Shortcuts for shader uniform locations. Table filled lazily on first access.
+ * Using these slots saves per-draw calls to glGetUniformLocation(). */
+typedef enum cairo_gl_shader_slot_t {
+    /* "ModelViewProjectionMatrix" */
+    CAIRO_GL_SHADER_SLOT_MVPMAT = 0,
+    /* "source_texdims" */
+    CAIRO_GL_SHADER_SLOT_SOURCE_TEXDIMS,
+    /* "source_constant" */
+    CAIRO_GL_SHADER_SLOT_SOURCE_CONSTANT,
+    /* "source_sampler" */
+    CAIRO_GL_SHADER_SLOT_SOURCE_SAMPLER,
+    /* "source_a" */
+    CAIRO_GL_SHADER_SLOT_SOURCE_A,
+    /* "source_circle_d" */
+    CAIRO_GL_SHADER_SLOT_SOURCE_CIRCLE_D,
+    /* "source_radius_0" */
+    CAIRO_GL_SHADER_SLOT_SOURCE_RADIUS_0,
+    /* "mask_texdims" */
+    CAIRO_GL_SHADER_SLOT_MASK_TEXDIMS,
+    /* "mask_constant" */
+    CAIRO_GL_SHADER_SLOT_MASK_CONSTANT,
+    /* "mask_sampler" */
+    CAIRO_GL_SHADER_SLOT_MASK_SAMPLER,
+    /* "mask_a" */
+    CAIRO_GL_SHADER_SLOT_MASK_A,
+    /* "mask_circle_d" */
+    CAIRO_GL_SHADER_SLOT_MASK_CIRCLE_D,
+    /* "mask_radius_0" */
+    CAIRO_GL_SHADER_SLOT_MASK_RADIUS_0,
+
+    CAIRO_GL_SHADER_SLOT_MAX
+
+} cairo_gl_shader_slot_t;
+
+
 /* Indices for vertex attributes used by BindAttribLocation etc */
 enum {
     CAIRO_GL_VERTEX_ATTRIB_INDEX = 0,
@@ -228,6 +263,11 @@ typedef enum cairo_gl_tex {
 typedef struct cairo_gl_shader {
     GLuint fragment_shader;
     GLuint program;
+    /* Storage table for uniform locations.*/
+    GLint uniforms[CAIRO_GL_SHADER_SLOT_MAX];
+    /* Validity table for the above: initially set at 0, set to
+     * nonzero once corresponding item in uniforms is looked up. */
+    char uniforms_valid[CAIRO_GL_SHADER_SLOT_MAX];
 } cairo_gl_shader_t;
 
 typedef struct cairo_gl_image_cache {
@@ -729,16 +769,35 @@ _cairo_gl_get_shader_by_type (cairo_gl_context_t *ctx,
 
 cairo_private void
 _cairo_gl_shader_bind_float (cairo_gl_context_t *ctx,
-			     const char *name,
+                 cairo_gl_shader_slot_t slot,
 			     float value);
 
 cairo_private void
+_cairo_gl_shader_bind_float_name (cairo_gl_context_t *ctx,
+                  const char *name,
+                  float value);
+
+cairo_private void
 _cairo_gl_shader_bind_vec2 (cairo_gl_context_t *ctx,
-			    const char *name,
-			    float value0, float value1);
+                cairo_gl_shader_slot_t slot,
+                float value0,
+                float value1);
+
+cairo_private void
+_cairo_gl_shader_bind_vec2_name (cairo_gl_context_t *ctx,
+                const char *name,
+                float value0,
+                float value1);
 
 cairo_private void
 _cairo_gl_shader_bind_vec3 (cairo_gl_context_t *ctx,
+                cairo_gl_shader_slot_t slot,
+                float value0,
+                float value1,
+                float value2);
+
+cairo_private void
+_cairo_gl_shader_bind_vec3_name (cairo_gl_context_t *ctx,
 			    const char *name,
 			    float value0,
 			    float value1,
@@ -746,17 +805,33 @@ _cairo_gl_shader_bind_vec3 (cairo_gl_context_t *ctx,
 
 cairo_private void
 _cairo_gl_shader_bind_vec4 (cairo_gl_context_t *ctx,
+                cairo_gl_shader_slot_t slot,
+                float value0, float value1,
+                float value2, float value3);
+
+cairo_private void
+_cairo_gl_shader_bind_vec4_name (cairo_gl_context_t *ctx,
 			    const char *name,
 			    float value0, float value1,
 			    float value2, float value3);
 
 cairo_private void
 _cairo_gl_shader_bind_matrix (cairo_gl_context_t *ctx,
+                  cairo_gl_shader_slot_t slot,
+                  const cairo_matrix_t* m);
+
+cairo_private void
+_cairo_gl_shader_bind_matrix_name (cairo_gl_context_t *ctx,
 			      const char *name,
 			      const cairo_matrix_t* m);
 
 cairo_private void
 _cairo_gl_shader_bind_matrix4f (cairo_gl_context_t *ctx,
+                cairo_gl_shader_slot_t slot,
+                GLfloat* gl_m);
+
+cairo_private void
+_cairo_gl_shader_bind_matrix4f_name (cairo_gl_context_t *ctx,
 				const char *name,
 				GLfloat* gl_m);
 

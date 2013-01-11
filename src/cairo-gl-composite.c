@@ -136,7 +136,7 @@ static void
 _cairo_gl_composite_bind_to_shader (cairo_gl_context_t   *ctx,
 				    cairo_gl_composite_t *setup)
 {
-    _cairo_gl_shader_bind_matrix4f(ctx, "ModelViewProjectionMatrix",
+    _cairo_gl_shader_bind_matrix4f(ctx, CAIRO_GL_SHADER_SLOT_MVPMAT,
 				   ctx->modelviewprojection_matrix);
     _cairo_gl_operand_bind_to_shader (ctx, &setup->src,  CAIRO_GL_TEX_SOURCE);
     _cairo_gl_operand_bind_to_shader (ctx, &setup->mask, CAIRO_GL_TEX_MASK);
