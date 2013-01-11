@@ -664,12 +664,28 @@ _cairo_composite_rectangles_lazy_init_for_glyphs (cairo_composite_rectangles_t *
 					    clip, &should_be_lazy))
 	return CAIRO_INT_STATUS_NOTHING_TO_DO;
 
+    if (extents->is_bounded & CAIRO_OPERATOR_BOUND_BY_SOURCE &&
+        _cairo_scaled_font_glyph_approximate_extents (scaled_font,
+                                                      glyphs, num_glyphs,
+                                                      &extents->source))
+    {
+    if (! _cairo_rectangle_intersect (&extents->bounded, &extents->source))
+    return CAIRO_INT_STATUS_NOTHING_TO_DO;
+    }
+
     status = _cairo_scaled_font_glyph_device_extents (scaled_font,
 						      glyphs, num_glyphs,
 						      &extents->source,
 						      overlap);
     if (unlikely (status))
 	return status;
+
+    if (*overlap &&
+        scaled_font->options.antialias == CAIRO_ANTIALIAS_NONE &&
+        _cairo_pattern_is_opaque_solid (extents->original_source_pattern))
+    {
+    *overlap = FALSE;
+    }
 
     extents->clip = _cairo_clip_copy (clip);
 
