@@ -935,12 +935,7 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
                                   cairo_gl_operand_t *operand,
                                   cairo_gl_tex_t      tex_unit)
 {
-    char uniform_name[50];
-    char *custom_part;
-    static const char *names[] = { "source", "mask" };
-
-    strcpy (uniform_name, names[tex_unit]);
-    custom_part = uniform_name + strlen (names[tex_unit]);
+    cairo_gl_shader_slot_t slot = CAIRO_GL_SHADER_SLOT_SOURCE_CONSTANT;
 
     switch (operand->type) {
     default:
@@ -950,9 +945,9 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
         break;
     case CAIRO_GL_OPERAND_CONSTANT:
         if (!operand->use_color_attribute) {
-            strcpy (custom_part, "_constant");
+            slot = tex_unit == CAIRO_GL_TEX_SOURCE ? CAIRO_GL_SHADER_SLOT_SOURCE_CONSTANT : CAIRO_GL_SHADER_SLOT_MASK_CONSTANT;
             _cairo_gl_shader_bind_vec4 (ctx,
-                                        uniform_name,
+                                        slot,
                                         operand->constant.color[0],
                                         operand->constant.color[1],
                                         operand->constant.color[2],
@@ -961,22 +956,22 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
         break;
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_EXT:
-	strcpy (custom_part, "_a");
+	slot = tex_unit == CAIRO_GL_TEX_SOURCE ? CAIRO_GL_SHADER_SLOT_SOURCE_A : CAIRO_GL_SHADER_SLOT_MASK_A;
 	_cairo_gl_shader_bind_float  (ctx,
-				      uniform_name,
+                      slot,
 				      operand->gradient.a);
 	/* fall through */
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
-	strcpy (custom_part, "_circle_d");
-	_cairo_gl_shader_bind_vec3   (ctx,
-				      uniform_name,
+	slot = tex_unit == CAIRO_GL_TEX_SOURCE ? CAIRO_GL_SHADER_SLOT_SOURCE_CIRCLE_D : CAIRO_GL_SHADER_SLOT_MASK_CIRCLE_D;
+	_cairo_gl_shader_bind_vec3 (ctx,
+                      slot,
 				      operand->gradient.circle_d.center.x,
 				      operand->gradient.circle_d.center.y,
 				      operand->gradient.circle_d.radius);
-	strcpy (custom_part, "_radius_0");
-	_cairo_gl_shader_bind_float  (ctx,
-				      uniform_name,
-				      operand->gradient.radius_0);
+	slot = tex_unit == CAIRO_GL_TEX_SOURCE ? CAIRO_GL_SHADER_SLOT_SOURCE_RADIUS_0 : CAIRO_GL_SHADER_SLOT_MASK_RADIUS_0;
+	_cairo_gl_shader_bind_float (ctx,
+					  slot,
+					  operand->gradient.radius_0);
         /* fall through */
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
     case CAIRO_GL_OPERAND_TEXTURE:
@@ -998,8 +993,8 @@ _cairo_gl_operand_bind_to_shader (cairo_gl_context_t *ctx,
 		width = operand->gradient.gradient->cache_entry.size,
 		height = 1;
 	    }
-	    strcpy (custom_part, "_texdims");
-	    _cairo_gl_shader_bind_vec2 (ctx, uniform_name, width, height);
+	    slot = tex_unit == CAIRO_GL_TEX_SOURCE ? CAIRO_GL_SHADER_SLOT_SOURCE_TEXDIMS : CAIRO_GL_SHADER_SLOT_MASK_TEXDIMS;
+	    _cairo_gl_shader_bind_vec2 (ctx, slot, width, height);
 	}
         break;
     }
