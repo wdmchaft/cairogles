@@ -654,19 +654,15 @@ _cairo_gl_composite_setup_painted_clipping (cairo_gl_composite_t *setup,
     glEnable (GL_STENCIL_TEST);
     _disable_scissor_test();
 
-    /* Texture surfaces have private depth/stencil buffers, so we can
-     * rely on any previous clip being cached there. */
-    if (_cairo_gl_surface_is_texture (setup->dst)) {
-	cairo_clip_t *old_clip = setup->dst->clip_on_stencil_buffer;
-	if (_cairo_clip_equal (old_clip, setup->clip))
-	    goto activate_stencil_buffer_and_return;
+    cairo_clip_t *old_clip = setup->dst->clip_on_stencil_buffer;
+    if (_cairo_clip_equal (old_clip, setup->clip))
+        goto activate_stencil_buffer_and_return;
 
       /* Clear the stencil buffer, but only the areas that we are
        * going to be drawing to. */
-	if (old_clip)
-	    _cairo_gl_scissor_to_rectangle (dst, _cairo_clip_get_extents (old_clip));
-	setup->dst->clip_on_stencil_buffer = _cairo_clip_copy (setup->clip);
-    }
+    if (old_clip)
+        _cairo_gl_scissor_to_rectangle (dst, _cairo_clip_get_extents (old_clip));
+    setup->dst->clip_on_stencil_buffer = _cairo_clip_copy (setup->clip);
 
     glClearStencil (0);
     glClear (GL_STENCIL_BUFFER_BIT);
