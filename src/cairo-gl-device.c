@@ -138,6 +138,15 @@ _gl_destroy (void *device)
 
     cairo_region_destroy (ctx->clip_region);
     _cairo_clip_destroy (ctx->clip);
+	
+    while (! cairo_list_is_empty (&ctx->callback_list)) {
+	cairo_gl_surface_t *surface;
+
+	surface = cairo_list_first_entry (&ctx->callback_list,
+				       cairo_gl_surface_t,
+				       link);
+	cairo_list_del (&surface->link);
+    }
 
     free (ctx->vb);
 
@@ -317,6 +326,8 @@ _cairo_gl_context_init (cairo_gl_context_t *ctx)
 
     for (n = 0; n < ARRAY_LENGTH (ctx->glyph_cache); n++)
 	_cairo_gl_glyph_cache_init (&ctx->glyph_cache[n]);
+
+    cairo_list_init (&ctx->callback_list);
 
     return CAIRO_STATUS_SUCCESS;
 }
@@ -851,3 +862,30 @@ _cairo_gl_context_restore_states (cairo_gl_context_t *ctx)
 		ctx->cairo_state.viewport.width,
 		ctx->cairo_state.viewport.height);
 }
+
+void
+_cairo_gl_context_register_callback (cairo_gl_context_t *ctx,
+				     cairo_gl_surface_t *surface)
+{
+    cairo_list_add (&surface->link, &ctx->callback_list);
+}
+
+void
+_cairo_gl_context_unregister_callback (cairo_gl_context_t *ctx,
+				       cairo_gl_surface_t *surface)
+{
+    cairo_list_del (&surface->link);
+}
+
+void
+_cairo_gl_context_callback (cairo_gl_context_t *ctx)
+{
+    cairo_gl_surface_t *surface;
+    if (!cairo_list_is_empty (&ctx->callback_list)) {
+	cairo_list_foreach_entry (surface, cairo_gl_surface_t, 
+				  &ctx->callback_list, link) {
+	    surface->needs_clear_stencil = TRUE;
+	}
+    }
+}
+

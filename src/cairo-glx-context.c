@@ -92,6 +92,9 @@ _glx_acquire (void *abstract_ctx)
 	/* save states */
         _glx_query_current_state (ctx);
 	_cairo_gl_context_save_states (&ctx->base);
+
+        /* call to inform surfaces to clear stencil */
+	_cairo_gl_context_callback (&ctx->base);
 	
 	/* XXX: we don't try to restore app gl state */
 	return;
@@ -318,6 +321,8 @@ cairo_gl_surface_create_for_window (cairo_device_t	*device,
 
     _cairo_gl_surface_init (device, &surface->base,
 			    CAIRO_CONTENT_COLOR_ALPHA, width, height);
+
+    _cairo_gl_context_register_callback ((cairo_gl_context_t *)device, &surface->base);
     surface->win = win;
 
     return &surface->base.base;

@@ -182,6 +182,9 @@ struct _cairo_gl_surface {
     cairo_bool_t needs_update;
 
     cairo_region_t *clip_region;
+
+    cairo_list_t link;
+    cairo_bool_t needs_clear_stencil;
 };
 
 typedef struct cairo_gl_glyph_cache {
@@ -392,6 +395,8 @@ struct _cairo_gl_context {
     cairo_bool_t thread_ready;
 
     cairo_gl_state_t cairo_state;
+
+    cairo_list_t callback_list;
 
     void (*acquire) (void *ctx);
     void (*release) (void *ctx);
@@ -832,6 +837,17 @@ _cairo_gl_white_source (void);
 cairo_private void
 _cairo_gl_scissor_to_rectangle (cairo_gl_surface_t *surface,
 				const cairo_rectangle_int_t *r);
+
+cairo_private void
+_cairo_gl_context_register_callback (cairo_gl_context_t *ctx,
+				     cairo_gl_surface_t *surface);
+
+cairo_private void
+_cairo_gl_context_unregister_callback (cairo_gl_context_t *ctx,
+				       cairo_gl_surface_t *surface);
+
+cairo_private void
+_cairo_gl_context_callback (cairo_gl_context_t *ctx);
 
 static inline cairo_gl_operand_t *
 source_to_operand (cairo_surface_t *surface)

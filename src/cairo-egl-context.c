@@ -89,6 +89,8 @@ _egl_acquire (void *abstract_ctx)
 	_egl_query_current_state (ctx);
 	_cairo_gl_context_save_states (&ctx->base);
 
+	/* inform surfaces to clear stencil */
+	_cairo_gl_context_callback (&ctx->base);
 	/* XXX; We don't try to restore app gl state */
 	return;
     }
@@ -269,6 +271,8 @@ cairo_gl_surface_create_for_egl (cairo_device_t	*device,
 
     _cairo_gl_surface_init (device, &surface->base,
 			    CAIRO_CONTENT_COLOR_ALPHA, width, height);
+
+    _cairo_gl_context_register_callback ((cairo_gl_context_t *)device, &surface->base);
     surface->egl = egl;
 
     return &surface->base.base;

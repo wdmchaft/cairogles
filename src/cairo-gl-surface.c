@@ -393,6 +393,8 @@ _cairo_gl_surface_init (cairo_device_t *device,
     surface->needs_update = FALSE;
 
     _cairo_gl_surface_embedded_operand_init (surface);
+    cairo_list_init (&surface->link);
+    surface->needs_clear_stencil = FALSE;
 }
 
 static cairo_surface_t *
@@ -1005,6 +1007,8 @@ _cairo_gl_surface_finish (void *abstract_surface)
     if (surface->msaa_rb)
 	ctx->dispatch.DeleteRenderbuffers (1, &surface->msaa_rb);
 #endif
+
+    _cairo_gl_context_unregister_callback (ctx, surface);
 
     return _cairo_gl_context_release (ctx, status);
 }
