@@ -177,8 +177,33 @@ _cairo_device_init (cairo_device_t *device,
     device->mutex_depth = 0;
 
     device->finished = FALSE;
+    device->app_called = FALSE;
 
     _cairo_user_data_array_init (&device->user_data);
+}
+
+cairo_status_t
+_cairo_device_acquire_internal (cairo_device_t *device,
+		 		cairo_bool_t    called_by_cairo)
+{
+    if (device == NULL)
+	return CAIRO_STATUS_SUCCESS;
+
+    if (unlikely (device->status))
+	return device->status;
+
+    if (unlikely (device->finished))
+	return _cairo_device_set_error (device, CAIRO_STATUS_DEVICE_FINISHED);
+
+    CAIRO_MUTEX_LOCK (device->mutex);
+    if (device->mutex_depth++ == 0) {
+	device->app_called = !called_by_cairo;
+	if (device->backend->lock != NULL) {
+	    device->backend->lock (device);
+	}
+    }
+
+    return CAIRO_STATUS_SUCCESS;
 }
 
 /**
@@ -408,22 +433,7 @@ cairo_device_get_type (cairo_device_t *device)
 cairo_status_t
 cairo_device_acquire (cairo_device_t *device)
 {
-    if (device == NULL)
-	return CAIRO_STATUS_SUCCESS;
-
-    if (unlikely (device->status))
-	return device->status;
-
-    if (unlikely (device->finished))
-	return _cairo_device_set_error (device, CAIRO_STATUS_DEVICE_FINISHED);
-
-    CAIRO_MUTEX_LOCK (device->mutex);
-    if (device->mutex_depth++ == 0) {
-	if (device->backend->lock != NULL)
-	    device->backend->lock (device);
-    }
-
-    return CAIRO_STATUS_SUCCESS;
+    return _cairo_device_acquire_internal (device, FALSE);
 }
 slim_hidden_def (cairo_device_acquire);
 
@@ -447,6 +457,7 @@ cairo_device_release (cairo_device_t *device)
     if (--device->mutex_depth == 0) {
 	if (device->backend->unlock != NULL)
 	    device->backend->unlock (device);
+	device->app_called = FALSE;
     }
 
     CAIRO_MUTEX_UNLOCK (device->mutex);

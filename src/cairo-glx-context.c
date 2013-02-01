@@ -53,9 +53,7 @@ typedef struct _cairo_glx_context {
     Window dummy_window;
     GLXContext context;
 
-    Display *previous_display;
-    GLXDrawable previous_drawable;
-    GLXContext previous_context;
+    GLXDrawable cairo_drawable;
 
     cairo_bool_t has_multithread_makecurrent;
 } cairo_glx_context_t;
@@ -65,15 +63,6 @@ typedef struct _cairo_glx_surface {
 
     Window win;
 } cairo_glx_surface_t;
-
-static cairo_bool_t
-_context_acquisition_changed_glx_state (cairo_glx_context_t *ctx,
-					GLXDrawable current_drawable)
-{
-    return !(ctx->previous_display == ctx->display &&
-	     ctx->previous_drawable == current_drawable &&
-	     ctx->previous_context == ctx->context);
-}
 
 static GLXDrawable
 _glx_get_current_drawable (cairo_glx_context_t *ctx)
@@ -89,20 +78,7 @@ _glx_get_current_drawable (cairo_glx_context_t *ctx)
 static void
 _glx_query_current_state (cairo_glx_context_t * ctx)
 {
-    ctx->previous_drawable = glXGetCurrentDrawable ();
-    ctx->previous_display = glXGetCurrentDisplay ();
-    ctx->previous_context = glXGetCurrentContext ();
-
-    /* If any of the values were none, assume they are all none. Not all
-       drivers seem well behaved when it comes to using these values across
-       multiple threads. */
-    if (ctx->previous_drawable == None
-	|| ctx->previous_display == None
-	|| ctx->previous_context == None) {
-	ctx->previous_drawable = None;
-	ctx->previous_display = None;
-	ctx->previous_context = None;
-    }
+    ctx->cairo_drawable = glXGetCurrentDrawable ();
 }
 
 static void
@@ -111,11 +87,21 @@ _glx_acquire (void *abstract_ctx)
     cairo_glx_context_t *ctx = abstract_ctx;
     GLXDrawable current_drawable = _glx_get_current_drawable (ctx);
 
-    _glx_query_current_state (ctx);
-    if (!_context_acquisition_changed_glx_state (ctx, current_drawable))
+    /* we are called by app, we save current GL state */
+    if (ctx->base.base.app_called) { 
+	/* save states */
+        _glx_query_current_state (ctx);
+	_cairo_gl_context_save_states (&ctx->base);
+	
+	/* XXX: we don't try to restore app gl state */
 	return;
+    }
 
-    glXMakeCurrent (ctx->display, current_drawable, ctx->context);
+    /* we are called by _cairo_device_acquire_internal. we check
+     * whether thread_aware. if thread_aware, we switch
+     */
+    if (ctx->base.thread_aware)
+        glXMakeCurrent (ctx->display, current_drawable, ctx->context);
 }
 
 static void
@@ -133,12 +119,21 @@ _glx_release (void *abstract_ctx)
 {
     cairo_glx_context_t *ctx = abstract_ctx;
 
-    if (ctx->has_multithread_makecurrent || !ctx->base.thread_aware ||
-	!_context_acquisition_changed_glx_state (ctx,
-						_glx_get_current_drawable (ctx))) {
+    /* we are called by app, we restore current GL state */
+    if (ctx->base.base.app_called) {
+	/* XXX: optimization instead of always switch ? */
+	glXMakeCurrent (ctx->display, ctx->cairo_drawable, ctx->context);
+	/* restore states */
+	_cairo_gl_context_restore_states (&ctx->base);
 	return;
     }
 
+    /* we are releasing from _cairo_device_acquire_internal, if app told us
+     * we are not in the multithreading mode, we simply return, else
+     * we make swith */
+    if (ctx->has_multithread_makecurrent || !ctx->base.thread_aware)
+	return;
+    
     glXMakeCurrent (ctx->display, None, None);
 }
 

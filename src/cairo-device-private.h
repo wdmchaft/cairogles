@@ -52,6 +52,7 @@ struct _cairo_device {
     unsigned mutex_depth;
 
     cairo_bool_t finished;
+    cairo_bool_t app_called;
 };
 
 struct _cairo_device_backend {
@@ -75,6 +76,10 @@ _cairo_device_init (cairo_device_t *device,
 cairo_private cairo_status_t
 _cairo_device_set_error (cairo_device_t *device,
 		         cairo_status_t error);
+
+cairo_private cairo_status_t
+_cairo_device_acquire_internal (cairo_device_t *device,
+				cairo_bool_t    called_by_cairo);
 
 slim_hidden_proto_no_warn (cairo_device_reference);
 slim_hidden_proto (cairo_device_acquire);

@@ -316,6 +316,27 @@ typedef struct _cairo_gl_dispatch {
 					     GLint level, GLsizei samples);
 } cairo_gl_dispatch_t;
 
+typedef struct _cairo_gl_states {
+    cairo_rectangle_int_t viewport;
+
+    GLclampf		  clear_color [4];
+
+    GLenum		  src_color_func;
+    GLenum		  dst_color_func;
+    GLenum		  src_alpha_func;
+    GLenum		  dst_alpha_func;
+
+    GLboolean		  depth_mask_enabled;
+    GLboolean		  scissor_test_enabled;
+    GLboolean		  stencil_test_enabled;
+    GLboolean		  blend_enabled;
+
+    GLenum		  active_texture;
+    GLuint		  current_program;
+    GLuint		  current_framebuffer;
+    GLuint		  current_renderbuffer; 
+} cairo_gl_state_t;
+
 struct _cairo_gl_context {
     cairo_device_t base;
 
@@ -368,6 +389,9 @@ struct _cairo_gl_context {
     cairo_bool_t can_read_bgra;
 
     cairo_bool_t thread_aware;
+    cairo_bool_t thread_ready;
+
+    cairo_gl_state_t cairo_state;
 
     void (*acquire) (void *ctx);
     void (*release) (void *ctx);
@@ -413,6 +437,12 @@ _cairo_gl_context_create_in_error (cairo_status_t status)
     return (cairo_device_t *) _cairo_device_create_in_error (status);
 }
 
+cairo_private void
+_cairo_gl_context_save_states (cairo_gl_context_t *ctx);
+
+cairo_private void
+_cairo_gl_context_restore_states (cairo_gl_context_t *ctx);
+
 cairo_private cairo_status_t
 _cairo_gl_context_init (cairo_gl_context_t *ctx);
 
@@ -453,7 +483,7 @@ _cairo_gl_context_acquire (cairo_device_t *device,
 {
     cairo_status_t status;
 
-    status = cairo_device_acquire (device);
+    status = _cairo_device_acquire_internal (device, TRUE);
     if (unlikely (status))
 	return status;
 

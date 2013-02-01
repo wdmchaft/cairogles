@@ -738,9 +738,116 @@ void
 cairo_gl_device_set_thread_aware (cairo_device_t	*device,
 				  cairo_bool_t		 thread_aware)
 {
+    cairo_bool_t saved_app_called; 
+
     if (device->backend->type != CAIRO_DEVICE_TYPE_GL) {
 	_cairo_error_throw (CAIRO_STATUS_DEVICE_TYPE_MISMATCH);
 	return;
     }
     ((cairo_gl_context_t *) device)->thread_aware = thread_aware;
+
+    /* we must call device->backend->unlock to make it switch to NULL in
+     * app calls this after all cairo operations, and right before switch
+     * to another thread 
+     */
+    if (thread_aware && device->backend->unlock) {
+	saved_app_called = device->app_called;	
+	device->app_called = FALSE;
+	device->backend->unlock (device);
+	device->app_called = saved_app_called;
+    }
+    /* we must switch to the cairo context, in case cairo finishes a 
+     * drawing under thread_aware = TRUE mode, and then app set thread_aware
+     * to be false, then next gl_context acquire will not switch to 
+     * cairo context because it sees thread_aware is false
+     */
+    else if (! thread_aware && device->backend->unlock) {
+	saved_app_called = device->app_called;	
+	device->app_called = FALSE;
+        ((cairo_gl_context_t *) device)->thread_aware = TRUE;
+	device->backend->lock (device);
+	device->app_called = saved_app_called;
+        ((cairo_gl_context_t *) device)->thread_aware = thread_aware;
+    }
+}
+
+void
+_cairo_gl_context_save_states (cairo_gl_context_t *ctx)
+{
+    GLint pname[4];
+    /* save clear color */
+    glGetFloatv (GL_COLOR_CLEAR_VALUE, ctx->cairo_state.clear_color);
+
+    /* blend func value */
+    glGetIntegerv (GL_BLEND_SRC_RGB, (GLint *)&ctx->cairo_state.src_color_func);
+    glGetIntegerv (GL_BLEND_SRC_ALPHA, (GLint *)&ctx->cairo_state.src_alpha_func);
+    glGetIntegerv (GL_BLEND_DST_RGB, (GLint *)&ctx->cairo_state.dst_color_func);
+    glGetIntegerv (GL_BLEND_DST_ALPHA, (GLint *)&ctx->cairo_state.dst_alpha_func);
+
+    /* glEnable */
+    glGetBooleanv (GL_DEPTH_WRITEMASK, &ctx->cairo_state.depth_mask_enabled);
+    glGetBooleanv (GL_SCISSOR_TEST, &ctx->cairo_state.scissor_test_enabled);
+    glGetBooleanv (GL_STENCIL_TEST, &ctx->cairo_state.stencil_test_enabled);
+    glGetBooleanv (GL_BLEND, &ctx->cairo_state.blend_enabled);
+
+    /* various bindings */
+    glGetIntegerv (GL_ACTIVE_TEXTURE, (GLint *)&ctx->cairo_state.active_texture);
+    glGetIntegerv (GL_CURRENT_PROGRAM, (GLint *)&ctx->cairo_state.current_program);
+    glGetIntegerv (GL_FRAMEBUFFER_BINDING, (GLint *)&ctx->cairo_state.current_framebuffer);
+    glGetIntegerv (GL_RENDERBUFFER_BINDING, (GLint *)&ctx->cairo_state.current_renderbuffer);
+
+    glGetIntegerv (GL_VIEWPORT, pname);
+    ctx->cairo_state.viewport.x = pname[0];
+    ctx->cairo_state.viewport.y = pname[1];
+    ctx->cairo_state.viewport.width = pname[2];
+    ctx->cairo_state.viewport.height = pname[3];
+	
+}
+
+void
+_cairo_gl_context_restore_states (cairo_gl_context_t *ctx)
+{
+    /* restore clear color */
+    glClearColor (ctx->cairo_state.clear_color[0],
+		  ctx->cairo_state.clear_color[1],
+		  ctx->cairo_state.clear_color[2],
+		  ctx->cairo_state.clear_color[3]);
+
+    /* blend func */
+    glBlendFuncSeparate (ctx->cairo_state.src_color_func,
+			 ctx->cairo_state.dst_color_func,
+			 ctx->cairo_state.src_alpha_func,
+			 ctx->cairo_state.dst_alpha_func);
+
+    /* various glEnable */
+    if (ctx->cairo_state.depth_mask_enabled)
+	glDepthMask (GL_TRUE);
+    else
+	glDepthMask (GL_FALSE);
+
+    if (ctx->cairo_state.scissor_test_enabled)
+	glEnable (GL_SCISSOR_TEST);
+    else
+	glDisable (GL_SCISSOR_TEST);
+
+    if (ctx->cairo_state.stencil_test_enabled)
+	glEnable (GL_STENCIL_TEST);
+    else
+	glDisable (GL_STENCIL_TEST);
+
+    if (ctx->cairo_state.blend_enabled)
+	glEnable (GL_BLEND);
+    else
+	glDisable (GL_BLEND);
+
+    /* various binding */
+    glActiveTexture (ctx->cairo_state.active_texture);
+    glBindFramebuffer (GL_FRAMEBUFFER, ctx->cairo_state.current_framebuffer);
+    glBindRenderbuffer (GL_RENDERBUFFER, ctx->cairo_state.current_renderbuffer);
+    glUseProgram (ctx->cairo_state.current_program);
+
+    glViewport (ctx->cairo_state.viewport.x,
+		ctx->cairo_state.viewport.y,
+		ctx->cairo_state.viewport.width,
+		ctx->cairo_state.viewport.height);
 }
