@@ -823,4 +823,7 @@ void _cairo_gl_context_reset (cairo_gl_context_t *ctx)
     ctx->states_cache.active_texture = CAIRO_GL_ENUM_UNINITIALIZED;
 
     ctx->states_cache.depth_mask = FALSE;
+
+    /* FIXME:  this is hack to fix mali driver */
+    glDisable (GL_DITHER);
 }
