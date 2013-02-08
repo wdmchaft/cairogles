@@ -76,25 +76,60 @@ _draw_trap (cairo_gl_context_t		*ctx,
 {
     cairo_point_t quad[4];
 
-    quad[0].x = _cairo_edge_compute_intersection_x_for_y (&trap->left.p1,
-							  &trap->left.p2,
-							  trap->top);
-    quad[0].y = trap->top;
+    if (trap->left.p1.x == trap->left.p2.x) {
+        quad[0].x = trap->left.p1.x;
+        quad[1].x = trap->left.p1.x;
+    } else {
+        cairo_fixed_t x, dy;
+        x = trap->left.p1.x;
+        dy = trap->left.p2.y - trap->left.p1.y;
 
-    quad[1].x = _cairo_edge_compute_intersection_x_for_y (&trap->left.p1,
-						      &trap->left.p2,
-						      trap->bottom);
+        if (trap->top == trap->left.p1.y)
+            quad[0].x = x;
+        else if (trap->top == trap->left.p2.y)
+            quad[0].x = trap->left.p2.x;
+        else if (dy != 0)
+            quad[0].x = x + _cairo_fixed_mul_div_floor (trap->top - trap->left.p1.y,
+                                                        trap->left.p2.x - trap->left.p1.x, dy);
+
+        if (trap->bottom == trap->left.p2.y)
+            quad[1].x = trap->left.p2.x;
+        else if (trap->bottom == trap->left.p1.y)
+            quad[1].x = x;
+        else if (dy != 0)
+            quad[1].x = x + _cairo_fixed_mul_div_floor (trap->bottom - trap->left.p1.y,
+                                                        trap->left.p2.x - trap->left.p1.x, dy);
+    }
+    quad[0].y = trap->top;
     quad[1].y = trap->bottom;
 
-    quad[2].x = _cairo_edge_compute_intersection_x_for_y (&trap->right.p1,
-						      &trap->right.p2,
-						      trap->bottom);
-    quad[2].y = trap->bottom;
+    if (trap->right.p1.x == trap->right.p2.x) {
+        quad[2].x = trap->right.p1.x;
+        quad[3].x = trap->right.p1.x;
+    } else {
+        cairo_fixed_t x, dy;
+        x = trap->right.p1.x;
+        dy = trap->right.p2.y - trap->right.p1.y;
 
-    quad[3].x = _cairo_edge_compute_intersection_x_for_y (&trap->right.p1,
-						      &trap->right.p2,
-						      trap->top);
+        if (trap->bottom == trap->right.p2.y)
+            quad[2].x = trap->right.p2.x;
+        else if (trap->bottom == trap->right.p1.y)
+            quad[2].x = x;
+        else if (dy != 0)
+            quad[2].x = x + _cairo_fixed_mul_div_floor (trap->bottom - trap->right.p1.y,
+                                                        trap->right.p2.x - trap->right.p1.x, dy);
+
+        if (trap->top == trap->right.p1.y)
+            quad[3].x = x;
+        else if (trap->top == trap->right.p2.y)
+            quad[3].x = trap->right.p2.x;
+        else if (dy != 0)
+            quad[3].x = x + _cairo_fixed_mul_div_floor (trap->top - trap->right.p1.y,
+                                                        trap->right.p2.x - trap->right.p1.x, dy);
+    }
+    quad[2].y = trap->bottom;
     quad[3].y = trap->top;
+
     return _cairo_gl_composite_emit_quad_as_tristrip (ctx, setup, quad);
 }
 
