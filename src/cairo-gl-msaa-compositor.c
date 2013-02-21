@@ -344,7 +344,7 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
 					     &composite->mask_pattern.base,
 					     &composite->mask_sample_area,
 					     &composite->bounded,
-					     FALSE);
+					     FALSE, FALSE);
     if (unlikely (status))
 	goto finish;
     _cairo_gl_composite_set_multisample (&setup);
@@ -366,7 +366,7 @@ _cairo_gl_msaa_compositor_mask_source_operator (const cairo_compositor_t *compos
 					     &composite->source_pattern.base,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     FALSE);
+					     FALSE, FALSE);
     if (unlikely (status))
 	goto finish;
     status = _cairo_gl_composite_set_mask (&setup,
@@ -470,7 +470,7 @@ _cairo_gl_msaa_compositor_mask (const cairo_compositor_t	*compositor,
 					     &composite->source_pattern.base,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     FALSE);
+					     FALSE, FALSE);
     if (unlikely (status))
 	goto finish;
 
@@ -684,7 +684,7 @@ _cairo_gl_msaa_compositor_stroke (const cairo_compositor_t	*compositor,
 					     &composite->source_pattern.base,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     FALSE);
+					     FALSE, FALSE);
     if (unlikely (status))
 	goto finish;
 
@@ -804,7 +804,7 @@ _cairo_gl_msaa_compositor_fill (const cairo_compositor_t	*compositor,
 					     &composite->source_pattern.base,
 					     &composite->source_sample_area,
 					     &composite->bounded,
-					     FALSE);
+					     FALSE, ! draw_path_with_traps);
     if (unlikely (status))
 	goto cleanup_setup;
 

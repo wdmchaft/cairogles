@@ -140,6 +140,7 @@ typedef struct cairo_gl_operand {
 	} texture;
 	struct {
 	    GLfloat color[4];
+	    cairo_bool_t encode_as_attribute;
 	} constant;
 	struct {
 	    cairo_gl_gradient_t *gradient;
@@ -215,6 +216,7 @@ typedef enum cairo_gl_var_type {
   CAIRO_GL_VAR_NONE,
   CAIRO_GL_VAR_TEXCOORDS,
   CAIRO_GL_VAR_TEXGEN,
+  CAIRO_GL_VAR_COLOR,
 } cairo_gl_var_type_t;
 
 typedef enum cairo_gl_primitive_type {
@@ -549,7 +551,8 @@ _cairo_gl_composite_set_source (cairo_gl_composite_t *setup,
 				const cairo_pattern_t *pattern,
 				const cairo_rectangle_int_t *sample,
 				const cairo_rectangle_int_t *extents,
-				cairo_bool_t use_texgen);
+				cairo_bool_t use_texgen,
+				cairo_bool_t encode_color_as_attribute);
 
 cairo_private void
 _cairo_gl_composite_set_solid_source (cairo_gl_composite_t *setup,
@@ -704,7 +707,8 @@ _cairo_gl_operand_init (cairo_gl_operand_t *operand,
 		        cairo_gl_surface_t *dst,
 			const cairo_rectangle_int_t *sample,
 			const cairo_rectangle_int_t *extents,
-			cairo_bool_t use_texgen);
+			cairo_bool_t use_texgen,
+			cairo_bool_t encode_color_as_attribute);
 
 cairo_private void
 _cairo_gl_solid_operand_init (cairo_gl_operand_t *operand,

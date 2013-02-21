@@ -57,11 +57,13 @@ _cairo_gl_composite_set_source (cairo_gl_composite_t *setup,
 			        const cairo_pattern_t *pattern,
 				const cairo_rectangle_int_t *sample,
 				const cairo_rectangle_int_t *extents,
-				cairo_bool_t use_texgen)
+				cairo_bool_t use_texgen,
+				cairo_bool_t encode_color_as_attribute)
 {
     _cairo_gl_operand_destroy (&setup->src);
     return _cairo_gl_operand_init (&setup->src, pattern, setup->dst,
-				   sample, extents, use_texgen);
+				   sample, extents, use_texgen,
+				   encode_color_as_attribute);
 }
 
 void
@@ -92,7 +94,7 @@ _cairo_gl_composite_set_mask (cairo_gl_composite_t *setup,
         return CAIRO_STATUS_SUCCESS;
 
     return _cairo_gl_operand_init (&setup->mask, pattern, setup->dst,
-				   sample, extents, use_texgen);
+				   sample, extents, use_texgen, FALSE);
 }
 
 void
@@ -241,7 +243,13 @@ _cairo_gl_context_setup_operand (cairo_gl_context_t *ctx,
         break;
         /* fall through */
     case CAIRO_GL_OPERAND_CONSTANT:
-        break;
+	if (operand->constant.encode_as_attribute) {
+	    dispatch->VertexAttribPointer (CAIRO_GL_COLOR_ATTRIB_INDEX, 4,
+					   GL_FLOAT, GL_FALSE, vertex_size,
+					   ctx->vb + vertex_offset);
+	    dispatch->EnableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
+	}
+	break;
     case CAIRO_GL_OPERAND_TEXTURE:
         glActiveTexture (GL_TEXTURE0 + tex_unit);
         glBindTexture (ctx->tex_target, operand->texture.tex);
@@ -285,7 +293,6 @@ _cairo_gl_context_setup_spans (cairo_gl_context_t *ctx,
     cairo_gl_dispatch_t *dispatch = &ctx->dispatch;
 
     if (! spans_enabled) {
-	dispatch->DisableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
 	ctx->spans = FALSE;
 	return;
     }
@@ -314,7 +321,8 @@ _cairo_gl_context_destroy_operand (cairo_gl_context_t *ctx,
         break;
         /* fall through */
     case CAIRO_GL_OPERAND_CONSTANT:
-        break;
+	if (ctx->operands[tex_unit].constant.encode_as_attribute)
+	    dispatch->DisableVertexAttribArray (CAIRO_GL_COLOR_ATTRIB_INDEX);
     case CAIRO_GL_OPERAND_TEXTURE:
         dispatch->DisableVertexAttribArray (CAIRO_GL_TEXCOORD0_ATTRIB_INDEX + tex_unit);
         break;
@@ -713,11 +721,13 @@ _cairo_gl_set_operands_and_operator (cairo_gl_composite_t *setup,
 
     _cairo_gl_composite_setup_vbo (ctx, vertex_size);
 
+    if (setup->src.type != CAIRO_GL_OPERAND_CONSTANT ||
+	! setup->src.constant.encode_as_attribute)
+	_cairo_gl_context_setup_spans (ctx, setup->spans, vertex_size,
+				       dst_size + src_size + mask_size);
+
     _cairo_gl_context_setup_operand (ctx, CAIRO_GL_TEX_SOURCE, &setup->src, vertex_size, dst_size);
     _cairo_gl_context_setup_operand (ctx, CAIRO_GL_TEX_MASK, &setup->mask, vertex_size, dst_size + src_size);
-
-    _cairo_gl_context_setup_spans (ctx, setup->spans, vertex_size,
-				   dst_size + src_size + mask_size);
 
     _cairo_gl_set_operator (ctx, setup->op, component_alpha);
 

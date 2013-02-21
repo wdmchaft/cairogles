@@ -462,7 +462,7 @@ _cairo_gl_span_renderer_init (cairo_abstract_span_renderer_t	*_r,
     status = _cairo_gl_composite_set_source (&r->setup, source,
 					     &composite->source_sample_area,
 					     &composite->unbounded,
-					     TRUE);
+					     TRUE, FALSE);
     if (unlikely (status))
         goto FAIL;
 

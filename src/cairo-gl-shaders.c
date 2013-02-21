@@ -228,7 +228,10 @@ cairo_gl_operand_get_var_type (cairo_gl_operand_t *operand)
         ASSERT_NOT_REACHED;
     case CAIRO_GL_OPERAND_NONE:
     case CAIRO_GL_OPERAND_CONSTANT:
-        return CAIRO_GL_VAR_NONE;
+	if (operand->constant.encode_as_attribute)
+	    return CAIRO_GL_VAR_COLOR;
+	else
+	    return CAIRO_GL_VAR_NONE;
     case CAIRO_GL_OPERAND_LINEAR_GRADIENT:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_A0:
     case CAIRO_GL_OPERAND_RADIAL_GRADIENT_NONE:
@@ -263,6 +266,10 @@ cairo_gl_shader_emit_variable (cairo_output_stream_t *stream,
                                      operand_names[name],
                                      operand_names[name]);
         break;
+    case CAIRO_GL_VAR_COLOR:
+        _cairo_output_stream_printf (stream,
+				     "varying vec4 fragment_color;\n");
+        break;
     }
 }
 
@@ -286,6 +293,9 @@ cairo_gl_shader_emit_vertex (cairo_output_stream_t *stream,
         _cairo_output_stream_printf (stream,
 				     "    %s_texcoords = (%s_texgen * Vertex.xyw).xy;\n",
                                      operand_names[name], operand_names[name]);
+	break;
+    case CAIRO_GL_VAR_COLOR:
+        _cairo_output_stream_printf (stream, "    fragment_color = Color;\n");
         break;
     }
 }
@@ -382,14 +392,24 @@ cairo_gl_shader_emit_color (cairo_output_stream_t *stream,
             namestr);
         break;
     case CAIRO_GL_OPERAND_CONSTANT:
-        _cairo_output_stream_printf (stream, 
-            "uniform vec4 %s_constant;\n"
-            "vec4 get_%s()\n"
-            "{\n"
-            "    return %s_constant;\n"
-            "}\n",
-            namestr, namestr, namestr);
-        break;
+	if (op->constant.encode_as_attribute) {
+	     _cairo_output_stream_printf (stream,
+		"varying vec4 fragment_color;\n"
+		"vec4 get_%s()\n"
+		"{\n"
+		"    return fragment_color;\n"
+		"}\n",
+		namestr);
+	} else {
+	    _cairo_output_stream_printf (stream,
+		"uniform vec4 %s_constant;\n"
+		"vec4 get_%s()\n"
+		"{\n"
+		"    return %s_constant;\n"
+		"}\n",
+		namestr, namestr, namestr);
+	}
+	    break;
     case CAIRO_GL_OPERAND_TEXTURE:
 	_cairo_output_stream_printf (stream,
 	     "uniform sampler2D%s %s_sampler;\n"

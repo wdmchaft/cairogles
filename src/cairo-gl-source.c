@@ -82,7 +82,7 @@ _cairo_gl_pattern_to_source (cairo_surface_t *dst,
     status = _cairo_gl_operand_init (&source->operand, pattern,
 				     (cairo_gl_surface_t *)dst,
 				     sample, extents,
-				     FALSE);
+				     FALSE, FALSE);
     if (unlikely (status)) {
 	cairo_surface_destroy (&source->base);
 	return _cairo_surface_create_in_error (status);

@@ -361,7 +361,7 @@ traps_to_operand (void *_dst,
     status = _cairo_gl_operand_init (operand, &pattern.base, _dst,
 				     &_cairo_unbounded_rectangle,
 				     &_cairo_unbounded_rectangle,
-				     FALSE);
+				     FALSE, FALSE);
     _cairo_pattern_fini (&pattern.base);
 
     if (unlikely (status))
